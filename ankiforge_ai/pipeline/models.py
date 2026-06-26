@@ -32,3 +32,21 @@ class SourceChunk:
     def to_dict(self) -> dict:
         return asdict(self)
 
+
+@dataclass
+class KnowledgePoint:
+    point_id: str
+    document_id: str
+    chunk_id: str
+    source_display: str
+    heading_path: List[str]
+    ordinal: int
+    title: str
+    explanation: str
+    evidence: str
+    tags: List[str]
+    importance: str
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
