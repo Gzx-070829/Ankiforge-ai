@@ -2,7 +2,7 @@
 Card schema + compatibility helpers for AnkiForge AI.
 
 `GeneratedCard` is the unit everything else (preview table, Anki writer)
-operates on. v0.1.1 keeps mock generation as the default, but routes it
+operates on. v0.1.2 keeps mock generation as the default, but routes it
 through `ai.providers` so future OpenAI-compatible providers can be added
 without changing importer, preview, or writer code.
 """

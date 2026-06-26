@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 @dataclass
 class AIProviderConfig:
     ai_provider: str = "mock"
-    model: str = "mock-v0.1.1"
+    model: str = "mock-v0.1.2"
     api_base_url: str = ""
     max_cards_per_chunk: int = 3
 

@@ -2,7 +2,7 @@
 Note type management for AnkiForge AI.
 
 Creates or repairs the dedicated "AnkiForge Basic" note type with fields,
-template, and CSS. The CSS source of truth remains theme/style.css; v0.1.1
+template, and CSS. The CSS source of truth remains theme/style.css; v0.1.2
 syncs it whenever cards are added so style tweaks do not require deleting the
 note type manually.
 """

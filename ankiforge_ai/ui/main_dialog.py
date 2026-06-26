@@ -1,5 +1,5 @@
 """
-Main dialog for AnkiForge AI (v0.1.1).
+Main dialog for AnkiForge AI (v0.1.2).
 
 Flow:
     pick a .md file
@@ -86,6 +86,9 @@ class MainDialog(QDialog):
 
         # --- bottom buttons ---
         bottom_row = QHBoxLayout()
+        clear_btn = QPushButton("清空预览")
+        clear_btn.clicked.connect(self.clear_preview)
+        bottom_row.addWidget(clear_btn)
         bottom_row.addStretch()
         add_btn = QPushButton("添加到 Anki")
         add_btn.clicked.connect(self.add_to_anki)
@@ -196,7 +199,7 @@ class MainDialog(QDialog):
 
         deck_name = self.deck_input.text().strip() or default_deck_name()
         try:
-            added = add_cards_to_deck(self.cards, deck_name)
+            result = add_cards_to_deck(self.cards, deck_name)
         except ValueError as e:
             showWarning(str(e))
             return
@@ -204,8 +207,21 @@ class MainDialog(QDialog):
             showWarning(f"写入 Anki 失败: {e}")
             return
 
-        showInfo(f"已添加 {added} 张卡片到牌组「{deck_name}」。")
-        self.accept()
+        message = f"已添加 {result.added} 张卡片到牌组「{deck_name}」。"
+        if result.skipped_duplicates:
+            message += (
+                f"\n已跳过 {result.skipped_duplicates} 张重复卡片"
+                "（同 Front + Source）。"
+            )
+        showInfo(message)
+        if result.added:
+            self.accept()
+
+    def clear_preview(self):
+        self.cards = []
+        self.checkboxes = []
+        self.table.setRowCount(0)
+        self.status_label.setText("已清空当前预览；不会影响已经写入 Anki 的卡片。")
 
     def _item_text(self, row, column):
         item = self.table.item(row, column)

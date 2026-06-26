@@ -1,4 +1,4 @@
-"""Deterministic mock provider used by v0.1.1."""
+"""Deterministic mock provider used by v0.1.2."""
 
 from typing import List
 
@@ -23,10 +23,21 @@ class MockAIProvider(AIProvider):
                 front=f"什么是「{heading}」？",
                 back=snippet or "（该小节暂无正文内容，请手动编辑这张卡片）",
                 extra=(
-                    "此卡片由 v0.1.1 mock provider 本地生成；"
+                    "此卡片由 v0.1.2 mock provider 本地生成；"
                     "当前版本不会调用真实 AI API。"
                 ),
                 tags=["AnkiForge", "mock"],
-                source=f"{chunk.source_path} > {heading}",
+                source=format_source_display(chunk.source_path, heading),
             )
         ]
+
+
+def format_source_display(path, heading) -> str:
+    """Return a short source label such as `filename.md > Heading`."""
+    path_text = str(path or "").strip()
+    heading_text = str(heading or "").strip() or "Untitled"
+
+    normalized_path = path_text.replace("\\", "/").rstrip("/")
+    filename = normalized_path.rsplit("/", 1)[-1] if normalized_path else ""
+    filename = filename or path_text or "Unknown source"
+    return f"{filename} > {heading_text}"

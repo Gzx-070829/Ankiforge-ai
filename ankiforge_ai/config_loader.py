@@ -1,6 +1,6 @@
 """Configuration loading for AnkiForge AI.
 
-The v0.1.1 config intentionally contains no API key. It only selects the
+The v0.1.2 config intentionally contains no API key. It only selects the
 local mock provider and reserves non-secret fields for future providers.
 """
 
@@ -12,7 +12,7 @@ from .ai.providers.base import AIProviderConfig
 
 DEFAULT_CONFIG = {
     "ai_provider": "mock",
-    "model": "mock-v0.1.1",
+    "model": "mock-v0.1.2",
     "api_base_url": "",
     "max_cards_per_chunk": 3,
     "default_deck": "AnkiForge::Inbox",
@@ -50,7 +50,7 @@ def load_provider_config(path: Optional[str] = None) -> AIProviderConfig:
     config = load_config(path)
     return AIProviderConfig(
         ai_provider=str(config.get("ai_provider") or "mock"),
-        model=str(config.get("model") or "mock-v0.1.1"),
+        model=str(config.get("model") or "mock-v0.1.2"),
         api_base_url=str(config.get("api_base_url") or ""),
         max_cards_per_chunk=config["max_cards_per_chunk"],
     )
