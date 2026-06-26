@@ -1,5 +1,5 @@
 """
-Main dialog for AnkiForge AI (v0.2).
+Main dialog for AnkiForge AI (v0.2.2).
 
 Flow:
     pick a .md file
@@ -30,6 +30,7 @@ from aqt.qt import (
     QFileDialog,
     QWidget,
     QLineEdit,
+    QTextEdit,
     QSpinBox,
     QDoubleSpinBox,
     Qt,
@@ -46,8 +47,17 @@ from ..config_loader import (
 from ..ai.providers import create_provider
 from ..importers.md_importer import split_markdown_by_headings
 from ..anki_writer.add_cards import add_cards_to_deck
+from .review_helpers import (
+    format_chunk_label,
+    invert_flags,
+    keep_items_by_flags,
+    remove_items_by_flags,
+    summarize_text,
+    tags_from_text,
+    tags_to_text,
+)
 
-COLUMN_HEADERS = ["添加", "正面 Front", "背面 Back", "备注 Extra", "来源 Source"]
+COLUMN_HEADERS = ["添加", "Front", "Back 摘要", "Tags", "状态"]
 PROVIDER_OPTIONS = ["mock", "deepseek", "openai_compatible"]
 
 
@@ -59,9 +69,11 @@ class MainDialog(QDialog):
 
         self.cards = []
         self.checkboxes = []
+        self.chunks = []
         self.file_path = None
         self.config = load_config()
         self.generation_in_progress = False
+        self.settings_collapsed = True
 
         self._build_ui()
 
@@ -77,6 +89,15 @@ class MainDialog(QDialog):
         file_row.addWidget(pick_btn)
         layout.addLayout(file_row)
 
+        # --- chunk selector row ---
+        chunk_row = QHBoxLayout()
+        chunk_row.addWidget(QLabel("生成范围:"))
+        self.chunk_combo = QComboBox()
+        self.chunk_combo.addItem("全部 headings")
+        self.chunk_combo.setEnabled(False)
+        chunk_row.addWidget(self.chunk_combo, stretch=1)
+        layout.addLayout(chunk_row)
+
         # --- deck name row ---
         deck_row = QHBoxLayout()
         deck_row.addWidget(QLabel("目标牌组:"))
@@ -85,8 +106,16 @@ class MainDialog(QDialog):
         layout.addLayout(deck_row)
 
         # --- provider settings ---
-        settings_group = QGroupBox("AI Provider")
-        settings_layout = QFormLayout(settings_group)
+        settings_header = QHBoxLayout()
+        self.settings_summary_label = QLabel()
+        self.settings_toggle_btn = QPushButton("展开设置")
+        self.settings_toggle_btn.clicked.connect(self.toggle_settings)
+        settings_header.addWidget(self.settings_summary_label, stretch=1)
+        settings_header.addWidget(self.settings_toggle_btn)
+        layout.addLayout(settings_header)
+
+        self.settings_group = QGroupBox("AI Provider 设置")
+        settings_layout = QFormLayout(self.settings_group)
 
         self.provider_combo = QComboBox()
         self.provider_combo.addItems(PROVIDER_OPTIONS)
@@ -130,20 +159,57 @@ class MainDialog(QDialog):
         save_settings_btn = QPushButton("保存设置")
         save_settings_btn.clicked.connect(self.save_settings)
         settings_layout.addRow(save_settings_btn)
-        layout.addWidget(settings_group)
+        layout.addWidget(self.settings_group)
         self._refresh_provider_field_states()
+        self._update_settings_summary()
+        self._set_settings_collapsed(True)
 
-        # --- generate button ---
+        # --- generate buttons ---
+        generate_row = QHBoxLayout()
         self.gen_btn = QPushButton()
-        self.gen_btn.clicked.connect(self.generate_cards)
-        layout.addWidget(self.gen_btn)
+        self.gen_btn.clicked.connect(lambda: self.generate_cards(False))
+        generate_row.addWidget(self.gen_btn)
+        self.gen_current_btn = QPushButton("生成/重新生成当前 chunk")
+        self.gen_current_btn.clicked.connect(lambda: self.generate_cards(True))
+        generate_row.addWidget(self.gen_current_btn)
+        layout.addLayout(generate_row)
         self._update_generate_button_text()
 
         # --- preview table ---
         self.table = QTableWidget(0, len(COLUMN_HEADERS))
         self.table.setHorizontalHeaderLabels(COLUMN_HEADERS)
         self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.cellDoubleClicked.connect(self.edit_card_details)
         layout.addWidget(self.table)
+
+        # --- candidate action buttons ---
+        action_row = QHBoxLayout()
+        select_all_btn = QPushButton("全选")
+        select_all_btn.clicked.connect(self.select_all_cards)
+        select_none_btn = QPushButton("全不选")
+        select_none_btn.clicked.connect(self.select_no_cards)
+        invert_btn = QPushButton("反选")
+        invert_btn.clicked.connect(self.invert_card_selection)
+        edit_btn = QPushButton("编辑详情")
+        edit_btn.clicked.connect(self.edit_current_card_details)
+        delete_selected_btn = QPushButton("删除选中")
+        delete_selected_btn.clicked.connect(self.delete_selected_cards)
+        clear_unselected_btn = QPushButton("清空未选中")
+        clear_unselected_btn.clicked.connect(self.clear_unselected_cards)
+        clear_btn = QPushButton("清空预览")
+        clear_btn.clicked.connect(self.clear_preview)
+
+        for button in [
+            select_all_btn,
+            select_none_btn,
+            invert_btn,
+            edit_btn,
+            delete_selected_btn,
+            clear_unselected_btn,
+            clear_btn,
+        ]:
+            action_row.addWidget(button)
+        layout.addLayout(action_row)
 
         self.status_label = QLabel("提示：可以直接在表格里修改文字，再决定是否勾选添加。")
         self.status_label.setStyleSheet("color: gray;")
@@ -151,9 +217,6 @@ class MainDialog(QDialog):
 
         # --- bottom buttons ---
         bottom_row = QHBoxLayout()
-        clear_btn = QPushButton("清空预览")
-        clear_btn.clicked.connect(self.clear_preview)
-        bottom_row.addWidget(clear_btn)
         bottom_row.addStretch()
         add_btn = QPushButton("添加到 Anki")
         add_btn.clicked.connect(self.add_to_anki)
@@ -167,8 +230,45 @@ class MainDialog(QDialog):
         if path:
             self.file_path = path
             self.file_label.setText(path)
+            self._load_chunks_for_selected_file()
 
-    def generate_cards(self):
+    def _load_chunks_for_selected_file(self):
+        try:
+            self.chunks = split_markdown_by_headings(self.file_path)
+        except OSError as e:
+            self.chunks = []
+            self._refresh_chunk_combo()
+            showWarning(f"读取文件失败: {e}")
+            return False
+
+        self._refresh_chunk_combo()
+        self._clear_preview_data()
+        if not self.chunks:
+            self.status_label.setText("没有从该文件中解析出任何 Markdown chunks。")
+            showWarning("没有从该文件中解析出任何内容块（文件可能是空的）。")
+            return False
+
+        self.status_label.setText(f"已解析 {len(self.chunks)} 个 Markdown chunks。")
+        return True
+
+    def _refresh_chunk_combo(self):
+        self.chunk_combo.clear()
+        self.chunk_combo.addItem("全部 headings")
+        for index, chunk in enumerate(self.chunks):
+            self.chunk_combo.addItem(format_chunk_label(chunk, index))
+        self.chunk_combo.setEnabled(bool(self.chunks))
+
+    def _chunks_for_generation(self, current_chunk_only):
+        if not current_chunk_only:
+            return list(self.chunks), "全部"
+
+        chunk_index = self.chunk_combo.currentIndex() - 1
+        if chunk_index < 0 or chunk_index >= len(self.chunks):
+            return [], ""
+        chunk = self.chunks[chunk_index]
+        return [chunk], format_chunk_label(chunk, chunk_index)
+
+    def generate_cards(self, current_chunk_only=False):
         if self.generation_in_progress:
             showWarning("正在生成卡片，请等待当前任务完成。")
             return
@@ -178,21 +278,21 @@ class MainDialog(QDialog):
         if not self._save_settings_from_ui(show_success=False):
             return
 
-        try:
-            chunks = split_markdown_by_headings(self.file_path)
-        except OSError as e:
-            showWarning(f"读取文件失败: {e}")
+        if not self.chunks and not self._load_chunks_for_selected_file():
             return
 
+        chunks, target_label = self._chunks_for_generation(current_chunk_only)
         if not chunks:
-            showWarning("没有从该文件中解析出任何内容块（文件可能是空的）。")
+            showWarning("请选择一个 Markdown heading，或使用「生成全部」。")
             return
 
         provider_config = load_provider_config()
         self.generation_in_progress = True
         self.gen_btn.setEnabled(False)
+        self.gen_current_btn.setEnabled(False)
         self.status_label.setText(
-            f"正在使用 {provider_config.ai_provider} 生成卡片；完成前不会写入 Anki。"
+            f"正在使用 {provider_config.ai_provider}/{provider_config.model} 生成："
+            f"{target_label}"
         )
         mw.taskman.run_in_background(
             lambda: self._generate_cards_in_background(chunks, provider_config),
@@ -209,11 +309,12 @@ class MainDialog(QDialog):
     def _on_generation_done(self, future):
         self.generation_in_progress = False
         self.gen_btn.setEnabled(True)
+        self.gen_current_btn.setEnabled(True)
         try:
             cards = future.result()
         except Exception as e:
             showWarning(f"生成卡片失败: {e}")
-            self.status_label.setText("生成失败；当前预览表未改变，也未写入 Anki。")
+            self.status_label.setText("生成失败，预览未改变，未写入 Anki。")
             return
 
         if not cards:
@@ -224,7 +325,7 @@ class MainDialog(QDialog):
         self.cards = cards
         self._populate_table()
         self.status_label.setText(
-            f"已生成 {len(self.cards)} 张候选卡片；写入前仍可编辑或取消勾选。"
+            f"生成 {len(self.cards)} 张候选卡，尚未写入 Anki。"
         )
 
     def _populate_table(self):
@@ -242,26 +343,67 @@ class MainDialog(QDialog):
             self.table.setCellWidget(row, 0, container)
             self.checkboxes.append(checkbox)
 
-            self.table.setItem(row, 1, QTableWidgetItem(card.front))
-            self.table.setItem(row, 2, QTableWidgetItem(card.back))
-            self.table.setItem(row, 3, QTableWidgetItem(card.extra))
-            self.table.setItem(row, 4, QTableWidgetItem(card.source))
+            self.table.setItem(row, 1, self._readonly_item(card.front))
+            self.table.setItem(row, 2, self._readonly_item(summarize_text(card.back)))
+            self.table.setItem(row, 3, self._readonly_item(tags_to_text(card.tags)))
+            self.table.setItem(row, 4, self._readonly_item("候选"))
 
         self.table.resizeColumnsToContents()
+
+    def select_all_cards(self):
+        self._set_all_checkboxes(True)
+        self.status_label.setText(f"已全选 {len(self.cards)} 张候选卡。")
+
+    def select_no_cards(self):
+        self._set_all_checkboxes(False)
+        self.status_label.setText("已取消选择所有候选卡。")
+
+    def invert_card_selection(self):
+        for checkbox, checked in zip(self.checkboxes, invert_flags(self._checked_flags())):
+            checkbox.setChecked(checked)
+        self.status_label.setText("已反选当前候选卡。")
+
+    def delete_selected_cards(self):
+        flags = self._checked_flags()
+        self.cards, removed = remove_items_by_flags(self.cards, flags)
+        self._populate_table()
+        self.status_label.setText(f"已删除 {removed} 张候选卡。")
+
+    def clear_unselected_cards(self):
+        flags = self._checked_flags()
+        self.cards, removed = keep_items_by_flags(self.cards, flags)
+        self._populate_table()
+        self.status_label.setText(f"已删除 {removed} 张未选中候选卡。")
+
+    def edit_current_card_details(self):
+        self.edit_card_details(self.table.currentRow())
+
+    def edit_card_details(self, row, column=None):
+        if row < 0 or row >= len(self.cards):
+            showWarning("请先选择一张候选卡。")
+            return
+
+        dialog = CardDetailDialog(self.cards[row], self)
+        if dialog.exec():
+            dialog.apply_to_card(self.cards[row])
+            self._populate_table()
+            self.table.selectRow(row)
+            self.status_label.setText(f"已更新第 {row + 1} 张候选卡。")
+
+    def _checked_flags(self):
+        return [checkbox.isChecked() for checkbox in self.checkboxes]
+
+    def _set_all_checkboxes(self, checked):
+        for checkbox in self.checkboxes:
+            checkbox.setChecked(checked)
 
     def add_to_anki(self):
         if not self.cards:
             showWarning("还没有生成任何卡片，请先点击「生成卡片」。")
             return
 
-        # Pull any edits the user made directly in the table back into the
-        # card objects before writing, so manual corrections aren't lost.
         for row, card in enumerate(self.cards):
             card.approved = self.checkboxes[row].isChecked()
-            card.front = self._item_text(row, 1)
-            card.back = self._item_text(row, 2)
-            card.extra = self._item_text(row, 3)
-            card.source = self._item_text(row, 4)
 
         approved_count = sum(1 for c in self.cards if c.approved)
         if approved_count == 0:
@@ -290,29 +432,45 @@ class MainDialog(QDialog):
             showWarning(f"写入 Anki 失败: {e}")
             return
 
-        message = f"已添加 {result.added} 张卡片到牌组「{deck_name}」。"
-        if result.skipped_duplicates:
-            message += (
-                f"\n已跳过 {result.skipped_duplicates} 张重复卡片"
-                "（同 Front + Source）。"
-            )
+        message = (
+            f"新增 {result.added} 张，跳过重复 {result.skipped_duplicates} 张，"
+            "预览已清空。"
+        )
         showInfo(message)
-        if result.added:
-            self.accept()
+        self._clear_preview_data()
+        self.status_label.setText(message)
 
     def clear_preview(self):
+        self._clear_preview_data()
+        self.status_label.setText("已清空当前预览；不会影响已经写入 Anki 的卡片。")
+
+    def _clear_preview_data(self):
         self.cards = []
         self.checkboxes = []
         self.table.setRowCount(0)
-        self.status_label.setText("已清空当前预览；不会影响已经写入 Anki 的卡片。")
 
     def save_settings(self):
         self._save_settings_from_ui(show_success=True)
+
+    def toggle_settings(self):
+        self._set_settings_collapsed(not self.settings_collapsed)
+
+    def _set_settings_collapsed(self, collapsed):
+        self.settings_collapsed = collapsed
+        self.settings_group.setVisible(not collapsed)
+        self.settings_toggle_btn.setText("展开设置" if collapsed else "收起设置")
+        self._update_settings_summary()
+
+    def _update_settings_summary(self):
+        provider = self.provider_combo.currentText()
+        model = self.model_input.text().strip() or "(未设置模型)"
+        self.settings_summary_label.setText(f"Provider: {provider} / {model}")
 
     def on_provider_changed(self, provider_name):
         self._apply_provider_preset_to_ui(provider_name)
         self._refresh_provider_field_states()
         self._update_generate_button_text()
+        self._update_settings_summary()
 
     def _apply_provider_preset_to_ui(self, provider_name):
         preset = PROVIDER_PRESETS.get(provider_name)
@@ -338,9 +496,11 @@ class MainDialog(QDialog):
     def _update_generate_button_text(self):
         provider = self.provider_combo.currentText()
         if provider == "mock":
-            self.gen_btn.setText("生成卡片（mock，本地模拟，不调用 AI API）")
+            self.gen_btn.setText("生成/重新生成全部（mock，本地）")
+            self.gen_current_btn.setText("生成/重新生成当前 chunk（mock，本地）")
         else:
-            self.gen_btn.setText(f"生成卡片（{provider}，后台调用真实 API）")
+            self.gen_btn.setText(f"生成/重新生成全部（{provider}，后台 API）")
+            self.gen_current_btn.setText(f"生成/重新生成当前 chunk（{provider}）")
 
     def _save_settings_from_ui(self, show_success):
         self.config.update(
@@ -363,8 +523,59 @@ class MainDialog(QDialog):
 
         if show_success:
             showInfo("设置已保存。")
+        self._update_settings_summary()
         return True
+
+    def _readonly_item(self, text):
+        item = QTableWidgetItem(str(text or ""))
+        try:
+            editable_flag = Qt.ItemFlag.ItemIsEditable
+        except AttributeError:
+            editable_flag = Qt.ItemIsEditable
+        item.setFlags(item.flags() & ~editable_flag)
+        return item
 
     def _item_text(self, row, column):
         item = self.table.item(row, column)
         return item.text().strip() if item is not None else ""
+
+
+class CardDetailDialog(QDialog):
+    def __init__(self, card, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("编辑候选卡详情")
+        self.resize(640, 560)
+
+        layout = QVBoxLayout(self)
+        form = QFormLayout()
+
+        self.front_edit = QTextEdit(card.front)
+        self.back_edit = QTextEdit(card.back)
+        self.extra_edit = QTextEdit(card.extra)
+        self.tags_edit = QTextEdit(tags_to_text(card.tags))
+        self.source_edit = QTextEdit(card.source)
+
+        form.addRow("Front:", self.front_edit)
+        form.addRow("Back:", self.back_edit)
+        form.addRow("Extra:", self.extra_edit)
+        form.addRow("Tags:", self.tags_edit)
+        form.addRow("Source:", self.source_edit)
+        form.addRow(QLabel("Source 是普通字段；修改它会影响 duplicate check。"))
+        layout.addLayout(form)
+
+        button_row = QHBoxLayout()
+        button_row.addStretch()
+        cancel_btn = QPushButton("取消")
+        cancel_btn.clicked.connect(self.reject)
+        save_btn = QPushButton("保存")
+        save_btn.clicked.connect(self.accept)
+        button_row.addWidget(cancel_btn)
+        button_row.addWidget(save_btn)
+        layout.addLayout(button_row)
+
+    def apply_to_card(self, card):
+        card.front = self.front_edit.toPlainText().strip()
+        card.back = self.back_edit.toPlainText().strip()
+        card.extra = self.extra_edit.toPlainText().strip()
+        card.tags = tags_from_text(self.tags_edit.toPlainText())
+        card.source = self.source_edit.toPlainText().strip()
