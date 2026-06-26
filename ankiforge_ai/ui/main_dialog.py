@@ -48,6 +48,9 @@ from ..ai.providers import create_provider
 from ..importers.md_importer import split_markdown_by_headings
 from ..anki_writer.add_cards import add_cards_to_deck
 from .review_helpers import (
+    ALL_CHUNKS_LABEL,
+    cap_cards,
+    chunks_for_combo_index,
     format_chunk_label,
     invert_flags,
     keep_items_by_flags,
@@ -74,6 +77,7 @@ class MainDialog(QDialog):
         self.config = load_config()
         self.generation_in_progress = False
         self.settings_collapsed = True
+        self.current_generation_label = ALL_CHUNKS_LABEL
 
         self._build_ui()
 
@@ -253,20 +257,17 @@ class MainDialog(QDialog):
 
     def _refresh_chunk_combo(self):
         self.chunk_combo.clear()
-        self.chunk_combo.addItem("全部 headings")
+        self.chunk_combo.addItem(ALL_CHUNKS_LABEL)
         for index, chunk in enumerate(self.chunks):
             self.chunk_combo.addItem(format_chunk_label(chunk, index))
         self.chunk_combo.setEnabled(bool(self.chunks))
 
     def _chunks_for_generation(self, current_chunk_only):
-        if not current_chunk_only:
-            return list(self.chunks), "全部"
-
-        chunk_index = self.chunk_combo.currentIndex() - 1
-        if chunk_index < 0 or chunk_index >= len(self.chunks):
-            return [], ""
-        chunk = self.chunks[chunk_index]
-        return [chunk], format_chunk_label(chunk, chunk_index)
+        return chunks_for_combo_index(
+            self.chunks,
+            self.chunk_combo.currentIndex(),
+            current_chunk_only,
+        )
 
     def generate_cards(self, current_chunk_only=False):
         if self.generation_in_progress:
@@ -283,10 +284,13 @@ class MainDialog(QDialog):
 
         chunks, target_label = self._chunks_for_generation(current_chunk_only)
         if not chunks:
-            showWarning("请选择一个 Markdown heading，或使用「生成全部」。")
+            message = "请先选择一个具体 heading。"
+            showWarning(message)
+            self.status_label.setText(message)
             return
 
         provider_config = load_provider_config()
+        self.current_generation_label = target_label
         self.generation_in_progress = True
         self.gen_btn.setEnabled(False)
         self.gen_current_btn.setEnabled(False)
@@ -303,7 +307,8 @@ class MainDialog(QDialog):
         provider = create_provider(provider_config)
         cards = []
         for chunk in chunks:
-            cards.extend(provider.generate_cards(chunk))
+            generated = provider.generate_cards(chunk)
+            cards.extend(cap_cards(generated, provider_config.max_cards_per_chunk))
         return cards
 
     def _on_generation_done(self, future):
@@ -325,7 +330,8 @@ class MainDialog(QDialog):
         self.cards = cards
         self._populate_table()
         self.status_label.setText(
-            f"生成 {len(self.cards)} 张候选卡，尚未写入 Anki。"
+            f"已从 {self.current_generation_label} 生成 {len(self.cards)} 张候选卡，"
+            "尚未写入 Anki。"
         )
 
     def _populate_table(self):
