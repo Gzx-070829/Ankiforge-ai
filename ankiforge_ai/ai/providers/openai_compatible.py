@@ -30,6 +30,8 @@ class OpenAICompatibleProvider(AIProvider):
                 content,
                 chunk,
                 self.config.max_cards_per_chunk,
+                self.config.ai_provider,
+                self.config.model,
             )
         except CardValidationError:
             raise
