@@ -1,8 +1,15 @@
 import unittest
+from unittest.mock import patch
 
 from ankiforge_ai.ai.providers import create_provider
 from ankiforge_ai.ai.providers.base import AIProviderConfig
 from ankiforge_ai.ai.providers.mock_provider import MockAIProvider, format_source_display
+from ankiforge_ai.ai.providers.openai_compatible import (
+    OpenAICompatibleProvider,
+    _chat_completions_url,
+    build_chat_completions_payload,
+    extract_assistant_content,
+)
 from ankiforge_ai.ai.schemas import mock_generate_cards
 from ankiforge_ai.importers.md_importer import MarkdownChunk
 
@@ -40,10 +47,18 @@ class ProviderTests(unittest.TestCase):
             "Unknown source > Untitled",
         )
 
-    def test_factory_allows_only_mock_in_v012(self):
+    def test_factory_supports_mock_deepseek_and_openai_compatible(self):
         provider = create_provider(AIProviderConfig(ai_provider="mock"))
 
         self.assertIsInstance(provider, MockAIProvider)
+        self.assertIsInstance(
+            create_provider(AIProviderConfig(ai_provider="deepseek")),
+            OpenAICompatibleProvider,
+        )
+        self.assertIsInstance(
+            create_provider(AIProviderConfig(ai_provider="openai_compatible")),
+            OpenAICompatibleProvider,
+        )
 
         with self.assertRaises(ValueError):
             create_provider(AIProviderConfig(ai_provider="openai"))
@@ -60,6 +75,85 @@ class ProviderTests(unittest.TestCase):
 
         self.assertEqual(len(cards), 1)
         self.assertEqual(cards[0].back, "Body")
+
+
+class OpenAICompatibleProviderTests(unittest.TestCase):
+    def test_chat_completions_url_appends_endpoint(self):
+        self.assertEqual(
+            _chat_completions_url("https://api.deepseek.com"),
+            "https://api.deepseek.com/chat/completions",
+        )
+        self.assertEqual(
+            _chat_completions_url("https://api.openai.com/v1"),
+            "https://api.openai.com/v1/chat/completions",
+        )
+        self.assertEqual(
+            _chat_completions_url("https://example.test/v1/chat/completions"),
+            "https://example.test/v1/chat/completions",
+        )
+
+    def test_build_payload_requests_json_basic_cards(self):
+        chunk = MarkdownChunk(
+            heading="Topic",
+            level=2,
+            content="Important content",
+            source_path="note.md",
+        )
+        config = AIProviderConfig(
+            ai_provider="openai_compatible",
+            model="test-model",
+            api_base_url="https://example.test/v1",
+            api_key="test-key",
+            max_cards_per_chunk=2,
+        )
+
+        payload = build_chat_completions_payload(chunk, config)
+
+        self.assertEqual(payload["model"], "test-model")
+        self.assertEqual(payload["response_format"], {"type": "json_object"})
+        self.assertIn("Maximum cards: 2", payload["messages"][1]["content"])
+        self.assertIn("card_type must be basic", payload["messages"][1]["content"])
+
+    def test_extract_assistant_content(self):
+        response = {"choices": [{"message": {"content": '{"cards":[]}'}}]}
+
+        self.assertEqual(extract_assistant_content(response), '{"cards":[]}')
+
+    def test_provider_uses_validated_json_without_network(self):
+        chunk = MarkdownChunk(
+            heading="Topic",
+            level=1,
+            content="Body",
+            source_path=r"C:\notes\source.md",
+        )
+        config = AIProviderConfig(
+            ai_provider="deepseek",
+            model="deepseek-chat",
+            api_base_url="https://api.deepseek.com",
+            api_key="fake-key",
+        )
+        api_response = {
+            "choices": [
+                {
+                    "message": {
+                        "content": (
+                            '{"cards":[{"card_type":"basic","front":"Q",'
+                            '"back":"A","extra":"E","tags":["ai"]}]}'
+                        )
+                    }
+                }
+            ]
+        }
+
+        with patch(
+            "ankiforge_ai.ai.providers.openai_compatible.post_chat_completions",
+            return_value=api_response,
+        ):
+            cards = OpenAICompatibleProvider(config).generate_cards(chunk)
+
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0].front, "Q")
+        self.assertEqual(cards[0].source, "source.md > Topic")
 
 
 if __name__ == "__main__":

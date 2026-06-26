@@ -93,7 +93,7 @@ def split_new_and_duplicate_cards(
 
 
 def make_duplicate_key(front, source) -> DuplicateKey:
-    """Duplicate rule for v0.1.2: same note type, same Front, same Source."""
+    """Duplicate rule: same note type, same Front, same Source."""
     return (normalize_duplicate_text(front), normalize_duplicate_text(source))
 
 
