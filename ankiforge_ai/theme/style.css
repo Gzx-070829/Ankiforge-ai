@@ -1,0 +1,78 @@
+/* AnkiForge AI - default card theme
+   Edit this file freely; note_types.py reads it at note-type creation time.
+   If you change this after the note type already exists, you'll need to
+   delete the "AnkiForge Basic" note type in Anki (or bump a version and
+   re-create it) for changes to take effect on existing collections. */
+
+.card {
+    font-family: -apple-system, "Segoe UI", "Noto Sans SC", "PingFang SC", sans-serif;
+    font-size: 20px;
+    line-height: 1.55;
+    color: #1f2933;
+    background-color: #fbfbfd;
+}
+
+.card-inner {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 28px 24px;
+    text-align: left;
+}
+
+.front {
+    font-weight: 600;
+    font-size: 22px;
+    color: #0b5fff;
+}
+
+.back {
+    margin-top: 16px;
+}
+
+.extra {
+    margin-top: 18px;
+    font-size: 15px;
+    color: #6b7280;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 10px;
+}
+
+.source {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+code, pre {
+    background-color: #f1f5f9;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: "SF Mono", Consolas, monospace;
+}
+
+hr#answer {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 18px 0;
+}
+
+/* Anki's night (dark) mode applies the .night_mode class to <body> */
+.night_mode .card {
+    background-color: #1b1f24;
+    color: #e5e7eb;
+}
+
+.night_mode .front {
+    color: #7dabff;
+}
+
+.night_mode .extra,
+.night_mode hr#answer {
+    border-color: #374151;
+    color: #9ca3af;
+}
+
+.night_mode code,
+.night_mode pre {
+    background-color: #2a2f37;
+}
