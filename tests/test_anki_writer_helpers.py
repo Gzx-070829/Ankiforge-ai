@@ -2,8 +2,10 @@ import unittest
 
 from ankiforge_ai.ai.schemas import GeneratedCard
 from ankiforge_ai.anki_writer.add_cards import (
+    _note_ids_for_model,
     format_tags_field,
     make_duplicate_key,
+    normalize_duplicate_text,
     split_new_and_duplicate_cards,
 )
 
@@ -14,6 +16,76 @@ class AnkiWriterHelperTests(unittest.TestCase):
             format_tags_field(["AnkiForge", "", "mock", "AnkiForge", None]),
             "AnkiForge mock",
         )
+
+    def test_duplicate_text_strips_and_collapses_whitespace(self):
+        self.assertEqual(
+            normalize_duplicate_text("  什么是\n  过拟合？ \t "),
+            "什么是 过拟合？",
+        )
+
+    def test_duplicate_key_normalizes_front_and_source(self):
+        self.assertEqual(
+            make_duplicate_key(" Front\nQuestion  ", " note.md   >   Heading "),
+            ("Front Question", "note.md > Heading"),
+        )
+
+    def test_note_ids_for_model_uses_model_id_db_query(self):
+        collection = FakeCollection(note_ids=[10, 11, 12])
+
+        note_ids = _note_ids_for_model(collection, {"id": 12345})
+
+        self.assertEqual(note_ids, [10, 11, 12])
+        self.assertEqual(
+            collection.db.calls,
+            [("select id from notes where mid = ?", 12345)],
+        )
+
+    def test_note_ids_for_model_returns_empty_without_model_id(self):
+        collection = FakeCollection(note_ids=[10])
+
+        self.assertEqual(_note_ids_for_model(collection, {}), [])
+        self.assertEqual(collection.db.calls, [])
+
+    def test_split_new_and_duplicate_cards_normalizes_existing_keys(self):
+        cards = [
+            GeneratedCard(
+                card_type="basic",
+                front="Front Question",
+                back="A1",
+                source="note.md > Heading",
+            )
+        ]
+
+        writable, skipped = split_new_and_duplicate_cards(
+            cards,
+            existing_keys={make_duplicate_key(" Front\nQuestion ", " note.md   >   Heading ")},
+        )
+
+        self.assertEqual(writable, [])
+        self.assertEqual(skipped, 1)
+
+    def test_existing_regression_front_and_source_are_skipped(self):
+        cards = [
+            GeneratedCard(
+                card_type="basic",
+                front="什么是「和欠拟合的区别」？",
+                back="A",
+                source="ankiforge_test.md > 和欠拟合的区别",
+            )
+        ]
+
+        writable, skipped = split_new_and_duplicate_cards(
+            cards,
+            existing_keys={
+                make_duplicate_key(
+                    "什么是「和欠拟合的区别」？",
+                    "ankiforge_test.md > 和欠拟合的区别",
+                )
+            },
+        )
+
+        self.assertEqual(writable, [])
+        self.assertEqual(skipped, 1)
 
     def test_duplicate_key_trims_front_and_source(self):
         self.assertEqual(
@@ -70,6 +142,21 @@ class AnkiWriterHelperTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             split_new_and_duplicate_cards(cards, existing_keys=set())
+
+
+class FakeCollection:
+    def __init__(self, note_ids):
+        self.db = FakeDb(note_ids)
+
+
+class FakeDb:
+    def __init__(self, note_ids):
+        self.note_ids = note_ids
+        self.calls = []
+
+    def list(self, query, model_id):
+        self.calls.append((query, model_id))
+        return self.note_ids
 
 
 if __name__ == "__main__":

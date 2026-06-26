@@ -27,14 +27,11 @@ def add_cards_to_deck(cards: List, deck_name: str) -> AddCardsResult:
     """
     from aqt import mw
 
-    from .note_types import NOTE_TYPE_NAME, ensure_note_type
+    from .note_types import ensure_note_type
 
     col = mw.col
     model = ensure_note_type()
-    existing_keys = _load_existing_duplicate_keys(
-        col,
-        model.get("name", NOTE_TYPE_NAME),
-    )
+    existing_keys = _load_existing_duplicate_keys(col, model)
     writable_cards, skipped_duplicates = split_new_and_duplicate_cards(
         cards,
         existing_keys,
@@ -72,7 +69,9 @@ def split_new_and_duplicate_cards(
     existing_keys: Iterable[DuplicateKey],
 ) -> Tuple[List, int]:
     """Return approved, non-duplicate cards plus a skipped duplicate count."""
-    seen: Set[DuplicateKey] = set(existing_keys)
+    seen: Set[DuplicateKey] = {
+        make_duplicate_key(front, source) for front, source in existing_keys
+    }
     writable_cards = []
     skipped_duplicates = 0
 
@@ -95,7 +94,12 @@ def split_new_and_duplicate_cards(
 
 def make_duplicate_key(front, source) -> DuplicateKey:
     """Duplicate rule for v0.1.2: same note type, same Front, same Source."""
-    return (_optional_text(front), _optional_text(source))
+    return (normalize_duplicate_text(front), normalize_duplicate_text(source))
+
+
+def normalize_duplicate_text(value) -> str:
+    """Normalize duplicate keys with strip + whitespace collapsing only."""
+    return " ".join(str(value or "").split())
 
 
 def format_tags_field(tags) -> str:
@@ -114,8 +118,8 @@ def normalize_tags(tags) -> List[str]:
     return normalized
 
 
-def _load_existing_duplicate_keys(col, note_type_name: str) -> Set[DuplicateKey]:
-    note_ids = col.find_notes(f'note:"{_escape_search_text(note_type_name)}"')
+def _load_existing_duplicate_keys(col, model) -> Set[DuplicateKey]:
+    note_ids = _note_ids_for_model(col, model)
     keys = set()
 
     for note_id in note_ids:
@@ -130,15 +134,19 @@ def _load_existing_duplicate_keys(col, note_type_name: str) -> Set[DuplicateKey]
     return keys
 
 
+def _note_ids_for_model(col, model) -> List[int]:
+    """Return all note ids for a model without relying on Anki search syntax."""
+    model_id = model.get("id")
+    if model_id is None:
+        return []
+    return list(col.db.list("select id from notes where mid = ?", model_id))
+
+
 def _note_field(note, field_name: str) -> str:
     try:
         return note[field_name]
     except KeyError:
         return ""
-
-
-def _escape_search_text(value: str) -> str:
-    return str(value).replace('"', '\\"')
 
 
 def _required_text(value, field_name: str) -> str:
