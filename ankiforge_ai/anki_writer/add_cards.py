@@ -28,11 +28,14 @@ def add_cards_to_deck(cards: List, deck_name: str) -> int:
         if not card.approved:
             continue
 
+        front = _required_text(card.front, "Front")
+        back = _required_text(card.back, "Back")
+
         note = col.new_note(model)
-        note["Front"] = card.front
-        note["Back"] = card.back
-        note["Extra"] = card.extra
-        note["Source"] = card.source
+        note["Front"] = front
+        note["Back"] = back
+        note["Extra"] = _optional_text(card.extra)
+        note["Source"] = _optional_text(card.source)
 
         for tag in card.tags:
             note.add_tag(tag)
@@ -44,3 +47,14 @@ def add_cards_to_deck(cards: List, deck_name: str) -> int:
         mw.requireReset()
 
     return added
+
+
+def _required_text(value, field_name: str) -> str:
+    text = _optional_text(value)
+    if not text:
+        raise ValueError(f"已勾选卡片缺少 {field_name}，请先补全后再写入。")
+    return text
+
+
+def _optional_text(value) -> str:
+    return str(value or "").strip()

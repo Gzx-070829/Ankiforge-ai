@@ -1,10 +1,10 @@
 """
-Main dialog for AnkiForge AI (v0.1).
+Main dialog for AnkiForge AI (v0.1.1).
 
 Flow:
     pick a .md file
         -> split into chunks by heading (importers/md_importer.py)
-        -> generate cards, currently mocked (ai/schemas.py)
+        -> generate cards with the local mock provider
         -> show an editable preview table, each row has an "include" checkbox
         -> on "Add to Anki", re-read any user edits from the table, then
            write only the checked rows (anki_writer/add_cards.py)
@@ -30,8 +30,9 @@ from aqt.qt import (
 )
 from aqt.utils import showInfo, showWarning
 
+from ..config_loader import default_deck_name, load_provider_config
+from ..ai.providers import create_provider
 from ..importers.md_importer import split_markdown_by_headings
-from ..ai.schemas import mock_generate_cards
 from ..anki_writer.add_cards import add_cards_to_deck
 
 COLUMN_HEADERS = ["添加", "正面 Front", "背面 Back", "备注 Extra", "来源 Source"]
@@ -64,12 +65,12 @@ class MainDialog(QDialog):
         # --- deck name row ---
         deck_row = QHBoxLayout()
         deck_row.addWidget(QLabel("目标牌组:"))
-        self.deck_input = QLineEdit("AnkiForge::Inbox")
+        self.deck_input = QLineEdit(default_deck_name())
         deck_row.addWidget(self.deck_input)
         layout.addLayout(deck_row)
 
         # --- generate button ---
-        gen_btn = QPushButton("生成卡片（v0.1 为模拟数据，尚未调用 AI API）")
+        gen_btn = QPushButton("生成卡片（mock，本地模拟，不调用 AI API）")
         gen_btn.clicked.connect(self.generate_cards)
         layout.addWidget(gen_btn)
 
@@ -79,9 +80,9 @@ class MainDialog(QDialog):
         self.table.horizontalHeader().setStretchLastSection(True)
         layout.addWidget(self.table)
 
-        hint = QLabel("提示：可以直接在表格里修改文字，再决定是否勾选添加。")
-        hint.setStyleSheet("color: gray;")
-        layout.addWidget(hint)
+        self.status_label = QLabel("提示：可以直接在表格里修改文字，再决定是否勾选添加。")
+        self.status_label.setStyleSheet("color: gray;")
+        layout.addWidget(self.status_label)
 
         # --- bottom buttons ---
         bottom_row = QHBoxLayout()
@@ -114,11 +115,31 @@ class MainDialog(QDialog):
             showWarning("没有从该文件中解析出任何内容块（文件可能是空的）。")
             return
 
+        try:
+            provider = create_provider(load_provider_config())
+        except ValueError as e:
+            showWarning(str(e))
+            return
+        except Exception as e:
+            showWarning(f"初始化 AI provider 失败: {e}")
+            return
+
         self.cards = []
-        for chunk in chunks:
-            self.cards.extend(mock_generate_cards(chunk))
+        try:
+            for chunk in chunks:
+                self.cards.extend(provider.generate_cards(chunk))
+        except Exception as e:
+            showWarning(f"生成卡片失败: {e}")
+            return
+
+        if not self.cards:
+            showWarning("没有生成任何卡片。")
+            return
 
         self._populate_table()
+        self.status_label.setText(
+            f"已生成 {len(self.cards)} 张候选卡片；写入前仍可编辑或取消勾选。"
+        )
 
     def _populate_table(self):
         self.table.setRowCount(len(self.cards))
@@ -151,17 +172,41 @@ class MainDialog(QDialog):
         # card objects before writing, so manual corrections aren't lost.
         for row, card in enumerate(self.cards):
             card.approved = self.checkboxes[row].isChecked()
-            card.front = self.table.item(row, 1).text()
-            card.back = self.table.item(row, 2).text()
-            card.extra = self.table.item(row, 3).text()
-            card.source = self.table.item(row, 4).text()
+            card.front = self._item_text(row, 1)
+            card.back = self._item_text(row, 2)
+            card.extra = self._item_text(row, 3)
+            card.source = self._item_text(row, 4)
 
         approved_count = sum(1 for c in self.cards if c.approved)
         if approved_count == 0:
             showWarning("没有勾选任何卡片，已取消添加。")
             return
 
-        deck_name = self.deck_input.text().strip() or "AnkiForge::Inbox"
-        added = add_cards_to_deck(self.cards, deck_name)
+        invalid_rows = [
+            str(row + 1)
+            for row, card in enumerate(self.cards)
+            if card.approved and (not card.front.strip() or not card.back.strip())
+        ]
+        if invalid_rows:
+            showWarning(
+                "以下已勾选卡片缺少 Front 或 Back，暂未写入："
+                + ", ".join(invalid_rows)
+            )
+            return
+
+        deck_name = self.deck_input.text().strip() or default_deck_name()
+        try:
+            added = add_cards_to_deck(self.cards, deck_name)
+        except ValueError as e:
+            showWarning(str(e))
+            return
+        except Exception as e:
+            showWarning(f"写入 Anki 失败: {e}")
+            return
+
         showInfo(f"已添加 {added} 张卡片到牌组「{deck_name}」。")
         self.accept()
+
+    def _item_text(self, row, column):
+        item = self.table.item(row, column)
+        return item.text().strip() if item is not None else ""

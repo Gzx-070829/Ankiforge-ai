@@ -1,10 +1,22 @@
-# AnkiForge AI — v0.1 (MVP 骨架)
+# AnkiForge AI — v0.1.1 稳定版
 
-从 Markdown 笔记提取知识点 → AI 生成卡片 → 人工预览/编辑 → 写入 Anki → 自动套用美化模板。
+从 Markdown 笔记提取知识点 → 本地 mock 生成卡片 → 人工预览/编辑 → 写入 Anki → 自动套用美化模板。
 
-当前版本 v0.1：AI 制卡部分是 **mock（模拟）数据**，还没有接入真实的 AI API；
-目的是先把"选文件 → 解析 → 预览编辑 → 写入 → 美化"这条完整链路跑通、跑稳，
-再在这个骨架上接入真实 AI 调用、Obsidian 整库扫描、PDF 导入。
+v0.1.1 仍然不接真实 AI API，不发网络请求，也不要求 API key。这个版本的重点是把 v0.1 骨架稳定下来，并为未来多 AI provider 预留轻量架构。
+
+## v0.1.1 做了什么
+
+- 保留 mock AI generation 作为默认且唯一启用的生成方式。
+- 新增轻量 provider abstraction：
+  - `ai/providers/base.py`
+  - `ai/providers/mock_provider.py`
+  - `ai/providers/__init__.py`
+- 预留 OpenAI、DeepSeek、SiliconFlow / 硅基流动、OpenRouter、其他 OpenAI-compatible API 的扩展位置，但本版本不实现真实调用。
+- 加强 Markdown splitting：支持标题前内容，跳过空 chunk，避免把 fenced code block 里的 `#` 误判为标题。
+- 写入前校验已勾选卡片的 Front / Back，空字段不会写入 Anki。
+- 加强错误提示，读文件、生成、写入失败时会弹出更明确的提示。
+- 加强 note type 维护：`AnkiForge Basic` 已存在时也会补齐字段、模板并同步 `theme/style.css`。
+- 添加不依赖 Anki、不依赖网络的纯 Python 测试。
 
 ## 怎么安装到 Anki 里测试
 
@@ -12,65 +24,84 @@
    - macOS: `~/Library/Application Support/Anki2/addons21/`
    - Windows: `%APPDATA%\Anki2\addons21\`
    - Linux: `~/.local/share/Anki2/addons21/`
-2. 把整个 `ankiforge_ai` 文件夹复制进去（文件夹名必须保持 `ankiforge_ai`，
-   和 `manifest.json` 里的 `package` 字段一致）。
-3. 重启 Anki。
-4. 顶部菜单 **工具 (Tools) → AnkiForge AI**，应该能看到弹出的窗口。
+2. 把整个 `ankiforge_ai` 文件夹复制进去。
+3. 确认文件夹名保持为 `ankiforge_ai`，和 `manifest.json` 里的 `package` 字段一致。
+4. 重启 Anki。
+5. 顶部菜单 **工具 (Tools) → AnkiForge AI** 打开窗口。
 
 ## 测试流程
 
-1. 点击「选择 Markdown 文件...」，选一个 `.md` 文件（按 `#`/`##` 标题切分）。
-2. 点击「生成卡片」——目前会用模拟逻辑给每个标题生成一张卡（不联网）。
-3. 在表格里直接编辑 Front / Back / Extra 文字（可选）。
-4. 取消勾选你不想要的卡片。
-5. 填好牌组名，点击「添加到 Anki」。
-6. 去 Anki 浏览器里查看新牌组 `AnkiForge::Inbox`（或你自定义的名字），
-   笔记类型应该是 `AnkiForge Basic`，卡片外观应用了 `theme/style.css` 里的样式
-   （正反面配色、暗色模式都已经适配）。
+1. 点击「选择 Markdown 文件...」，选择一个 `.md` 文件。
+2. 点击「生成卡片」。
+3. 在表格里编辑 Front / Back / Extra / Source。
+4. 取消勾选不想写入的卡片。
+5. 确认已勾选卡片的 Front 和 Back 都不为空。
+6. 填好目标牌组，点击「添加到 Anki」。
+7. 去 Anki 浏览器里查看新牌组 `AnkiForge::Inbox` 或你自定义的牌组。
+
+## 配置
+
+`config.json` 当前示例：
+
+```json
+{
+    "ai_provider": "mock",
+    "model": "mock-v0.1.1",
+    "api_base_url": "",
+    "max_cards_per_chunk": 3,
+    "default_deck": "AnkiForge::Inbox",
+    "default_note_type": "AnkiForge Basic",
+    "obsidian_vault_path": ""
+}
+```
+
+说明：
+
+- `ai_provider`：v0.1.1 只支持 `mock`。
+- `model`：当前为 `mock-v0.1.1`，未来真实 provider 可使用模型名。
+- `api_base_url`：当前留空，未来 OpenAI-compatible provider 可使用。
+- `max_cards_per_chunk`：当前 mock provider 固定每个 chunk 生成 1 张卡，字段先为未来保留。
+- 本版本没有 `api_key` 配置项。
 
 ## 目录结构
 
-```
+```text
 ankiforge_ai/
-├── __init__.py              # 插件入口，注册 Tools 菜单
-├── manifest.json             # Anki 插件元数据
-├── config.json / config.md   # 插件配置（API key、默认牌组等，v0.1 暂未使用 API key）
+├── __init__.py
+├── manifest.json
+├── config.json / config.md
+├── config_loader.py
 ├── ui/
-│   └── main_dialog.py        # 主窗口：选文件、生成、可编辑预览表、写入
+│   └── main_dialog.py
 ├── importers/
-│   └── md_importer.py        # 按标题切分 Markdown（无 Anki 依赖，可单独单测）
+│   └── md_importer.py
 ├── ai/
-│   └── schemas.py             # GeneratedCard 数据结构 + mock_generate_cards()
+│   ├── schemas.py
+│   └── providers/
+│       ├── __init__.py
+│       ├── base.py
+│       └── mock_provider.py
 ├── anki_writer/
-│   ├── note_types.py          # 创建/确保 "AnkiForge Basic" 笔记类型 + 模板
-│   └── add_cards.py           # 把已审核的卡片写入指定牌组
+│   ├── note_types.py
+│   └── add_cards.py
 └── theme/
-    └── style.css               # 卡片外观样式（独立文件，改样式不用碰 Python）
+    └── style.css
 ```
 
-设计上特意把 `importers/md_importer.py` 和 `ai/schemas.py` 的核心逻辑做成
-**不依赖 `aqt`**，所以可以直接用 `python3` 跑单测，不用每次开 Anki 验证逻辑。
+## 本地测试
 
-## 下一步（建议顺序）
+这些测试不需要 Anki，也不会联网：
 
-1. **v0.2 - 接入真实 AI API**：把 `ai/schemas.py` 里的 `mock_generate_cards()`
-   换成对 AI API 的真实调用，用 structured output / JSON Schema 约束返回格式，
-   函数签名 `(chunk) -> List[GeneratedCard]` 保持不变，UI 不用改。
-2. **v0.2 - Obsidian 整库扫描**：在 `importers/` 下新增一个模块，递归扫描
-   vault 目录下所有 `.md`，按文件夹/标签生成 Anki tag。
-3. **v0.3 - PDF 支持**：新增 `importers/pdf_importer.py`，提取文本+页码，
-   `source` 字段带上页码信息。
-4. **v0.4 - 界面美化深化**：在 `theme/style.css` 基础上做更多排版/配色细化，
-   如果要做 Anki 编辑器/复习界面的局部增强，再考虑 webview hook。
+```bash
+python -m unittest discover -s tests
+```
 
-## 如果你想继续用 Codex CLI 迭代
+## 后续方向
 
-可以在这个项目目录下运行 `codex`，然后描述你要加的功能，例如：
+v0.2 可以在 `ai/providers/` 下新增真实 provider，例如 OpenAI-compatible provider。建议保持 provider 对外接口为：
 
-> 在 ai/schemas.py 里新增一个 generate_cards_via_api() 函数，
-> 调用 OpenAI 的 chat completions API，用 structured outputs
-> 强制返回 JSON，schema 对应 GeneratedCard 的字段。
-> 函数签名保持 (chunk) -> List[GeneratedCard] 不变，
-> 在 ui/main_dialog.py 里加一个开关，让用户选择用 mock 还是真实 API。
+```python
+provider.generate_cards(chunk) -> List[GeneratedCard]
+```
 
-骨架已经按这种"替换单个函数、不改其他模块"的方式设计，方便后续逐步替换。
+这样 UI、Markdown importer 和 Anki writer 都不需要知道底层 provider 是 mock、OpenAI、DeepSeek、SiliconFlow、OpenRouter，还是其他兼容接口。

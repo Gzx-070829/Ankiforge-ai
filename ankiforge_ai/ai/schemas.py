@@ -1,15 +1,10 @@
 """
-Card schema + card generation for AnkiForge AI.
+Card schema + compatibility helpers for AnkiForge AI.
 
 `GeneratedCard` is the unit everything else (preview table, Anki writer)
-operates on. `mock_generate_cards()` is a placeholder for v0.1: it produces
-one simple Basic-style card per Markdown chunk, deterministically, with no
-network calls.
-
-v0.2 plan: replace `mock_generate_cards` with a real call to an AI API using
-structured outputs / a JSON schema, so the model always returns a list of
-dicts shaped like GeneratedCard. Keep the function signature
-(chunk -> List[GeneratedCard]) the same so the UI code doesn't need to change.
+operates on. v0.1.1 keeps mock generation as the default, but routes it
+through `ai.providers` so future OpenAI-compatible providers can be added
+without changing importer, preview, or writer code.
 """
 
 from dataclasses import dataclass, field
@@ -31,22 +26,12 @@ class GeneratedCard:
 
 def mock_generate_cards(chunk: MarkdownChunk) -> List[GeneratedCard]:
     """
-    Stand-in for the real AI call. Produces exactly one Basic card per chunk
-    so you can test the full pipeline (import -> preview -> write -> style)
-    before any API key is involved.
-    """
-    heading = chunk.heading
-    snippet = " ".join(chunk.content.split())
-    if len(snippet) > 160:
-        snippet = snippet[:160].rstrip() + "..."
+    Backward-compatible wrapper for older code paths.
 
-    return [
-        GeneratedCard(
-            card_type="basic",
-            front=f"什么是「{heading}」？",
-            back=snippet or "（该小节暂无正文内容，请手动编辑这张卡片）",
-            extra="此卡片为 v0.1 模拟生成，正式版将调用 AI API 生成更高质量的内容。",
-            tags=["AnkiForge", "mock"],
-            source=f"{chunk.source_path} > {heading}",
-        )
-    ]
+    Produces one Basic card per chunk locally, with no network calls and no
+    API key. New UI code should use `ai.providers.create_provider()`.
+    """
+    from .providers.base import AIProviderConfig
+    from .providers.mock_provider import MockAIProvider
+
+    return MockAIProvider(AIProviderConfig()).generate_cards(chunk)
