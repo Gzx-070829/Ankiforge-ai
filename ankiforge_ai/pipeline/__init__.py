@@ -34,6 +34,7 @@ from .models import (
     SourceChunk,
     SourceDocument,
 )
+from .orchestrator import PipelineRunResult, run_full_mock_pipeline
 from .quality_gate import (
     run_quality_gate,
     run_quality_gate_for_candidates,
@@ -46,6 +47,7 @@ __all__ = [
     "HumanSelection",
     "KnowledgePoint",
     "MockKnowledgePointExtractor",
+    "PipelineRunResult",
     "QualityGateResult",
     "QualityIssue",
     "SourceChunk",
@@ -65,6 +67,7 @@ __all__ = [
     "parse_knowledge_points_payload",
     "run_quality_gate",
     "run_quality_gate_for_candidates",
+    "run_full_mock_pipeline",
     "validate_quality_issue",
 ]
 
