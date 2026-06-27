@@ -1,6 +1,6 @@
 """Offline orchestration for the complete mock import pipeline."""
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Iterable, List, Optional
 
 from .card_candidates import create_card_candidates
@@ -32,6 +32,64 @@ class PipelineRunResult:
     card_candidates: List[CardCandidate]
     quality_results: List[QualityGateResult]
     human_reviews: List[HumanReview]
+
+
+@dataclass
+class PipelineRunSummary:
+    source_filename: str
+    source_document_id: str
+    chunk_count: int
+    knowledge_point_count: int
+    human_selection_count: int
+    selected_count: int
+    rejected_count: int
+    deferred_count: int
+    card_candidate_count: int
+    quality_passed_count: int
+    quality_failed_count: int
+    human_review_count: int
+    pending_review_count: int
+    approved_review_count: int
+    rejected_review_count: int
+    needs_edit_review_count: int
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+def summarize_pipeline_run(result: PipelineRunResult) -> PipelineRunSummary:
+    return PipelineRunSummary(
+        source_filename=result.source_document.file_name,
+        source_document_id=result.source_document.document_id,
+        chunk_count=len(result.chunks),
+        knowledge_point_count=len(result.knowledge_points),
+        human_selection_count=len(result.human_selections),
+        selected_count=sum(
+            selection.decision == "selected" for selection in result.human_selections
+        ),
+        rejected_count=sum(
+            selection.decision == "rejected" for selection in result.human_selections
+        ),
+        deferred_count=sum(
+            selection.decision == "deferred" for selection in result.human_selections
+        ),
+        card_candidate_count=len(result.card_candidates),
+        quality_passed_count=sum(item.passed for item in result.quality_results),
+        quality_failed_count=sum(not item.passed for item in result.quality_results),
+        human_review_count=len(result.human_reviews),
+        pending_review_count=sum(
+            review.decision == "pending" for review in result.human_reviews
+        ),
+        approved_review_count=sum(
+            review.decision == "approved" for review in result.human_reviews
+        ),
+        rejected_review_count=sum(
+            review.decision == "rejected" for review in result.human_reviews
+        ),
+        needs_edit_review_count=sum(
+            review.decision == "needs_edit" for review in result.human_reviews
+        ),
+    )
 
 
 def run_full_mock_pipeline(
