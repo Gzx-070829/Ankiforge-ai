@@ -47,8 +47,15 @@ from ..config_loader import (
 from ..ai.providers import create_provider
 from ..importers.md_importer import split_markdown_by_headings
 from ..anki_writer.add_cards import add_cards_to_deck
-from ..pipeline.orchestrator import run_full_mock_pipeline_with_status
+from ..pipeline.orchestrator import (
+    extract_mock_knowledge_points,
+    run_full_mock_pipeline_with_status,
+)
 from ..pipeline.preview_adapter import build_read_only_pipeline_preview
+from ..pipeline.selection_bridge_adapter import (
+    build_knowledge_point_preview_items,
+    create_selections_from_preview_choice,
+)
 from .review_helpers import (
     ALL_CHUNKS_LABEL,
     cap_cards,
@@ -94,9 +101,13 @@ class MainDialog(QDialog):
         self.pipeline_preview_btn = QPushButton("Mock Pipeline 只读预览")
         self.pipeline_preview_btn.setEnabled(False)
         self.pipeline_preview_btn.clicked.connect(self.show_pipeline_preview)
+        self.knowledge_selection_btn = QPushButton("Mock 知识点选择")
+        self.knowledge_selection_btn.setEnabled(False)
+        self.knowledge_selection_btn.clicked.connect(self.show_knowledge_point_selection)
         file_row.addWidget(self.file_label, stretch=1)
         file_row.addWidget(pick_btn)
         file_row.addWidget(self.pipeline_preview_btn)
+        file_row.addWidget(self.knowledge_selection_btn)
         layout.addLayout(file_row)
 
         # --- chunk selector row ---
@@ -241,6 +252,7 @@ class MainDialog(QDialog):
             self.file_path = path
             self.file_label.setText(path)
             self.pipeline_preview_btn.setEnabled(True)
+            self.knowledge_selection_btn.setEnabled(True)
             self._load_chunks_for_selected_file()
 
     def show_pipeline_preview(self):
@@ -249,6 +261,42 @@ class MainDialog(QDialog):
             return
 
         outcome = run_full_mock_pipeline_with_status(self.file_path)
+        preview_data = build_read_only_pipeline_preview(outcome)
+        ReadOnlyPipelinePreviewDialog(preview_data, self).exec()
+
+    def show_knowledge_point_selection(self):
+        if not self.file_path:
+            showWarning("请先选择一个 Markdown 文件。")
+            return
+
+        try:
+            points = extract_mock_knowledge_points(self.file_path)
+        except Exception as error:
+            showWarning(f"提取 mock 知识点失败: {error}")
+            return
+
+        preview_items = build_knowledge_point_preview_items(points)
+        if not preview_items:
+            showWarning("没有可供选择的知识点。")
+            return
+
+        selection_dialog = KnowledgePointSelectionDialog(preview_items, self)
+        if not selection_dialog.exec():
+            return
+
+        try:
+            selections = create_selections_from_preview_choice(
+                points,
+                selection_dialog.selected_point_ids(),
+            )
+        except ValueError as error:
+            showWarning(str(error))
+            return
+
+        outcome = run_full_mock_pipeline_with_status(
+            self.file_path,
+            selected_point_ids=[selection.point_id for selection in selections],
+        )
         preview_data = build_read_only_pipeline_preview(outcome)
         ReadOnlyPipelinePreviewDialog(preview_data, self).exec()
 
@@ -560,6 +608,80 @@ class MainDialog(QDialog):
     def _item_text(self, row, column):
         item = self.table.item(row, column)
         return item.text().strip() if item is not None else ""
+
+
+class KnowledgePointSelectionDialog(QDialog):
+    def __init__(self, preview_items, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Mock Pipeline 知识点选择")
+        self.resize(900, 520)
+        self.preview_items = list(preview_items)
+        self.checkboxes = []
+
+        layout = QVBoxLayout(self)
+        headers = [
+            "选择",
+            "Title",
+            "Explanation",
+            "Importance",
+            "Tags",
+            "Source",
+            "Evidence",
+        ]
+        table = QTableWidget(len(self.preview_items), len(headers))
+        table.setHorizontalHeaderLabels(headers)
+        table.horizontalHeader().setStretchLastSection(True)
+
+        for row, item in enumerate(self.preview_items):
+            checkbox = QCheckBox()
+            checkbox.setChecked(item.default_selected)
+            container = QWidget()
+            checkbox_layout = QHBoxLayout(container)
+            checkbox_layout.addWidget(checkbox)
+            checkbox_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            checkbox_layout.setContentsMargins(0, 0, 0, 0)
+            table.setCellWidget(row, 0, container)
+            self.checkboxes.append(checkbox)
+
+            values = [
+                item.title,
+                item.explanation,
+                item.importance,
+                tags_to_text(item.tags),
+                item.source_display,
+                item.evidence,
+            ]
+            for column, value in enumerate(values, start=1):
+                table.setItem(row, column, self._readonly_item(value))
+
+        table.resizeColumnsToContents()
+        layout.addWidget(table)
+
+        button_row = QHBoxLayout()
+        button_row.addStretch()
+        cancel_btn = QPushButton("取消")
+        cancel_btn.clicked.connect(self.reject)
+        continue_btn = QPushButton("继续只读预览")
+        continue_btn.clicked.connect(self.accept)
+        button_row.addWidget(cancel_btn)
+        button_row.addWidget(continue_btn)
+        layout.addLayout(button_row)
+
+    def selected_point_ids(self):
+        return [
+            item.point_id
+            for item, checkbox in zip(self.preview_items, self.checkboxes)
+            if checkbox.isChecked()
+        ]
+
+    def _readonly_item(self, text):
+        item = QTableWidgetItem("" if text is None else str(text))
+        try:
+            editable_flag = Qt.ItemFlag.ItemIsEditable
+        except AttributeError:
+            editable_flag = Qt.ItemIsEditable
+        item.setFlags(item.flags() & ~editable_flag)
+        return item
 
 
 class ReadOnlyPipelinePreviewDialog(QDialog):

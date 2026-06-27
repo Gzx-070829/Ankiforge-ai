@@ -133,6 +133,14 @@ def summarize_pipeline_run(result: PipelineRunResult) -> PipelineRunSummary:
     )
 
 
+def extract_mock_knowledge_points(markdown_path: str) -> List[KnowledgePoint]:
+    _, chunks = analyze_markdown_file(markdown_path)
+    return extract_knowledge_points_from_chunks(
+        chunks,
+        MockKnowledgePointExtractor(),
+    )
+
+
 def run_full_mock_pipeline(
     markdown_path: str,
     selected_point_ids: Optional[Iterable[str]] = None,
