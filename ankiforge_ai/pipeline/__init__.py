@@ -43,6 +43,11 @@ from .orchestrator import (
     run_full_mock_pipeline_with_status,
     summarize_pipeline_run,
 )
+from .preview_adapter import (
+    ReadOnlyCardPreviewItem,
+    ReadOnlyPipelinePreviewData,
+    build_read_only_pipeline_preview,
+)
 from .quality_gate import (
     run_quality_gate,
     run_quality_gate_for_candidates,
@@ -61,9 +66,12 @@ __all__ = [
     "PipelineRunWithStatus",
     "QualityGateResult",
     "QualityIssue",
+    "ReadOnlyCardPreviewItem",
+    "ReadOnlyPipelinePreviewData",
     "SourceChunk",
     "SourceDocument",
     "build_candidate_id",
+    "build_read_only_pipeline_preview",
     "build_review_id",
     "build_selection_id",
     "build_knowledge_point_id",

@@ -47,6 +47,8 @@ from ..config_loader import (
 from ..ai.providers import create_provider
 from ..importers.md_importer import split_markdown_by_headings
 from ..anki_writer.add_cards import add_cards_to_deck
+from ..pipeline.orchestrator import run_full_mock_pipeline_with_status
+from ..pipeline.preview_adapter import build_read_only_pipeline_preview
 from .review_helpers import (
     ALL_CHUNKS_LABEL,
     cap_cards,
@@ -89,8 +91,12 @@ class MainDialog(QDialog):
         self.file_label = QLabel("未选择文件")
         pick_btn = QPushButton("选择 Markdown 文件...")
         pick_btn.clicked.connect(self.pick_file)
+        self.pipeline_preview_btn = QPushButton("Mock Pipeline 只读预览")
+        self.pipeline_preview_btn.setEnabled(False)
+        self.pipeline_preview_btn.clicked.connect(self.show_pipeline_preview)
         file_row.addWidget(self.file_label, stretch=1)
         file_row.addWidget(pick_btn)
+        file_row.addWidget(self.pipeline_preview_btn)
         layout.addLayout(file_row)
 
         # --- chunk selector row ---
@@ -234,7 +240,17 @@ class MainDialog(QDialog):
         if path:
             self.file_path = path
             self.file_label.setText(path)
+            self.pipeline_preview_btn.setEnabled(True)
             self._load_chunks_for_selected_file()
+
+    def show_pipeline_preview(self):
+        if not self.file_path:
+            showWarning("请先选择一个 Markdown 文件。")
+            return
+
+        outcome = run_full_mock_pipeline_with_status(self.file_path)
+        preview_data = build_read_only_pipeline_preview(outcome)
+        ReadOnlyPipelinePreviewDialog(preview_data, self).exec()
 
     def _load_chunks_for_selected_file(self):
         try:
@@ -544,6 +560,83 @@ class MainDialog(QDialog):
     def _item_text(self, row, column):
         item = self.table.item(row, column)
         return item.text().strip() if item is not None else ""
+
+
+class ReadOnlyPipelinePreviewDialog(QDialog):
+    def __init__(self, preview_data, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Mock Pipeline 只读预览")
+        self.resize(860, 560)
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel(f"Run status: {preview_data.run_status}"))
+        if preview_data.failed_stage:
+            layout.addWidget(QLabel(f"Failed stage: {preview_data.failed_stage}"))
+        if preview_data.error_message:
+            error_label = QLabel(f"Error: {preview_data.error_message}")
+            error_label.setWordWrap(True)
+            layout.addWidget(error_label)
+
+        summary_table = QTableWidget(len(preview_data.summary_counts), 2)
+        summary_table.setHorizontalHeaderLabels(["Summary", "Count"])
+        for row, (name, count) in enumerate(preview_data.summary_counts.items()):
+            summary_table.setItem(row, 0, self._readonly_item(name))
+            summary_table.setItem(row, 1, self._readonly_item(count))
+        summary_table.resizeColumnsToContents()
+        layout.addWidget(summary_table)
+
+        card_headers = [
+            "Candidate ID",
+            "Front preview",
+            "Back preview",
+            "Quality",
+            "Issues",
+            "Review",
+        ]
+        card_table = QTableWidget(len(preview_data.cards), len(card_headers))
+        card_table.setHorizontalHeaderLabels(card_headers)
+        card_table.horizontalHeader().setStretchLastSection(True)
+        for row, item in enumerate(preview_data.cards):
+            quality_text = (
+                "passed"
+                if item.quality_passed is True
+                else "failed"
+                if item.quality_passed is False
+                else ""
+            )
+            issue_text = (
+                str(item.quality_issue_count)
+                if item.quality_issue_count is not None
+                else ""
+            )
+            values = [
+                item.candidate_id,
+                item.front_preview,
+                item.back_preview,
+                quality_text,
+                issue_text,
+                item.review_decision,
+            ]
+            for column, value in enumerate(values):
+                card_table.setItem(row, column, self._readonly_item(value))
+        card_table.resizeColumnsToContents()
+        layout.addWidget(card_table)
+
+        button_row = QHBoxLayout()
+        button_row.addStretch()
+        close_btn = QPushButton("关闭")
+        close_btn.clicked.connect(self.accept)
+        button_row.addWidget(close_btn)
+        layout.addLayout(button_row)
+
+    def _readonly_item(self, text):
+        item = QTableWidgetItem("" if text is None else str(text))
+        try:
+            editable_flag = Qt.ItemFlag.ItemIsEditable
+        except AttributeError:
+            editable_flag = Qt.ItemIsEditable
+        item.setFlags(item.flags() & ~editable_flag)
+        return item
 
 
 class CardDetailDialog(QDialog):
