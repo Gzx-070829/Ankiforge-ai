@@ -1,5 +1,14 @@
 """Import pipeline foundation for AnkiForge AI."""
 
+from .ai_provider_contracts import (
+    AIProviderError,
+    AIProviderMetadata,
+    AIProviderResult,
+    KnowledgePointExtractionRequest,
+    KnowledgePointExtractionResponse,
+    KnowledgePointJSONProvider,
+    build_knowledge_point_extraction_request,
+)
 from .card_candidates import (
     build_candidate_id,
     create_card_candidate,
@@ -20,6 +29,7 @@ from .controlled_write_bridge import (
     build_write_ready_preview_item,
     build_write_ready_preview_items,
 )
+from .fake_ai_provider import FakeAIProvider
 from .human_selection import (
     build_selection_id,
     create_human_selection,
@@ -76,11 +86,18 @@ from .selection_bridge_adapter import (
 )
 
 __all__ = [
+    "AIProviderError",
+    "AIProviderMetadata",
+    "AIProviderResult",
     "CardCandidate",
     "CardCandidatePreviewItem",
     "HumanReview",
     "HumanSelection",
+    "FakeAIProvider",
     "KnowledgePoint",
+    "KnowledgePointExtractionRequest",
+    "KnowledgePointExtractionResponse",
+    "KnowledgePointJSONProvider",
     "KnowledgePointPreviewItem",
     "MockKnowledgePointExtractor",
     "PipelineRunResult",
@@ -102,6 +119,7 @@ __all__ = [
     "build_card_candidate_preview_items",
     "build_quality_review_preview_state",
     "build_knowledge_point_preview_items",
+    "build_knowledge_point_extraction_request",
     "build_pipeline_write_eligibility",
     "build_read_only_pipeline_preview",
     "build_review_id",
