@@ -8,6 +8,7 @@ from ankiforge_ai.pipeline.orchestrator import (
     PipelineRunWithStatus,
     run_full_mock_pipeline_with_status,
 )
+from ankiforge_ai.pipeline.models import QualityIssue
 from ankiforge_ai.pipeline.preview_adapter import (
     PREVIEW_MAX_CHARS,
     ReadOnlyPipelinePreviewData,
@@ -63,6 +64,58 @@ class PipelinePreviewAdapterTests(unittest.TestCase):
         self.assertTrue(first.quality_passed)
         self.assertEqual(first.quality_issue_count, 0)
         self.assertEqual(first.review_decision, "pending")
+        self.assertEqual(first.quality_status, "passed")
+        self.assertEqual(first.review_status, "pending")
+        self.assertFalse(first.review_allows_write)
+
+    def test_warning_quality_status_is_not_failed(self):
+        outcome = self.success_outcome()
+        outcome.result.quality_results[0].issues.append(
+            QualityIssue(
+                code="back_too_short",
+                message="Back is shorter than 8 characters.",
+                severity="warning",
+            )
+        )
+
+        preview = build_read_only_pipeline_preview(outcome)
+
+        first = preview.cards[0]
+        self.assertEqual(first.quality_status, "warning")
+        self.assertTrue(first.has_quality_warnings)
+        self.assertFalse(first.has_quality_errors)
+        self.assertTrue(first.quality_allows_approval)
+
+    def test_unchecked_quality_and_unreviewed_status_are_clear(self):
+        outcome = self.success_outcome()
+        outcome.result.quality_results = []
+        outcome.result.human_reviews = []
+
+        preview = build_read_only_pipeline_preview(outcome)
+
+        first = preview.cards[0]
+        self.assertIsNone(first.quality_passed)
+        self.assertEqual(first.quality_status, "unchecked")
+        self.assertEqual(first.review_status, "unreviewed")
+        self.assertFalse(first.review_allows_write)
+
+    def test_review_write_eligibility_requires_current_quality_and_approval(self):
+        outcome = self.success_outcome()
+        outcome.result.human_reviews[0].decision = "approved"
+
+        preview = build_read_only_pipeline_preview(outcome)
+        self.assertTrue(preview.cards[0].review_allows_write)
+
+        outcome.result.quality_results[0].issues.append(
+            QualityIssue(
+                code="empty_back",
+                message="Back must not be empty.",
+                severity="error",
+            )
+        )
+        preview = build_read_only_pipeline_preview(outcome)
+        self.assertEqual(preview.cards[0].quality_status, "failed")
+        self.assertFalse(preview.cards[0].review_allows_write)
 
     def test_card_text_is_normalized_and_truncated_for_preview(self):
         outcome = self.success_outcome()

@@ -714,18 +714,12 @@ class ReadOnlyPipelinePreviewDialog(QDialog):
             "Quality",
             "Issues",
             "Review",
+            "Write eligible",
         ]
         card_table = QTableWidget(len(preview_data.cards), len(card_headers))
         card_table.setHorizontalHeaderLabels(card_headers)
         card_table.horizontalHeader().setStretchLastSection(True)
         for row, item in enumerate(preview_data.cards):
-            quality_text = (
-                "passed"
-                if item.quality_passed is True
-                else "failed"
-                if item.quality_passed is False
-                else ""
-            )
             issue_text = (
                 str(item.quality_issue_count)
                 if item.quality_issue_count is not None
@@ -735,9 +729,10 @@ class ReadOnlyPipelinePreviewDialog(QDialog):
                 item.candidate_id,
                 item.front_preview,
                 item.back_preview,
-                quality_text,
+                item.quality_status,
                 issue_text,
-                item.review_decision,
+                item.review_status,
+                "yes" if item.review_allows_write else "no",
             ]
             for column, value in enumerate(values):
                 card_table.setItem(row, column, self._readonly_item(value))
