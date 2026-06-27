@@ -71,3 +71,24 @@ class HumanSelection:
     def to_dict(self) -> dict:
         return asdict(self)
 
+
+@dataclass
+class CardCandidate:
+    candidate_id: str
+    selection_id: str
+    point_id: str
+    document_id: str
+    chunk_id: str
+    source_display: str
+    heading_path: List[str]
+    ordinal: int
+    card_type: str
+    front: str
+    back: str
+    extra: str
+    tags: List[str]
+    source: str
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
