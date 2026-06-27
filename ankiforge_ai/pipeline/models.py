@@ -122,3 +122,29 @@ class QualityGateResult:
             "issues": [issue.to_dict() for issue in self.issues],
         }
 
+
+@dataclass
+class HumanReview:
+    review_id: str
+    candidate_id: str
+    selection_id: str
+    point_id: str
+    document_id: str
+    chunk_id: str
+    source_display: str
+    heading_path: List[str]
+    ordinal: int
+    card_type: str
+    front: str
+    back: str
+    extra: str
+    tags: List[str]
+    source: str
+    quality_passed: bool
+    quality_issues: List[QualityIssue]
+    decision: str = "pending"
+    reviewer_note: str = ""
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+

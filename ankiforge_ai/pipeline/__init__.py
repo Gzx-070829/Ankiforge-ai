@@ -10,6 +10,11 @@ from .human_selection import (
     create_human_selection,
     create_human_selections,
 )
+from .human_review import (
+    build_review_id,
+    create_human_review,
+    create_human_reviews,
+)
 from .knowledge_extractor import (
     MockKnowledgePointExtractor,
     extract_knowledge_points_from_chunks,
@@ -21,6 +26,7 @@ from .knowledge_points import (
 )
 from .models import (
     CardCandidate,
+    HumanReview,
     HumanSelection,
     KnowledgePoint,
     QualityGateResult,
@@ -36,6 +42,7 @@ from .quality_gate import (
 
 __all__ = [
     "CardCandidate",
+    "HumanReview",
     "HumanSelection",
     "KnowledgePoint",
     "MockKnowledgePointExtractor",
@@ -44,10 +51,13 @@ __all__ = [
     "SourceChunk",
     "SourceDocument",
     "build_candidate_id",
+    "build_review_id",
     "build_selection_id",
     "build_knowledge_point_id",
     "create_card_candidate",
     "create_card_candidates",
+    "create_human_review",
+    "create_human_reviews",
     "create_human_selection",
     "create_human_selections",
     "extract_knowledge_points_from_chunks",
