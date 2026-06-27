@@ -9,6 +9,11 @@ from .ai_provider_contracts import (
     KnowledgePointJSONProvider,
     build_knowledge_point_extraction_request,
 )
+from .ai_extraction_service import (
+    KnowledgePointExtractionOutcome,
+    extract_knowledge_points,
+    extract_knowledge_points_from_chunks as extract_ai_knowledge_points_from_chunks,
+)
 from .card_candidates import (
     build_candidate_id,
     create_card_candidate,
@@ -95,6 +100,7 @@ __all__ = [
     "HumanSelection",
     "FakeAIProvider",
     "KnowledgePoint",
+    "KnowledgePointExtractionOutcome",
     "KnowledgePointExtractionRequest",
     "KnowledgePointExtractionResponse",
     "KnowledgePointJSONProvider",
@@ -135,6 +141,8 @@ __all__ = [
     "create_human_selections",
     "create_selections_from_preview_choice",
     "extract_mock_knowledge_points",
+    "extract_knowledge_points",
+    "extract_ai_knowledge_points_from_chunks",
     "extract_knowledge_points_from_chunks",
     "parse_knowledge_points_json",
     "parse_knowledge_points_payload",
