@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
+from .card_candidate_preview_adapter import build_card_candidate_preview_item
 from .orchestrator import PipelineRunWithStatus
 
 PREVIEW_MAX_CHARS = 120
@@ -16,6 +17,12 @@ class ReadOnlyCardPreviewItem:
     quality_passed: Optional[bool]
     quality_issue_count: Optional[int]
     review_decision: str
+    quality_status: str = "unchecked"
+    review_status: str = "unreviewed"
+    has_quality_errors: bool = False
+    has_quality_warnings: bool = False
+    quality_allows_approval: bool = False
+    review_allows_write: bool = False
 
 
 @dataclass(frozen=True)
@@ -49,6 +56,11 @@ def build_read_only_pipeline_preview(
         for candidate in outcome.result.card_candidates:
             quality = quality_by_id.get(candidate.candidate_id)
             review = review_by_id.get(candidate.candidate_id)
+            candidate_preview = build_card_candidate_preview_item(
+                candidate,
+                quality,
+                review,
+            )
             cards.append(
                 ReadOnlyCardPreviewItem(
                     candidate_id=candidate.candidate_id,
@@ -58,7 +70,15 @@ def build_read_only_pipeline_preview(
                     quality_issue_count=(
                         len(quality.issues) if quality is not None else None
                     ),
-                    review_decision=review.decision if review is not None else "",
+                    review_decision=candidate_preview.review_decision,
+                    quality_status=candidate_preview.quality_status,
+                    review_status=candidate_preview.review_status,
+                    has_quality_errors=candidate_preview.has_quality_errors,
+                    has_quality_warnings=candidate_preview.has_quality_warnings,
+                    quality_allows_approval=(
+                        candidate_preview.quality_allows_approval
+                    ),
+                    review_allows_write=candidate_preview.review_allows_write,
                 )
             )
 

@@ -4,8 +4,10 @@ from copy import deepcopy
 from ankiforge_ai.pipeline.card_candidate_preview_adapter import (
     CardCandidatePreviewItem,
     QualityIssuePreviewItem,
+    QualityReviewPreviewState,
     build_card_candidate_preview_item,
     build_card_candidate_preview_items,
+    build_quality_review_preview_state,
 )
 from ankiforge_ai.pipeline.human_review import create_human_review
 from ankiforge_ai.pipeline.models import (
@@ -64,7 +66,10 @@ class CardCandidatePreviewAdapterTests(unittest.TestCase):
         item = build_card_candidate_preview_item(candidate, quality)
 
         self.assertEqual(item.quality_status, "failed")
+        self.assertTrue(item.has_quality_errors)
+        self.assertFalse(item.has_quality_warnings)
         self.assertFalse(item.quality_allows_approval)
+        self.assertFalse(item.review_allows_write)
         self.assertEqual(len(item.quality_issues), 1)
         self.assertIsInstance(item.quality_issues[0], QualityIssuePreviewItem)
         self.assertEqual(item.quality_issues[0].code, "empty_back")
@@ -77,6 +82,39 @@ class CardCandidatePreviewAdapterTests(unittest.TestCase):
         self.assertEqual(item.quality_issues, ())
         self.assertFalse(item.quality_allows_approval)
         self.assertEqual(item.review_decision, "")
+        self.assertEqual(item.review_status, "unreviewed")
+        self.assertFalse(item.review_allows_write)
+
+    def test_quality_review_state_distinguishes_all_quality_statuses(self):
+        candidate = self.candidate()
+        cases = [
+            (None, "unchecked", False, False, False),
+            (self.passed_quality(candidate), "passed", False, False, True),
+            (self.warning_quality(candidate), "warning", False, True, True),
+            (self.failed_quality(candidate), "failed", True, False, False),
+        ]
+
+        for quality, status, has_errors, has_warnings, allows_approval in cases:
+            with self.subTest(status=status):
+                state = build_quality_review_preview_state(quality)
+                self.assertIsInstance(state, QualityReviewPreviewState)
+                self.assertEqual(state.quality_status, status)
+                self.assertEqual(state.has_quality_errors, has_errors)
+                self.assertEqual(state.has_quality_warnings, has_warnings)
+                self.assertEqual(
+                    state.quality_allows_approval,
+                    allows_approval,
+                )
+
+    def test_warning_is_not_a_quality_error(self):
+        state = build_quality_review_preview_state(
+            self.warning_quality(self.candidate())
+        )
+
+        self.assertEqual(state.quality_status, "warning")
+        self.assertTrue(state.has_quality_warnings)
+        self.assertFalse(state.has_quality_errors)
+        self.assertTrue(state.quality_allows_approval)
 
     def test_quality_issues_and_tags_are_isolated(self):
         candidate = self.candidate()
@@ -102,6 +140,43 @@ class CardCandidatePreviewAdapterTests(unittest.TestCase):
                 review = create_human_review(candidate, quality, decision=decision)
                 item = build_card_candidate_preview_item(candidate, quality, review)
                 self.assertEqual(item.review_decision, decision)
+                self.assertEqual(item.review_status, decision)
+                self.assertEqual(
+                    item.review_allows_write,
+                    decision == "approved",
+                )
+
+    def test_review_allows_write_requires_approved_and_quality_allowed(self):
+        candidate = self.candidate()
+        for quality in [
+            self.passed_quality(candidate),
+            self.warning_quality(candidate),
+        ]:
+            with self.subTest(quality_status=quality.to_dict()):
+                approved = create_human_review(
+                    candidate,
+                    quality,
+                    decision="approved",
+                )
+                state = build_quality_review_preview_state(quality, approved)
+                self.assertTrue(state.review_allows_write)
+
+        failed = self.failed_quality(candidate)
+        inconsistent_approved = self.review(candidate, decision="approved")
+        state = build_quality_review_preview_state(failed, inconsistent_approved)
+        self.assertEqual(state.review_status, "approved")
+        self.assertFalse(state.review_allows_write)
+
+    def test_non_approved_reviews_do_not_allow_write(self):
+        candidate = self.candidate()
+        quality = self.passed_quality(candidate)
+
+        for decision in ["pending", "rejected", "needs_edit"]:
+            with self.subTest(decision=decision):
+                review = create_human_review(candidate, quality, decision=decision)
+                state = build_quality_review_preview_state(quality, review)
+                self.assertEqual(state.review_status, decision)
+                self.assertFalse(state.review_allows_write)
 
     def test_quality_candidate_id_mismatch_raises_value_error(self):
         candidate = self.candidate()
@@ -151,6 +226,7 @@ class CardCandidatePreviewAdapterTests(unittest.TestCase):
         originals = deepcopy((candidate, quality, review))
 
         build_card_candidate_preview_item(candidate, quality, review)
+        build_quality_review_preview_state(quality, review)
 
         self.assertEqual(candidate, originals[0])
         self.assertEqual(quality, originals[1])
@@ -197,7 +273,19 @@ class CardCandidatePreviewAdapterTests(unittest.TestCase):
             ],
         )
 
-    def review(self, candidate, candidate_id=None):
+    def warning_quality(self, candidate):
+        return QualityGateResult(
+            candidate_id=candidate.candidate_id,
+            issues=[
+                QualityIssue(
+                    code="back_too_short",
+                    message="Back is shorter than 8 characters.",
+                    severity="warning",
+                )
+            ],
+        )
+
+    def review(self, candidate, candidate_id=None, decision="pending"):
         return HumanReview(
             review_id="review-1",
             candidate_id=candidate_id or candidate.candidate_id,
@@ -216,6 +304,7 @@ class CardCandidatePreviewAdapterTests(unittest.TestCase):
             source=candidate.source,
             quality_passed=True,
             quality_issues=[],
+            decision=decision,
         )
 
 

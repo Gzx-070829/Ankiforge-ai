@@ -688,7 +688,7 @@ class ReadOnlyPipelinePreviewDialog(QDialog):
     def __init__(self, preview_data, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Mock Pipeline 只读预览")
-        self.resize(860, 560)
+        self.resize(980, 560)
 
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel(f"Run status: {preview_data.run_status}"))
@@ -714,18 +714,13 @@ class ReadOnlyPipelinePreviewDialog(QDialog):
             "Quality",
             "Issues",
             "Review",
+            "Write eligible",
         ]
         card_table = QTableWidget(len(preview_data.cards), len(card_headers))
         card_table.setHorizontalHeaderLabels(card_headers)
-        card_table.horizontalHeader().setStretchLastSection(True)
+        card_table.horizontalHeader().setStretchLastSection(False)
+        write_eligible_column = len(card_headers) - 1
         for row, item in enumerate(preview_data.cards):
-            quality_text = (
-                "passed"
-                if item.quality_passed is True
-                else "failed"
-                if item.quality_passed is False
-                else ""
-            )
             issue_text = (
                 str(item.quality_issue_count)
                 if item.quality_issue_count is not None
@@ -735,13 +730,19 @@ class ReadOnlyPipelinePreviewDialog(QDialog):
                 item.candidate_id,
                 item.front_preview,
                 item.back_preview,
-                quality_text,
+                item.quality_status,
                 issue_text,
-                item.review_decision,
+                item.review_status,
+                "yes" if item.review_allows_write else "no",
             ]
             for column, value in enumerate(values):
                 card_table.setItem(row, column, self._readonly_item(value))
         card_table.resizeColumnsToContents()
+        card_table.setColumnHidden(write_eligible_column, False)
+        card_table.setColumnWidth(
+            write_eligible_column,
+            max(card_table.columnWidth(write_eligible_column), 110),
+        )
         layout.addWidget(card_table)
 
         button_row = QHBoxLayout()

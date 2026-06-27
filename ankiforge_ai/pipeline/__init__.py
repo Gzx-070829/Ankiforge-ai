@@ -8,8 +8,10 @@ from .card_candidates import (
 from .card_candidate_preview_adapter import (
     CardCandidatePreviewItem,
     QualityIssuePreviewItem,
+    QualityReviewPreviewState,
     build_card_candidate_preview_item,
     build_card_candidate_preview_items,
+    build_quality_review_preview_state,
 )
 from .human_selection import (
     build_selection_id,
@@ -81,6 +83,7 @@ __all__ = [
     "QualityGateResult",
     "QualityIssue",
     "QualityIssuePreviewItem",
+    "QualityReviewPreviewState",
     "ReadOnlyCardPreviewItem",
     "ReadOnlyPipelinePreviewData",
     "SourceChunk",
@@ -88,6 +91,7 @@ __all__ = [
     "build_candidate_id",
     "build_card_candidate_preview_item",
     "build_card_candidate_preview_items",
+    "build_quality_review_preview_state",
     "build_knowledge_point_preview_items",
     "build_read_only_pipeline_preview",
     "build_review_id",
