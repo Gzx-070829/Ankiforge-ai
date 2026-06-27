@@ -5,6 +5,12 @@ from .card_candidates import (
     create_card_candidate,
     create_card_candidates,
 )
+from .card_candidate_preview_adapter import (
+    CardCandidatePreviewItem,
+    QualityIssuePreviewItem,
+    build_card_candidate_preview_item,
+    build_card_candidate_preview_items,
+)
 from .human_selection import (
     build_selection_id,
     create_human_selection,
@@ -62,6 +68,7 @@ from .selection_bridge_adapter import (
 
 __all__ = [
     "CardCandidate",
+    "CardCandidatePreviewItem",
     "HumanReview",
     "HumanSelection",
     "KnowledgePoint",
@@ -73,11 +80,14 @@ __all__ = [
     "PipelineRunWithStatus",
     "QualityGateResult",
     "QualityIssue",
+    "QualityIssuePreviewItem",
     "ReadOnlyCardPreviewItem",
     "ReadOnlyPipelinePreviewData",
     "SourceChunk",
     "SourceDocument",
     "build_candidate_id",
+    "build_card_candidate_preview_item",
+    "build_card_candidate_preview_items",
     "build_knowledge_point_preview_items",
     "build_read_only_pipeline_preview",
     "build_review_id",
