@@ -688,7 +688,7 @@ class ReadOnlyPipelinePreviewDialog(QDialog):
     def __init__(self, preview_data, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Mock Pipeline 只读预览")
-        self.resize(860, 560)
+        self.resize(980, 560)
 
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel(f"Run status: {preview_data.run_status}"))
@@ -718,7 +718,8 @@ class ReadOnlyPipelinePreviewDialog(QDialog):
         ]
         card_table = QTableWidget(len(preview_data.cards), len(card_headers))
         card_table.setHorizontalHeaderLabels(card_headers)
-        card_table.horizontalHeader().setStretchLastSection(True)
+        card_table.horizontalHeader().setStretchLastSection(False)
+        write_eligible_column = len(card_headers) - 1
         for row, item in enumerate(preview_data.cards):
             issue_text = (
                 str(item.quality_issue_count)
@@ -737,6 +738,11 @@ class ReadOnlyPipelinePreviewDialog(QDialog):
             for column, value in enumerate(values):
                 card_table.setItem(row, column, self._readonly_item(value))
         card_table.resizeColumnsToContents()
+        card_table.setColumnHidden(write_eligible_column, False)
+        card_table.setColumnWidth(
+            write_eligible_column,
+            max(card_table.columnWidth(write_eligible_column), 110),
+        )
         layout.addWidget(card_table)
 
         button_row = QHBoxLayout()
