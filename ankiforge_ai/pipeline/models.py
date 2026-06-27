@@ -92,3 +92,33 @@ class CardCandidate:
     def to_dict(self) -> dict:
         return asdict(self)
 
+
+@dataclass
+class QualityIssue:
+    code: str
+    message: str
+    severity: str
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass
+class QualityGateResult:
+    candidate_id: str
+    issues: List[QualityIssue]
+
+    def __post_init__(self) -> None:
+        self.issues = list(self.issues)
+
+    @property
+    def passed(self) -> bool:
+        return not any(issue.severity == "error" for issue in self.issues)
+
+    def to_dict(self) -> dict:
+        return {
+            "candidate_id": self.candidate_id,
+            "passed": self.passed,
+            "issues": [issue.to_dict() for issue in self.issues],
+        }
+

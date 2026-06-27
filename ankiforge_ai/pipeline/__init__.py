@@ -23,8 +23,15 @@ from .models import (
     CardCandidate,
     HumanSelection,
     KnowledgePoint,
+    QualityGateResult,
+    QualityIssue,
     SourceChunk,
     SourceDocument,
+)
+from .quality_gate import (
+    run_quality_gate,
+    run_quality_gate_for_candidates,
+    validate_quality_issue,
 )
 
 __all__ = [
@@ -32,6 +39,8 @@ __all__ = [
     "HumanSelection",
     "KnowledgePoint",
     "MockKnowledgePointExtractor",
+    "QualityGateResult",
+    "QualityIssue",
     "SourceChunk",
     "SourceDocument",
     "build_candidate_id",
@@ -44,5 +53,8 @@ __all__ = [
     "extract_knowledge_points_from_chunks",
     "parse_knowledge_points_json",
     "parse_knowledge_points_payload",
+    "run_quality_gate",
+    "run_quality_gate_for_candidates",
+    "validate_quality_issue",
 ]
 
