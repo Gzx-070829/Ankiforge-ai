@@ -14,6 +14,7 @@ from .ai_extraction_service import (
     extract_knowledge_points,
     extract_knowledge_points_from_chunks as extract_ai_knowledge_points_from_chunks,
 )
+from .ai_knowledge_extractor_adapter import AIKnowledgePointExtractor
 from .card_candidates import (
     build_candidate_id,
     create_card_candidate,
@@ -94,6 +95,7 @@ __all__ = [
     "AIProviderError",
     "AIProviderMetadata",
     "AIProviderResult",
+    "AIKnowledgePointExtractor",
     "CardCandidate",
     "CardCandidatePreviewItem",
     "HumanReview",
