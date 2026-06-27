@@ -39,6 +39,7 @@ from .orchestrator import (
     PipelineRunStatus,
     PipelineRunSummary,
     PipelineRunWithStatus,
+    extract_mock_knowledge_points,
     run_full_mock_pipeline,
     run_full_mock_pipeline_with_status,
     summarize_pipeline_run,
@@ -53,12 +54,18 @@ from .quality_gate import (
     run_quality_gate_for_candidates,
     validate_quality_issue,
 )
+from .selection_bridge_adapter import (
+    KnowledgePointPreviewItem,
+    build_knowledge_point_preview_items,
+    create_selections_from_preview_choice,
+)
 
 __all__ = [
     "CardCandidate",
     "HumanReview",
     "HumanSelection",
     "KnowledgePoint",
+    "KnowledgePointPreviewItem",
     "MockKnowledgePointExtractor",
     "PipelineRunResult",
     "PipelineRunStatus",
@@ -71,6 +78,7 @@ __all__ = [
     "SourceChunk",
     "SourceDocument",
     "build_candidate_id",
+    "build_knowledge_point_preview_items",
     "build_read_only_pipeline_preview",
     "build_review_id",
     "build_selection_id",
@@ -81,6 +89,8 @@ __all__ = [
     "create_human_reviews",
     "create_human_selection",
     "create_human_selections",
+    "create_selections_from_preview_choice",
+    "extract_mock_knowledge_points",
     "extract_knowledge_points_from_chunks",
     "parse_knowledge_points_json",
     "parse_knowledge_points_payload",
