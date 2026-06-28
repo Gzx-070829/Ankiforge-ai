@@ -80,6 +80,7 @@ from .preview_adapter import (
     ReadOnlyPipelinePreviewData,
     build_read_only_pipeline_preview,
 )
+from .provider_safety_wrapper import SafeKnowledgePointJSONProvider
 from .quality_gate import (
     run_quality_gate,
     run_quality_gate_for_candidates,
@@ -119,6 +120,7 @@ __all__ = [
     "QualityReviewPreviewState",
     "ReadOnlyCardPreviewItem",
     "ReadOnlyPipelinePreviewData",
+    "SafeKnowledgePointJSONProvider",
     "SourceChunk",
     "SourceDocument",
     "WriteReadyPreviewItem",
