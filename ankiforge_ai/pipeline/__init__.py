@@ -98,6 +98,12 @@ from .provider_dry_run_summary import (
     ProviderDryRunSummary,
     create_provider_dry_run_summary,
 )
+from .provider_consent import (
+    ProviderConsentRecord,
+    ProviderSelection,
+    create_provider_consent_record,
+    create_provider_selection_from_profile,
+)
 from .provider_safety_wrapper import SafeKnowledgePointJSONProvider
 from .provider_secret_store import (
     ProviderSecretRef,
@@ -148,6 +154,8 @@ __all__ = [
     "PipelineWriteEligibility",
     "ProviderDryRunContext",
     "ProviderDryRunSummary",
+    "ProviderConsentRecord",
+    "ProviderSelection",
     "ProviderSecretRef",
     "ProviderSecretStore",
     "ProviderSecretValue",
@@ -186,7 +194,9 @@ __all__ = [
     "create_openai_compatible_knowledge_point_extractor",
     "create_openai_compatible_knowledge_point_provider",
     "create_openai_compatible_config_from_user_profile",
+    "create_provider_consent_record",
     "create_provider_dry_run_summary",
+    "create_provider_selection_from_profile",
     "create_selections_from_preview_choice",
     "extract_mock_knowledge_points",
     "extract_knowledge_points",
