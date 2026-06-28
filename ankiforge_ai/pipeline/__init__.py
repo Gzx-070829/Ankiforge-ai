@@ -75,6 +75,14 @@ from .orchestrator import (
     run_full_mock_pipeline_with_status,
     summarize_pipeline_run,
 )
+from .openai_compatible_provider import (
+    OpenAICompatibleKnowledgePointProvider,
+    OpenAICompatibleProviderConfig,
+    OpenAICompatibleTransport,
+    OpenAICompatibleTransportResponse,
+    build_chat_completions_payload,
+    build_chat_completions_url,
+)
 from .preview_adapter import (
     ReadOnlyCardPreviewItem,
     ReadOnlyPipelinePreviewData,
@@ -109,6 +117,10 @@ __all__ = [
     "KnowledgePointJSONProvider",
     "KnowledgePointPreviewItem",
     "MockKnowledgePointExtractor",
+    "OpenAICompatibleKnowledgePointProvider",
+    "OpenAICompatibleProviderConfig",
+    "OpenAICompatibleTransport",
+    "OpenAICompatibleTransportResponse",
     "PipelineRunResult",
     "PipelineRunStatus",
     "PipelineRunSummary",
@@ -125,6 +137,8 @@ __all__ = [
     "SourceDocument",
     "WriteReadyPreviewItem",
     "build_candidate_id",
+    "build_chat_completions_payload",
+    "build_chat_completions_url",
     "build_card_candidate_preview_item",
     "build_card_candidate_preview_items",
     "build_quality_review_preview_state",
