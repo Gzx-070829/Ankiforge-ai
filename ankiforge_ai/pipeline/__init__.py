@@ -83,6 +83,7 @@ from .openai_compatible_provider import (
     build_chat_completions_payload,
     build_chat_completions_url,
 )
+from .openai_compatible_http_transport import OpenAICompatibleHTTPTransport
 from .preview_adapter import (
     ReadOnlyCardPreviewItem,
     ReadOnlyPipelinePreviewData,
@@ -118,6 +119,7 @@ __all__ = [
     "KnowledgePointPreviewItem",
     "MockKnowledgePointExtractor",
     "OpenAICompatibleKnowledgePointProvider",
+    "OpenAICompatibleHTTPTransport",
     "OpenAICompatibleProviderConfig",
     "OpenAICompatibleTransport",
     "OpenAICompatibleTransportResponse",
