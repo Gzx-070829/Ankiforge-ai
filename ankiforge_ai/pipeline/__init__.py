@@ -99,6 +99,11 @@ from .provider_dry_run_summary import (
     create_provider_dry_run_summary,
 )
 from .provider_safety_wrapper import SafeKnowledgePointJSONProvider
+from .provider_secret_store import (
+    ProviderSecretRef,
+    ProviderSecretStore,
+    ProviderSecretValue,
+)
 from .user_provider_config import (
     UserProviderProfile,
     create_openai_compatible_config_from_user_profile,
@@ -143,6 +148,9 @@ __all__ = [
     "PipelineWriteEligibility",
     "ProviderDryRunContext",
     "ProviderDryRunSummary",
+    "ProviderSecretRef",
+    "ProviderSecretStore",
+    "ProviderSecretValue",
     "QualityGateResult",
     "QualityIssue",
     "QualityIssuePreviewItem",
