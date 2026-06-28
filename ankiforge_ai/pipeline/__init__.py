@@ -93,6 +93,11 @@ from .provider_factory import (
     create_openai_compatible_knowledge_point_extractor,
     create_openai_compatible_knowledge_point_provider,
 )
+from .provider_dry_run_summary import (
+    ProviderDryRunContext,
+    ProviderDryRunSummary,
+    create_provider_dry_run_summary,
+)
 from .provider_safety_wrapper import SafeKnowledgePointJSONProvider
 from .quality_gate import (
     run_quality_gate,
@@ -132,6 +137,8 @@ __all__ = [
     "PipelineRunSummary",
     "PipelineRunWithStatus",
     "PipelineWriteEligibility",
+    "ProviderDryRunContext",
+    "ProviderDryRunSummary",
     "QualityGateResult",
     "QualityIssue",
     "QualityIssuePreviewItem",
@@ -165,6 +172,7 @@ __all__ = [
     "create_human_selections",
     "create_openai_compatible_knowledge_point_extractor",
     "create_openai_compatible_knowledge_point_provider",
+    "create_provider_dry_run_summary",
     "create_selections_from_preview_choice",
     "extract_mock_knowledge_points",
     "extract_knowledge_points",
