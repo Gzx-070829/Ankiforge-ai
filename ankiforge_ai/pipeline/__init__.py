@@ -99,6 +99,10 @@ from .provider_dry_run_summary import (
     create_provider_dry_run_summary,
 )
 from .provider_safety_wrapper import SafeKnowledgePointJSONProvider
+from .user_provider_config import (
+    UserProviderProfile,
+    create_openai_compatible_config_from_user_profile,
+)
 from .quality_gate import (
     run_quality_gate,
     run_quality_gate_for_candidates,
@@ -148,6 +152,7 @@ __all__ = [
     "SafeKnowledgePointJSONProvider",
     "SourceChunk",
     "SourceDocument",
+    "UserProviderProfile",
     "WriteReadyPreviewItem",
     "build_candidate_id",
     "build_chat_completions_payload",
@@ -172,6 +177,7 @@ __all__ = [
     "create_human_selections",
     "create_openai_compatible_knowledge_point_extractor",
     "create_openai_compatible_knowledge_point_provider",
+    "create_openai_compatible_config_from_user_profile",
     "create_provider_dry_run_summary",
     "create_selections_from_preview_choice",
     "extract_mock_knowledge_points",
