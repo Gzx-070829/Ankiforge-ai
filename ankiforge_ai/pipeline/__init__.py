@@ -98,6 +98,11 @@ from .provider_dry_run_summary import (
     ProviderDryRunSummary,
     create_provider_dry_run_summary,
 )
+from .provider_dry_run_request import (
+    MAX_SOURCE_EXCERPT_PREVIEW_CHARS,
+    ProviderDryRunRequest,
+    create_provider_dry_run_request,
+)
 from .provider_consent import (
     ProviderConsentRecord,
     ProviderSelection,
@@ -153,6 +158,7 @@ __all__ = [
     "PipelineRunWithStatus",
     "PipelineWriteEligibility",
     "ProviderDryRunContext",
+    "ProviderDryRunRequest",
     "ProviderDryRunSummary",
     "ProviderConsentRecord",
     "ProviderSelection",
@@ -168,6 +174,7 @@ __all__ = [
     "SafeKnowledgePointJSONProvider",
     "SourceChunk",
     "SourceDocument",
+    "MAX_SOURCE_EXCERPT_PREVIEW_CHARS",
     "UserProviderProfile",
     "WriteReadyPreviewItem",
     "build_candidate_id",
@@ -195,6 +202,7 @@ __all__ = [
     "create_openai_compatible_knowledge_point_provider",
     "create_openai_compatible_config_from_user_profile",
     "create_provider_consent_record",
+    "create_provider_dry_run_request",
     "create_provider_dry_run_summary",
     "create_provider_selection_from_profile",
     "create_selections_from_preview_choice",
