@@ -89,6 +89,10 @@ from .preview_adapter import (
     ReadOnlyPipelinePreviewData,
     build_read_only_pipeline_preview,
 )
+from .provider_factory import (
+    create_openai_compatible_knowledge_point_extractor,
+    create_openai_compatible_knowledge_point_provider,
+)
 from .provider_safety_wrapper import SafeKnowledgePointJSONProvider
 from .quality_gate import (
     run_quality_gate,
@@ -159,6 +163,8 @@ __all__ = [
     "create_human_reviews",
     "create_human_selection",
     "create_human_selections",
+    "create_openai_compatible_knowledge_point_extractor",
+    "create_openai_compatible_knowledge_point_provider",
     "create_selections_from_preview_choice",
     "extract_mock_knowledge_points",
     "extract_knowledge_points",
