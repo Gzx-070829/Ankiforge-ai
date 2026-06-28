@@ -56,6 +56,11 @@ v0.5 provider 安全契约与离线 smoke 路径见
 继续经过 Human Selection、Quality Gate、Human Review 和用户确认，不能自动写入
 Anki。
 
+v0.5 阶段总结与 release checklist 见 `docs/pipeline_v0_5_summary.md`。开发者如需
+手动验证真实 OpenAI-compatible provider，可参考 `docs/dev_real_provider_smoke.md`；
+该 harness 是 dev-only 工具，会发送明确提供的文本，不是插件 UI 功能，也不会写入
+Anki。v0.5 尚未提供普通用户 provider selection、key storage 或 consent flow。
+
 v0.4 的架构和安全契约见 `docs/pipeline_v0_4_review_bridge.md`，Anki 手动验收
 步骤见 `docs/anki_manual_acceptance_v0_4.md`。
 
