@@ -60,8 +60,8 @@ The executor recognizes only a minimal set of structured outcomes:
 The result display is still produced by the PR7a and PR5 safe mappings. Raw
 exception messages, HTTP bodies, provider payloads, authorization headers,
 source text, prompts, and stack traces are not copied into outcomes or safe
-dictionaries. PR7c or a later PR may design a structured SDK/HTTP exception
-classifier.
+dictionaries. A structured SDK/HTTP exception classifier is deferred to a
+separate future PR, such as PR7d or v0.7; PR7b-1 and PR7c do not implement one.
 
 ## Non-Goals
 
