@@ -1,3 +1,10 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+.env
+.env.*
+config.json
+*.anki2
+*.apkg
+addons21/
+addon_backups/
