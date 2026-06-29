@@ -52,10 +52,12 @@ from ..pipeline.orchestrator import (
     run_full_mock_pipeline_with_status,
 )
 from ..pipeline.preview_adapter import build_read_only_pipeline_preview
+from ..pipeline.provider_preview import ReadOnlyProviderPreview
 from ..pipeline.selection_bridge_adapter import (
     build_knowledge_point_preview_items,
     create_selections_from_preview_choice,
 )
+from .provider_preview_dialog import ReadOnlyProviderPreviewDialog
 from .review_helpers import (
     ALL_CHUNKS_LABEL,
     cap_cards,
@@ -74,11 +76,19 @@ PROVIDER_OPTIONS = ["mock", "deepseek", "openai_compatible"]
 
 
 class MainDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, provider_preview=None):
         super().__init__(parent)
+        if provider_preview is not None and not isinstance(
+            provider_preview,
+            ReadOnlyProviderPreview,
+        ):
+            raise ValueError(
+                "provider_preview must be ReadOnlyProviderPreview or None."
+            )
         self.setWindowTitle("AnkiForge AI")
         self.resize(780, 520)
 
+        self._provider_preview = provider_preview
         self.cards = []
         self.checkboxes = []
         self.chunks = []
@@ -131,7 +141,13 @@ class MainDialog(QDialog):
         self.settings_summary_label = QLabel()
         self.settings_toggle_btn = QPushButton("展开设置")
         self.settings_toggle_btn.clicked.connect(self.toggle_settings)
+        self.provider_preview_btn = QPushButton("新 Pipeline Provider 只读预览")
+        self.provider_preview_btn.setToolTip(
+            "只显示显式注入的新 pipeline 安全投影；不读取或验证旧 API key。"
+        )
+        self.provider_preview_btn.clicked.connect(self.show_provider_preview)
         settings_header.addWidget(self.settings_summary_label, stretch=1)
+        settings_header.addWidget(self.provider_preview_btn)
         settings_header.addWidget(self.settings_toggle_btn)
         layout.addLayout(settings_header)
 
@@ -263,6 +279,9 @@ class MainDialog(QDialog):
         outcome = run_full_mock_pipeline_with_status(self.file_path)
         preview_data = build_read_only_pipeline_preview(outcome)
         ReadOnlyPipelinePreviewDialog(preview_data, self).exec()
+
+    def show_provider_preview(self):
+        ReadOnlyProviderPreviewDialog(self._provider_preview, self).exec()
 
     def show_knowledge_point_selection(self):
         if not self.file_path:
