@@ -103,6 +103,11 @@ from .provider_error_display import (
     ProviderErrorKind,
     create_provider_error_display,
 )
+from .provider_preview import (
+    ProviderDryRunRequestPreview,
+    ReadOnlyProviderPreview,
+    build_read_only_provider_preview,
+)
 from .provider_dry_run_request import (
     MAX_SOURCE_EXCERPT_PREVIEW_CHARS,
     ProviderDryRunRequest,
@@ -167,6 +172,7 @@ __all__ = [
     "ProviderDryRunSummary",
     "ProviderErrorDisplay",
     "ProviderErrorKind",
+    "ProviderDryRunRequestPreview",
     "ProviderConsentRecord",
     "ProviderSelection",
     "ProviderSecretRef",
@@ -178,6 +184,7 @@ __all__ = [
     "QualityReviewPreviewState",
     "ReadOnlyCardPreviewItem",
     "ReadOnlyPipelinePreviewData",
+    "ReadOnlyProviderPreview",
     "SafeKnowledgePointJSONProvider",
     "SourceChunk",
     "SourceDocument",
@@ -194,6 +201,7 @@ __all__ = [
     "build_knowledge_point_extraction_request",
     "build_pipeline_write_eligibility",
     "build_read_only_pipeline_preview",
+    "build_read_only_provider_preview",
     "build_review_id",
     "build_selection_id",
     "build_write_ready_preview_item",
