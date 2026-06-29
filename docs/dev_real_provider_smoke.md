@@ -2,27 +2,39 @@
 
 ## Safety Notice
 
-This is a **developer-only manual verification tool**. It is not a normal user
-entry point and is not an Anki plugin UI feature.
+This is a **developer-only manual verification tool**. It is not a normal-user
+entry point, a provider-settings feature, or an Anki plugin UI capability.
 
-- A real run sends the supplied text to the configured provider.
+- A real run sends the explicitly supplied preview to the configured provider.
 - It does not write to Anki or generate a final Anki card.
 - It does not run as part of the automated test suite.
 - Never commit an API key, paste one into source code, or add one to a fixture.
-- Real API use, privacy, availability, and cost risks remain the developer's
+- Real API privacy, availability, and cost risks remain the developer's
   responsibility.
 
-The harness stops at `KnowledgePointExtractionOutcome` and displays a safe
-`ProviderDryRunSummary`. Human Selection, Quality Gate, Human Review, write
-eligibility, and Anki writing are not performed.
+The v0.6 harness constructs `UserProviderProfile`, `ProviderSelection`,
+`ProviderConsentRecord`, `ProviderDryRunRequest`, and
+`ProviderDryRunExecutionInput`. It then uses the PR7b-1 executor through the
+PR7a consent boundary and stops at `ProviderDryRunExecutionResult` for
+KnowledgePoint extraction.
 
-## Set a Temporary API Key
+It does not generate `CardCandidate` or `HumanReview` values, modify
+`self.cards`, call a writer, or create an Anki note. Any future product path
+must still pass through Human Selection, Quality Gate, Human Review, Write
+Eligibility, duplicate checks, and final human confirmation.
 
-The key is accepted only through the temporary environment variable
-`ANKIFORGE_DEV_API_KEY`. Do not pass a key as a command-line argument.
+## Temporary API Key
 
-In PowerShell, use a hidden prompt and convert the value only for the current
-process:
+The harness accepts a key only through the temporary environment variable
+`ANKIFORGE_DEV_API_KEY`. It does not accept a command-line key.
+
+The environment variable and the harness's private one-shot memory adapter are
+not a formal key-storage solution. They do not encrypt the key. Python strings
+cannot be reliably cleared from memory, and debuggers or crash dumps may still
+observe runtime values. The harness minimizes references but cannot guarantee
+memory erasure.
+
+In PowerShell, use a hidden prompt for the current process:
 
 ```powershell
 $secureKey = Read-Host "Temporary API key" -AsSecureString
@@ -34,11 +46,12 @@ try {
 }
 ```
 
+This does not modify Anki configuration or legacy `config.json`, and it does
+not migrate an existing key.
+
 ## Run Manually
 
-Run from the repository root and supply every provider setting explicitly.
-Replace the example URL and identifiers with values from the provider's
-official documentation:
+Run from the repository root and explicitly provide every provider setting:
 
 ```powershell
 python -m scripts.dev_real_provider_smoke `
@@ -49,33 +62,43 @@ python -m scripts.dev_real_provider_smoke `
   --confirm-send
 ```
 
-The built-in sample is short and non-private. A different short input can be
-passed with `--text`, but the harness will not echo the complete source text.
-File input is deliberately unsupported.
+`--confirm-send` is mandatory. Without it, the harness does not read the API
+key, create a transport or executor, or call a provider.
 
-Both the API key environment variable and `--confirm-send` are required before
-the transport can be called. A successful run exits with code `0`; provider
-failure exits with code `1`; missing consent, missing key, or invalid arguments
-exit with code `2`.
+The built-in text is short and non-private. `--text` replaces it with one
+explicit source preview. The preview is limited to 500 characters by the v0.6
+request contract. Longer input fails safely and is never truncated or sent.
+File, clipboard, UI, Anki deck, Obsidian, and full-source input are deliberately
+unsupported.
 
-Output is restricted to provider/model display data, safe extraction status,
-knowledge-point count, safe error information, `will_write_to_anki=False`, and
-knowledge-point titles. It does not print Authorization, the API key, raw JSON,
-the complete source text, response bodies, or original exception messages.
+After confirmation and key validation, the dev-only harness explicitly creates
+the real HTTP transport. Automatic tests always inject a fake transport and
+block network access.
+
+A successful run exits with code `0`; a safely represented provider failure
+exits with code `1`; missing confirmation, missing key, or invalid input exits
+with code `2`.
+
+Output is limited to provider/model display data, KnowledgePoint extraction
+status, count, fixed safe error-display fields, write-disabled status, and
+no provider-generated content. It never prints knowledge-point titles, the
+key, Authorization header, source preview, prompt, raw JSON, response body,
+stack trace, or original exception message.
 
 ## Clean Up
 
-Remove the temporary environment variable after the manual smoke:
+Remove the temporary environment variable immediately after the manual run:
 
 ```powershell
 Remove-Item Env:ANKIFORGE_DEV_API_KEY
 ```
 
-If a call fails, inspect the safe dry-run summary. Do not add raw response or
-credential logging while troubleshooting.
+Do not add raw provider logging while troubleshooting. Use only the fixed safe
+error display.
 
 ## Not Implemented
 
-The harness does not provide UI consent, config/key storage, provider presets,
-retry/backoff, rate-limit handling, token/cost accounting, card generation,
-review workflow integration, or Anki writing.
+This harness does not provide ordinary-user provider UI, formal key storage,
+provider presets, retry/backoff, token or cost accounting, card generation,
+review workflow integration, or Anki writing. PR7c or a later PR may design a
+structured SDK/HTTP exception classifier; PR7b-2 does not implement one.
