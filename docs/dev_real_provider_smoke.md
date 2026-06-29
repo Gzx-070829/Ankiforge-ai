@@ -100,5 +100,6 @@ error display.
 
 This harness does not provide ordinary-user provider UI, formal key storage,
 provider presets, retry/backoff, token or cost accounting, card generation,
-review workflow integration, or Anki writing. PR7c or a later PR may design a
-structured SDK/HTTP exception classifier; PR7b-2 does not implement one.
+review workflow integration, or Anki writing. A structured SDK/HTTP exception
+classifier is deferred to a separate future PR, such as PR7d or v0.7; PR7b-2
+and PR7c do not implement one.
