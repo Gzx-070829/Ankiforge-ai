@@ -115,6 +115,10 @@ from .provider_preview import (
     ReadOnlyProviderPreview,
     build_read_only_provider_preview,
 )
+from .provider_real_dry_run import (
+    OpenAICompatibleProviderDryRunExecutor,
+    execute_openai_compatible_provider_dry_run_with_boundary,
+)
 from .provider_dry_run_request import (
     MAX_SOURCE_EXCERPT_PREVIEW_CHARS,
     ProviderDryRunRequest,
@@ -167,6 +171,7 @@ __all__ = [
     "OpenAICompatibleKnowledgePointProvider",
     "OpenAICompatibleHTTPTransport",
     "OpenAICompatibleProviderConfig",
+    "OpenAICompatibleProviderDryRunExecutor",
     "OpenAICompatibleTransport",
     "OpenAICompatibleTransportResponse",
     "PipelineRunResult",
@@ -234,6 +239,7 @@ __all__ = [
     "create_provider_selection_from_profile",
     "create_selections_from_preview_choice",
     "extract_mock_knowledge_points",
+    "execute_openai_compatible_provider_dry_run_with_boundary",
     "execute_provider_dry_run_with_boundary",
     "extract_knowledge_points",
     "extract_ai_knowledge_points_from_chunks",
