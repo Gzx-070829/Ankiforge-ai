@@ -98,6 +98,13 @@ from .provider_dry_run_summary import (
     ProviderDryRunSummary,
     create_provider_dry_run_summary,
 )
+from .provider_dry_run_execution import (
+    ProviderDryRunExecutionInput,
+    ProviderDryRunExecutionResult,
+    ProviderDryRunExecutor,
+    ProviderDryRunExecutorOutcome,
+    execute_provider_dry_run_with_boundary,
+)
 from .provider_error_display import (
     ProviderErrorDisplay,
     ProviderErrorKind,
@@ -168,6 +175,10 @@ __all__ = [
     "PipelineRunWithStatus",
     "PipelineWriteEligibility",
     "ProviderDryRunContext",
+    "ProviderDryRunExecutionInput",
+    "ProviderDryRunExecutionResult",
+    "ProviderDryRunExecutor",
+    "ProviderDryRunExecutorOutcome",
     "ProviderDryRunRequest",
     "ProviderDryRunSummary",
     "ProviderErrorDisplay",
@@ -223,6 +234,7 @@ __all__ = [
     "create_provider_selection_from_profile",
     "create_selections_from_preview_choice",
     "extract_mock_knowledge_points",
+    "execute_provider_dry_run_with_boundary",
     "extract_knowledge_points",
     "extract_ai_knowledge_points_from_chunks",
     "extract_knowledge_points_from_chunks",
