@@ -1,6 +1,7 @@
 """Qt editor for one non-persistent, non-sensitive provider profile draft."""
 
 from aqt.qt import (
+    QApplication,
     QDialog,
     QFormLayout,
     QGroupBox,
@@ -8,8 +9,10 @@ from aqt.qt import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QScrollArea,
     QTextEdit,
     QVBoxLayout,
+    QWidget,
 )
 
 from .provider_profile_draft_helpers import (
@@ -19,6 +22,9 @@ from .provider_profile_draft_helpers import (
 )
 from .provider_profile_draft_preview_adapter import (
     build_provider_profile_draft_read_only_preview,
+)
+from .provider_profile_draft_disclosure_adapter import (
+    build_provider_profile_draft_send_disclosure,
 )
 
 
@@ -32,7 +38,7 @@ class ProviderProfileDraftDialog(QDialog):
 
         initial = draft or ProviderProfileDraftInput()
         self.setWindowTitle("新 Pipeline Provider 本地草稿预览")
-        self.resize(760, 620)
+        self._set_screen_bounded_size()
 
         layout = QVBoxLayout(self)
         notice = QLabel(
@@ -42,6 +48,11 @@ class ProviderProfileDraftDialog(QDialog):
         notice.setWordWrap(True)
         notice.setStyleSheet("font-weight: bold;")
         layout.addWidget(notice)
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_content = QWidget()
+        content_layout = QVBoxLayout(scroll_content)
 
         form_group = QGroupBox("非敏感 Provider 草稿")
         form = QFormLayout(form_group)
@@ -63,7 +74,7 @@ class ProviderProfileDraftDialog(QDialog):
         target_stage_label = QLabel(PROVIDER_PROFILE_DRAFT_TARGET_STAGE)
         target_stage_label.setStyleSheet("font-family: monospace;")
         form.addRow("Target stage（固定）:", target_stage_label)
-        layout.addWidget(form_group)
+        content_layout.addWidget(form_group)
 
         preview_group = QGroupBox("Provider 安全信息")
         preview_layout = QVBoxLayout(preview_group)
@@ -72,11 +83,32 @@ class ProviderProfileDraftDialog(QDialog):
         preview_layout.addWidget(self.preview_status_label)
         self.profile_preview_form = QFormLayout()
         preview_layout.addLayout(self.profile_preview_form)
-        layout.addWidget(preview_group)
+        content_layout.addWidget(preview_group)
 
         safety_group = QGroupBox("草稿安全状态")
         self.safety_form = QFormLayout(safety_group)
-        layout.addWidget(safety_group)
+        content_layout.addWidget(safety_group)
+
+        self.disclosure_group = QGroupBox("未来发送披露（仅说明，不授权）")
+        disclosure_layout = QVBoxLayout(self.disclosure_group)
+        self.disclosure_summary_label = QLabel()
+        self.disclosure_summary_label.setWordWrap(True)
+        self.disclosure_summary_label.setStyleSheet("font-weight: bold;")
+        disclosure_layout.addWidget(self.disclosure_summary_label)
+
+        current_group = QGroupBox("当前本地操作")
+        self.current_disclosure_form = QFormLayout(current_group)
+        disclosure_layout.addWidget(current_group)
+
+        future_group = QGroupBox("未来真实 Provider 流程")
+        self.future_disclosure_form = QFormLayout(future_group)
+        disclosure_layout.addWidget(future_group)
+        self.disclosure_group.setVisible(False)
+        content_layout.addWidget(self.disclosure_group)
+        content_layout.addStretch()
+
+        scroll_area.setWidget(scroll_content)
+        layout.addWidget(scroll_area, 1)
 
         button_row = QHBoxLayout()
         button_row.addStretch()
@@ -88,9 +120,20 @@ class ProviderProfileDraftDialog(QDialog):
         button_row.addWidget(close_btn)
         layout.addLayout(button_row)
 
-        self._render_read_only_preview(
-            self._adapt_draft_for_preview(initial)
-        )
+        self._render_draft(initial)
+
+    def _set_screen_bounded_size(self):
+        screen = QApplication.primaryScreen()
+        if screen is None:
+            self.resize(900, 680)
+            self.setMaximumHeight(720)
+            return
+
+        available = screen.availableGeometry()
+        width = min(900, max(1, available.width() - 80))
+        height = min(680, max(1, available.height() - 80))
+        self.resize(width, height)
+        self.setMaximumHeight(available.height())
 
     def update_local_preview(self):
         draft = ProviderProfileDraftInput(
@@ -99,9 +142,13 @@ class ProviderProfileDraftDialog(QDialog):
             base_url=self.base_url_input.text(),
             privacy_notice=self.privacy_notice_input.toPlainText(),
         )
-        self._render_read_only_preview(
-            self._adapt_draft_for_preview(draft)
-        )
+        self._render_draft(draft)
+
+    def _render_draft(self, draft):
+        preview = self._adapt_draft_for_preview(draft)
+        disclosure = build_provider_profile_draft_send_disclosure(preview)
+        self._render_read_only_preview(preview)
+        self._render_send_disclosure(disclosure)
 
     @staticmethod
     def _adapt_draft_for_preview(draft):
@@ -131,6 +178,25 @@ class ProviderProfileDraftDialog(QDialog):
             value_label = QLabel(row.value)
             value_label.setWordWrap(True)
             self.safety_form.addRow(f"{row.label}:", value_label)
+
+    def _render_send_disclosure(self, disclosure):
+        self._clear_form(self.current_disclosure_form)
+        self._clear_form(self.future_disclosure_form)
+        if disclosure is None:
+            self.disclosure_summary_label.clear()
+            self.disclosure_group.setVisible(False)
+            return
+
+        self.disclosure_summary_label.setText(disclosure.summary_message)
+        for row in disclosure.current_rows:
+            value_label = QLabel(row.value)
+            value_label.setWordWrap(True)
+            self.current_disclosure_form.addRow(f"{row.label}:", value_label)
+        for row in disclosure.future_rows:
+            value_label = QLabel(row.value)
+            value_label.setWordWrap(True)
+            self.future_disclosure_form.addRow(f"{row.label}:", value_label)
+        self.disclosure_group.setVisible(True)
 
     @staticmethod
     def _clear_form(form):
