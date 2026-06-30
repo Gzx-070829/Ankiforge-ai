@@ -57,6 +57,7 @@ from ..pipeline.selection_bridge_adapter import (
     build_knowledge_point_preview_items,
     create_selections_from_preview_choice,
 )
+from .provider_profile_draft_dialog import ProviderProfileDraftDialog
 from .provider_preview_dialog import ReadOnlyProviderPreviewDialog
 from .review_helpers import (
     ALL_CHUNKS_LABEL,
@@ -141,12 +142,22 @@ class MainDialog(QDialog):
         self.settings_summary_label = QLabel()
         self.settings_toggle_btn = QPushButton("展开设置")
         self.settings_toggle_btn.clicked.connect(self.toggle_settings)
+        self.provider_draft_preview_btn = QPushButton(
+            "新 Pipeline Provider 本地草稿预览"
+        )
+        self.provider_draft_preview_btn.setToolTip(
+            "仅编辑当前弹窗中的非敏感草稿；不保存、不发送、不调用 provider。"
+        )
+        self.provider_draft_preview_btn.clicked.connect(
+            self.show_provider_profile_draft_preview
+        )
         self.provider_preview_btn = QPushButton("新 Pipeline Provider 只读预览")
         self.provider_preview_btn.setToolTip(
             "只显示显式注入的新 pipeline 安全投影；不读取或验证旧 API key。"
         )
         self.provider_preview_btn.clicked.connect(self.show_provider_preview)
         settings_header.addWidget(self.settings_summary_label, stretch=1)
+        settings_header.addWidget(self.provider_draft_preview_btn)
         settings_header.addWidget(self.provider_preview_btn)
         settings_header.addWidget(self.settings_toggle_btn)
         layout.addLayout(settings_header)
@@ -282,6 +293,9 @@ class MainDialog(QDialog):
 
     def show_provider_preview(self):
         ReadOnlyProviderPreviewDialog(self._provider_preview, self).exec()
+
+    def show_provider_profile_draft_preview(self):
+        ProviderProfileDraftDialog(parent=self).exec()
 
     def show_knowledge_point_selection(self):
         if not self.file_path:
