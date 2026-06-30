@@ -17,6 +17,9 @@ from .provider_profile_draft_helpers import (
     ProviderProfileDraftInput,
     build_provider_profile_draft_view_data,
 )
+from .provider_profile_draft_preview_adapter import (
+    build_provider_profile_draft_read_only_preview,
+)
 
 
 class ProviderProfileDraftDialog(QDialog):
@@ -62,7 +65,7 @@ class ProviderProfileDraftDialog(QDialog):
         form.addRow("Target stage（固定）:", target_stage_label)
         layout.addWidget(form_group)
 
-        preview_group = QGroupBox("本地草稿预览")
+        preview_group = QGroupBox("Provider 安全信息")
         preview_layout = QVBoxLayout(preview_group)
         self.preview_status_label = QLabel()
         self.preview_status_label.setWordWrap(True)
@@ -71,7 +74,7 @@ class ProviderProfileDraftDialog(QDialog):
         preview_layout.addLayout(self.profile_preview_form)
         layout.addWidget(preview_group)
 
-        safety_group = QGroupBox("固定安全边界")
+        safety_group = QGroupBox("草稿安全状态")
         self.safety_form = QFormLayout(safety_group)
         layout.addWidget(safety_group)
 
@@ -85,7 +88,9 @@ class ProviderProfileDraftDialog(QDialog):
         button_row.addWidget(close_btn)
         layout.addLayout(button_row)
 
-        self._render_view_data(build_provider_profile_draft_view_data(initial))
+        self._render_read_only_preview(
+            self._adapt_draft_for_preview(initial)
+        )
 
     def update_local_preview(self):
         draft = ProviderProfileDraftInput(
@@ -94,31 +99,35 @@ class ProviderProfileDraftDialog(QDialog):
             base_url=self.base_url_input.text(),
             privacy_notice=self.privacy_notice_input.toPlainText(),
         )
-        self._render_view_data(build_provider_profile_draft_view_data(draft))
+        self._render_read_only_preview(
+            self._adapt_draft_for_preview(draft)
+        )
 
-    def _render_view_data(self, view_data):
+    @staticmethod
+    def _adapt_draft_for_preview(draft):
+        view_data = build_provider_profile_draft_view_data(draft)
+        return build_provider_profile_draft_read_only_preview(view_data)
+
+    def _render_read_only_preview(self, preview):
         self._clear_form(self.profile_preview_form)
         self._clear_form(self.safety_form)
 
-        if view_data.is_empty:
-            self.preview_status_label.setText(view_data.empty_state_message)
-        elif view_data.is_valid:
+        if preview.validation_errors:
             self.preview_status_label.setText(
-                "草稿格式有效；仍未保存、未激活、未调用 provider。"
-            )
-        else:
-            self.preview_status_label.setText(
-                "本地校验未通过：\n"
+                preview.summary_message
+                + "\n"
                 + "\n".join(
-                    f"• {error.message}" for error in view_data.validation_errors
+                    f"• {error.message}" for error in preview.validation_errors
                 )
             )
+        else:
+            self.preview_status_label.setText(preview.summary_message)
 
-        for row in view_data.profile_rows:
+        for row in preview.provider_rows:
             value_label = QLabel(row.value)
             value_label.setWordWrap(True)
             self.profile_preview_form.addRow(f"{row.label}:", value_label)
-        for row in view_data.safety_rows:
+        for row in preview.status_rows:
             value_label = QLabel(row.value)
             value_label.setWordWrap(True)
             self.safety_form.addRow(f"{row.label}:", value_label)
