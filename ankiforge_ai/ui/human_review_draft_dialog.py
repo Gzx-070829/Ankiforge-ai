@@ -21,6 +21,7 @@ from .human_review_draft_helpers import (
     allowed_human_review_draft_decisions,
     build_human_review_decision_draft_view_data,
 )
+from .human_review_preview_adapter import build_local_human_review_preview
 
 
 class HumanReviewDecisionDraftDialog(QDialog):
@@ -87,6 +88,16 @@ class HumanReviewDecisionDraftDialog(QDialog):
         safety_group = QGroupBox("审核草稿安全边界")
         self.safety_form = QFormLayout(safety_group)
         content_layout.addWidget(safety_group)
+
+        self.local_preview_group = QGroupBox("本地 HumanReview 预览（不写入）")
+        local_preview_layout = QVBoxLayout(self.local_preview_group)
+        self.local_preview_summary_label = QLabel()
+        self.local_preview_summary_label.setWordWrap(True)
+        local_preview_layout.addWidget(self.local_preview_summary_label)
+        self.local_preview_form = QFormLayout()
+        local_preview_layout.addLayout(self.local_preview_form)
+        self.local_preview_group.setVisible(False)
+        content_layout.addWidget(self.local_preview_group)
         content_layout.addStretch()
 
         scroll_area.setWidget(scroll_content)
@@ -97,6 +108,9 @@ class HumanReviewDecisionDraftDialog(QDialog):
         self.update_btn = QPushButton("更新审核草稿（仅本地）")
         self.update_btn.clicked.connect(self.update_local_draft)
         button_row.addWidget(self.update_btn)
+        self.preview_btn = QPushButton("生成本地 HumanReview 预览（不写入）")
+        self.preview_btn.clicked.connect(self.generate_local_human_review_preview)
+        button_row.addWidget(self.preview_btn)
         close_btn = QPushButton("关闭")
         close_btn.clicked.connect(self.reject)
         button_row.addWidget(close_btn)
@@ -124,9 +138,11 @@ class HumanReviewDecisionDraftDialog(QDialog):
             self.decision_combo.setEnabled(False)
             self.reviewer_note_input.setEnabled(False)
             self.update_btn.setEnabled(False)
+            self.preview_btn.setEnabled(False)
             self._render_view(
                 build_human_review_decision_draft_view_data(None)
             )
+            self._render_local_human_review_preview(None)
             return
 
         stored = self._drafts.get(
@@ -137,6 +153,7 @@ class HumanReviewDecisionDraftDialog(QDialog):
         self._set_decision_choices(view_data, stored.decision)
         self.reviewer_note_input.setPlainText(stored.reviewer_note)
         self._render_view(view_data)
+        self._render_local_human_review_preview(None)
 
     def update_local_draft(self):
         candidate = self._current_candidate()
@@ -151,6 +168,23 @@ class HumanReviewDecisionDraftDialog(QDialog):
         if view_data.is_valid:
             self._drafts[candidate.candidate_id] = draft
         self._render_view(view_data)
+        self._render_local_human_review_preview(None)
+
+    def generate_local_human_review_preview(self):
+        candidate = self._current_candidate()
+        if candidate is None:
+            return
+        draft = HumanReviewDecisionDraftInput(
+            candidate_id=candidate.candidate_id,
+            decision=self.decision_combo.currentText(),
+            reviewer_note=self.reviewer_note_input.toPlainText(),
+        )
+        view_data = build_human_review_decision_draft_view_data(candidate, draft)
+        preview = build_local_human_review_preview(view_data, draft)
+        if view_data.is_valid:
+            self._drafts[candidate.candidate_id] = draft
+        self._render_view(view_data)
+        self._render_local_human_review_preview(preview)
 
     def _set_decision_choices(self, view_data, selected):
         decisions = allowed_human_review_draft_decisions(view_data)
@@ -181,6 +215,35 @@ class HumanReviewDecisionDraftDialog(QDialog):
         if index < 0 or index >= len(self._preview_items):
             return None
         return self._preview_items[index]
+
+    def _render_local_human_review_preview(self, preview):
+        self._clear_form(self.local_preview_form)
+        if preview is None:
+            self.local_preview_summary_label.clear()
+            self.local_preview_group.setVisible(False)
+            return
+
+        if preview.validation_errors:
+            summary = "本地 HumanReview 预览无效。\n" + "\n".join(
+                f"• {error}" for error in preview.validation_errors
+            )
+        else:
+            summary = "这是本地 HumanReview 预览；不会形成写入授权。"
+        self.local_preview_summary_label.setText(summary)
+        values = (
+            ("Candidate ID", preview.candidate_id),
+            ("Review decision", preview.review_decision),
+            ("Reviewer note excerpt", preview.reviewer_note_excerpt or "（空）"),
+            ("Reviewer note length", str(preview.reviewer_note_length)),
+            ("Quality status", preview.quality_status),
+            ("Locally valid", "是" if preview.is_locally_valid else "否"),
+        )
+        for label, value in values:
+            value_label = QLabel(value)
+            value_label.setWordWrap(True)
+            self.local_preview_form.addRow(f"{label}:", value_label)
+        self._add_rows(self.local_preview_form, preview.safety_rows)
+        self.local_preview_group.setVisible(True)
 
     @staticmethod
     def _add_rows(form, rows):

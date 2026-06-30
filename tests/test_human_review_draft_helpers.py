@@ -218,7 +218,7 @@ class HumanReviewDraftHelperTests(unittest.TestCase):
             self.assertNotIn(forbidden_name, imported_names)
             self.assertNotIn(forbidden_name, called_names)
 
-    def test_dialog_has_only_local_update_and_close_buttons(self):
+    def test_dialog_has_only_local_draft_preview_and_close_buttons(self):
         path = self.repo_root() / "ankiforge_ai" / "ui" / (
             "human_review_draft_dialog.py"
         )
@@ -235,7 +235,14 @@ class HumanReviewDraftHelperTests(unittest.TestCase):
             and isinstance(node.args[0].value, str)
         }
 
-        self.assertEqual(button_labels, {"更新审核草稿（仅本地）", "关闭"})
+        self.assertEqual(
+            button_labels,
+            {
+                "更新审核草稿（仅本地）",
+                "生成本地 HumanReview 预览（不写入）",
+                "关闭",
+            },
+        )
         self.assertIn("self._drafts = {}", source)
         self.assertNotIn("self.cards", source)
         self.assertNotIn("add_to_anki", source)
