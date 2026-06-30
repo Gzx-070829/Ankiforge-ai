@@ -51,6 +51,9 @@ from ..pipeline.orchestrator import (
     extract_mock_knowledge_points,
     run_full_mock_pipeline_with_status,
 )
+from ..pipeline.card_candidate_preview_adapter import (
+    build_card_candidate_preview_items,
+)
 from ..pipeline.preview_adapter import build_read_only_pipeline_preview
 from ..pipeline.provider_preview import ReadOnlyProviderPreview
 from ..pipeline.selection_bridge_adapter import (
@@ -59,6 +62,7 @@ from ..pipeline.selection_bridge_adapter import (
 )
 from .provider_profile_draft_dialog import ProviderProfileDraftDialog
 from .provider_preview_dialog import ReadOnlyProviderPreviewDialog
+from .human_review_draft_dialog import HumanReviewDecisionDraftDialog
 from .review_helpers import (
     ALL_CHUNKS_LABEL,
     cap_cards,
@@ -115,10 +119,18 @@ class MainDialog(QDialog):
         self.knowledge_selection_btn = QPushButton("Mock 知识点选择")
         self.knowledge_selection_btn.setEnabled(False)
         self.knowledge_selection_btn.clicked.connect(self.show_knowledge_point_selection)
+        self.human_review_draft_btn = QPushButton("Human Review 决策草稿")
+        self.human_review_draft_btn.setToolTip(
+            "仅使用离线 mock pipeline 候选形成当前弹窗内的审核草稿；不写入 Anki。"
+        )
+        self.human_review_draft_btn.clicked.connect(
+            self.show_human_review_decision_draft
+        )
         file_row.addWidget(self.file_label, stretch=1)
         file_row.addWidget(pick_btn)
         file_row.addWidget(self.pipeline_preview_btn)
         file_row.addWidget(self.knowledge_selection_btn)
+        file_row.addWidget(self.human_review_draft_btn)
         layout.addLayout(file_row)
 
         # --- chunk selector row ---
@@ -296,6 +308,17 @@ class MainDialog(QDialog):
 
     def show_provider_profile_draft_preview(self):
         ProviderProfileDraftDialog(parent=self).exec()
+
+    def show_human_review_decision_draft(self):
+        preview_items = ()
+        if self.file_path:
+            outcome = run_full_mock_pipeline_with_status(self.file_path)
+            if outcome.result is not None:
+                preview_items = build_card_candidate_preview_items(
+                    outcome.result.card_candidates,
+                    outcome.result.quality_results,
+                )
+        HumanReviewDecisionDraftDialog(preview_items, self).exec()
 
     def show_knowledge_point_selection(self):
         if not self.file_path:
