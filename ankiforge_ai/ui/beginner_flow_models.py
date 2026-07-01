@@ -1,7 +1,9 @@
 """Pure-Python state and copy models for the beginner read-only walkthrough."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field, fields
 from enum import Enum
+import re
 from types import MappingProxyType
 from typing import Mapping, Optional
 
@@ -45,21 +47,21 @@ BEGINNER_STEP_COPY: Mapping[BeginnerFlowStep, BeginnerStepCopy] = MappingProxyTy
         ),
         BeginnerFlowStep.INSPECT_RECOGNITION: BeginnerStepCopy(
             title="查看系统识别了什么",
-            description="查看材料预览，理解未来识别结果会如何呈现，再继续。",
+            description="查看当前材料经离线演练规则识别出的知识点，再继续。",
             primary_action="查看识别结果",
             empty_state="尚无材料预览。请先输入学习材料。",
         ),
         BeginnerFlowStep.CHOOSE_KNOWLEDGE_POINTS: BeginnerStepCopy(
             title="选择要制卡的知识点",
-            description="了解未来如何从识别结果中挑选值得制卡的知识点。",
+            description="从刚才的离线识别结果中挑选本次想继续查看的知识点。",
             primary_action="确认知识点选择",
-            empty_state="本次说明尚未产生知识点选择。",
+            empty_state="当前材料没有可选知识点。请返回并调整材料。",
         ),
         BeginnerFlowStep.REVIEW_CANDIDATE_CARDS: BeginnerStepCopy(
             title="审核候选卡",
-            description="了解未来如何检查候选卡的问答、来源和质量提示。",
+            description="检查由已选知识点生成的只读候选卡预览。",
             primary_action="开始人工审核",
-            empty_state="本次说明尚未产生候选卡或审核结果。",
+            empty_state="还没有选择知识点。请先回到上一步选择你想制卡的内容。",
         ),
         BeginnerFlowStep.CHECK_BEFORE_WRITE: BeginnerStepCopy(
             title="查看距离真正写入还缺哪些条件",
@@ -95,13 +97,13 @@ BEGINNER_GUIDE_STEP_NOTES: Mapping[BeginnerFlowStep, str] = MappingProxyType(
             "请在下方输入或粘贴学习材料。内容只保留在当前窗口。"
         ),
         BeginnerFlowStep.INSPECT_RECOGNITION: (
-            "本步骤只展示材料预览，尚未分析或识别真实知识点。"
+            "当前使用离线演练识别，不会联网，也不会调用 AI。"
         ),
         BeginnerFlowStep.CHOOSE_KNOWLEDGE_POINTS: (
-            "本步骤只提供流程说明，尚未产生知识点选择。"
+            "勾选的知识点只保留在当前窗口，并会传递到候选卡预览。"
         ),
         BeginnerFlowStep.REVIEW_CANDIDATE_CARDS: (
-            "本步骤只提供流程说明，尚未产生候选卡或审核结果。"
+            "这些候选卡来自你刚才选择的知识点。"
         ),
         BeginnerFlowStep.CHECK_BEFORE_WRITE: (
             "本步骤只解释未来还需检查的事项，尚未产生授权。"
@@ -172,6 +174,42 @@ class BeginnerArtifactState(str, Enum):
     CLEARED = "cleared"
 
 
+@dataclass(frozen=True, repr=False)
+class BeginnerKnowledgePointPreview:
+    """A disposable, non-pipeline knowledge-point preview."""
+
+    id: str
+    title: str
+    explanation: str
+    source_excerpt: str
+
+    def __repr__(self) -> str:
+        return (
+            "BeginnerKnowledgePointPreview("
+            f"id={self.id!r}, title_chars={len(self.title)}, "
+            f"source_chars={len(self.source_excerpt)})"
+        )
+
+
+@dataclass(frozen=True, repr=False)
+class BeginnerCandidateCardPreview:
+    """A disposable card-shaped preview that cannot be written anywhere."""
+
+    id: str
+    knowledge_point_id: str
+    front_preview: str
+    back_preview: str
+    source_excerpt: str
+
+    def __repr__(self) -> str:
+        return (
+            "BeginnerCandidateCardPreview("
+            f"id={self.id!r}, knowledge_point_id={self.knowledge_point_id!r}, "
+            f"front_chars={len(self.front_preview)}, "
+            f"back_chars={len(self.back_preview)})"
+        )
+
+
 @dataclass
 class BeginnerFlowSession:
     """In-memory navigation state for one non-persistent walkthrough."""
@@ -179,12 +217,29 @@ class BeginnerFlowSession:
     current_step: BeginnerFlowStep = BeginnerFlowStep.SELECT_MATERIAL
     material_text: str = field(default="", repr=False)
     material_revision: int = 0
+    recognition_revision: int = 0
     knowledge_selection_revision: int = 0
     candidate_revision: int = 0
     review_revision: int = 0
     selected_knowledge_point_count: int = 0
     candidate_count: int = 0
     reviewed_candidate_count: int = 0
+    recognized_knowledge_points: tuple[BeginnerKnowledgePointPreview, ...] = field(
+        default_factory=tuple,
+        repr=False,
+    )
+    selected_knowledge_point_ids: tuple[str, ...] = field(
+        default_factory=tuple,
+        repr=False,
+    )
+    candidate_card_previews: tuple[BeginnerCandidateCardPreview, ...] = field(
+        default_factory=tuple,
+        repr=False,
+    )
+    candidate_review_decisions: dict[str, str] = field(
+        default_factory=dict,
+        repr=False,
+    )
     recognition_state: BeginnerArtifactState = BeginnerArtifactState.EMPTY
     knowledge_selection_state: BeginnerArtifactState = BeginnerArtifactState.EMPTY
     candidate_cards_state: BeginnerArtifactState = BeginnerArtifactState.EMPTY
@@ -255,6 +310,7 @@ class BeginnerFlowSession:
         self.material_text = text
         self.material_revision += 1
         self.current_step = BeginnerFlowStep.SELECT_MATERIAL
+        self.recognized_knowledge_points = ()
         self.recognition_state = (
             BeginnerArtifactState.CLEARED
             if had_material
@@ -270,6 +326,7 @@ class BeginnerFlowSession:
             self.material_revision += 1
         self.material_text = ""
         self.current_step = BeginnerFlowStep.SELECT_MATERIAL
+        self.recognized_knowledge_points = ()
         self.recognition_state = BeginnerArtifactState.CLEARED
         self._clear_from_knowledge_selection("material_cleared")
 
@@ -279,8 +336,39 @@ class BeginnerFlowSession:
         self._ensure_open()
         if not self.material_text.strip():
             raise ValueError("material text must not be empty.")
-        self.recognition_state = BeginnerArtifactState.EMPTY
+        self.refresh_mock_recognition_from_material()
+
+    def refresh_mock_recognition_from_material(
+        self,
+        max_points: int = 6,
+    ) -> tuple[BeginnerKnowledgePointPreview, ...]:
+        """Build deterministic previews from only the current in-memory material."""
+
+        self._ensure_open()
+        if isinstance(max_points, bool) or not isinstance(max_points, int):
+            raise ValueError("max_points must be a positive integer.")
+        if max_points < 1:
+            raise ValueError("max_points must be a positive integer.")
+
+        fragments = tuple(
+            fragment.strip()
+            for fragment in re.split(r"[。！？；.!?;\r\n]+", self.material_text)
+            if fragment.strip()
+        )[:max_points]
+        self.recognized_knowledge_points = tuple(
+            BeginnerKnowledgePointPreview(
+                id=f"kp-{index}",
+                title=self._shorten(fragment, 36),
+                explanation=f"这段材料主要在说明：{self._shorten(fragment, 90)}",
+                source_excerpt=self._shorten(fragment, 140),
+            )
+            for index, fragment in enumerate(fragments, start=1)
+        )
+        self.recognition_revision += 1
+        self.recognition_state = BeginnerArtifactState.CURRENT
+        self._clear_from_knowledge_selection("recognition_refreshed")
         self.current_step = BeginnerFlowStep.INSPECT_RECOGNITION
+        return self.recognized_knowledge_points
 
     def advance_guide(self) -> None:
         """Advance explanatory navigation without creating pipeline artifacts."""
@@ -298,10 +386,110 @@ class BeginnerFlowSession:
 
     def mark_recognition_inspected(self) -> None:
         self._ensure_open()
-        if self.material_revision == 0:
-            raise ValueError("material must be selected before recognition is inspected.")
+        if self.recognition_state is not BeginnerArtifactState.CURRENT:
+            raise ValueError("recognition must be current before it is inspected.")
         self.recognition_state = BeginnerArtifactState.CURRENT
         self.current_step = BeginnerFlowStep.CHOOSE_KNOWLEDGE_POINTS
+
+    def select_knowledge_points(self, ids: Sequence[str]) -> None:
+        """Store a validated selection and invalidate every derived preview."""
+
+        self._ensure_open()
+        if isinstance(ids, (str, bytes)) or not isinstance(ids, Sequence):
+            raise ValueError("ids must be a sequence of knowledge-point ids.")
+        if self.recognition_state is not BeginnerArtifactState.CURRENT:
+            raise ValueError("recognition must be current before knowledge selection.")
+        if any(not isinstance(item, str) for item in ids):
+            raise ValueError("knowledge-point ids must be strings.")
+        known_ids = {point.id for point in self.recognized_knowledge_points}
+        requested_ids = tuple(dict.fromkeys(ids))
+        unknown_ids = set(requested_ids) - known_ids
+        if unknown_ids:
+            raise ValueError("unknown knowledge-point id.")
+
+        ordered_ids = tuple(
+            point.id
+            for point in self.recognized_knowledge_points
+            if point.id in requested_ids
+        )
+        if (
+            self.knowledge_selection_state is BeginnerArtifactState.CURRENT
+            and ordered_ids == self.selected_knowledge_point_ids
+        ):
+            self.current_step = BeginnerFlowStep.REVIEW_CANDIDATE_CARDS
+            return
+
+        self.knowledge_selection_revision += 1
+        self.selected_knowledge_point_ids = ordered_ids
+        self.selected_knowledge_point_count = len(ordered_ids)
+        self.knowledge_selection_state = BeginnerArtifactState.CURRENT
+        self._clear_from_candidates("knowledge_selection_changed")
+        self.current_step = BeginnerFlowStep.REVIEW_CANDIDATE_CARDS
+
+    def clear_knowledge_point_selection(self) -> None:
+        self._ensure_open()
+        self.knowledge_selection_revision += 1
+        self._clear_from_knowledge_selection("knowledge_selection_cleared")
+        self.current_step = BeginnerFlowStep.CHOOSE_KNOWLEDGE_POINTS
+
+    def build_candidate_previews_from_selection(
+        self,
+    ) -> tuple[BeginnerCandidateCardPreview, ...]:
+        """Build card-shaped previews solely from the current selected IDs."""
+
+        self._ensure_open()
+        if self.knowledge_selection_state is not BeginnerArtifactState.CURRENT:
+            raise ValueError("knowledge selection must be current before candidates.")
+        selected_ids = set(self.selected_knowledge_point_ids)
+        selected_points = tuple(
+            point
+            for point in self.recognized_knowledge_points
+            if point.id in selected_ids
+        )
+        self.candidate_card_previews = tuple(
+            BeginnerCandidateCardPreview(
+                id=f"candidate-{point.id}",
+                knowledge_point_id=point.id,
+                front_preview=f"如何理解「{point.title}」？",
+                back_preview=point.explanation,
+                source_excerpt=point.source_excerpt,
+            )
+            for point in selected_points
+        )
+        self.candidate_revision += 1
+        self.candidate_count = len(self.candidate_card_previews)
+        self.candidate_cards_state = BeginnerArtifactState.CURRENT
+        self._clear_from_review("candidate_previews_rebuilt")
+        self.current_step = BeginnerFlowStep.REVIEW_CANDIDATE_CARDS
+        return self.candidate_card_previews
+
+    def set_candidate_review_decision(
+        self,
+        candidate_id: str,
+        decision: Optional[str],
+    ) -> None:
+        """Update one disposable review marker and invalidate later previews."""
+
+        self._ensure_open()
+        candidate_ids = {item.id for item in self.candidate_card_previews}
+        if candidate_id not in candidate_ids:
+            raise ValueError("unknown candidate preview id.")
+        if decision is not None and decision not in {"reviewed", "needs_revision"}:
+            raise ValueError("unsupported candidate review decision.")
+        if decision is None:
+            self.candidate_review_decisions.pop(candidate_id, None)
+        else:
+            self.candidate_review_decisions[candidate_id] = decision
+        self.review_revision += 1
+        self.reviewed_candidate_count = len(self.candidate_review_decisions)
+        self.review_state = BeginnerArtifactState.CURRENT
+        self._clear_prewrite_previews("candidate_review_changed")
+
+    def clear_candidate_review(self) -> None:
+        self._ensure_open()
+        self.review_revision += 1
+        self._clear_from_review("candidate_review_cleared")
+        self.current_step = BeginnerFlowStep.REVIEW_CANDIDATE_CARDS
 
     def change_knowledge_selection(self, selected_count: int) -> None:
         self._ensure_open()
@@ -309,6 +497,7 @@ class BeginnerFlowSession:
         if self.recognition_state is not BeginnerArtifactState.CURRENT:
             raise ValueError("recognition must be current before knowledge selection.")
         self.knowledge_selection_revision += 1
+        self.selected_knowledge_point_ids = ()
         self.selected_knowledge_point_count = selected_count
         self.knowledge_selection_state = BeginnerArtifactState.CURRENT
         self._clear_from_candidates("knowledge_selection_changed")
@@ -320,6 +509,7 @@ class BeginnerFlowSession:
         if self.knowledge_selection_state is not BeginnerArtifactState.CURRENT:
             raise ValueError("knowledge selection must be current before candidates.")
         self.candidate_revision += 1
+        self.candidate_card_previews = ()
         self.candidate_count = candidate_count
         self.candidate_cards_state = BeginnerArtifactState.CURRENT
         self._clear_from_review("candidate_cards_changed")
@@ -379,12 +569,17 @@ class BeginnerFlowSession:
         self.current_step = BeginnerFlowStep.SELECT_MATERIAL
         self.material_text = ""
         self.material_revision = 0
+        self.recognition_revision = 0
         self.knowledge_selection_revision = 0
         self.candidate_revision = 0
         self.review_revision = 0
         self.selected_knowledge_point_count = 0
         self.candidate_count = 0
         self.reviewed_candidate_count = 0
+        self.recognized_knowledge_points = ()
+        self.selected_knowledge_point_ids = ()
+        self.candidate_card_previews = ()
+        self.candidate_review_decisions.clear()
         self.recognition_state = BeginnerArtifactState.EMPTY
         self.knowledge_selection_state = BeginnerArtifactState.EMPTY
         self.candidate_cards_state = BeginnerArtifactState.EMPTY
@@ -412,12 +607,19 @@ class BeginnerFlowSession:
             "material_present": bool(self.material_text),
             "material_char_count": self.material_char_count,
             "material_revision": self.material_revision,
+            "recognition_revision": self.recognition_revision,
             "knowledge_selection_revision": self.knowledge_selection_revision,
             "candidate_revision": self.candidate_revision,
             "review_revision": self.review_revision,
             "selected_knowledge_point_count": self.selected_knowledge_point_count,
             "candidate_count": self.candidate_count,
             "reviewed_candidate_count": self.reviewed_candidate_count,
+            "recognized_knowledge_point_count": len(
+                self.recognized_knowledge_points
+            ),
+            "candidate_review_decision_count": len(
+                self.candidate_review_decisions
+            ),
             "recognition_state": self.recognition_state.value,
             "knowledge_selection_state": self.knowledge_selection_state.value,
             "candidate_cards_state": self.candidate_cards_state.value,
@@ -437,21 +639,25 @@ class BeginnerFlowSession:
         return tuple(item.name for item in fields(cls))
 
     def _clear_from_recognition(self, reason: str) -> None:
+        self.recognized_knowledge_points = ()
         self.recognition_state = BeginnerArtifactState.CLEARED
         self._clear_from_knowledge_selection(reason)
 
     def _clear_from_knowledge_selection(self, reason: str) -> None:
         self.knowledge_selection_state = BeginnerArtifactState.CLEARED
+        self.selected_knowledge_point_ids = ()
         self.selected_knowledge_point_count = 0
         self._clear_from_candidates(reason)
 
     def _clear_from_candidates(self, reason: str) -> None:
         self.candidate_cards_state = BeginnerArtifactState.CLEARED
+        self.candidate_card_previews = ()
         self.candidate_count = 0
         self._clear_from_review(reason)
 
     def _clear_from_review(self, reason: str) -> None:
         self.review_state = BeginnerArtifactState.CLEARED
+        self.candidate_review_decisions.clear()
         self.reviewed_candidate_count = 0
         self._clear_prewrite_previews(reason)
 
@@ -469,3 +675,10 @@ class BeginnerFlowSession:
     def _validate_count(value: int, name: str) -> None:
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
             raise ValueError(f"{name} must be a non-negative integer.")
+
+    @staticmethod
+    def _shorten(text: str, max_chars: int) -> str:
+        normalized = " ".join(text.split())
+        if len(normalized) <= max_chars:
+            return normalized
+        return normalized[: max_chars - 1].rstrip() + "…"
