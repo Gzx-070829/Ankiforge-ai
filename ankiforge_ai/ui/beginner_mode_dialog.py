@@ -1,6 +1,7 @@
 """In-memory Qt guide for the v0.9 beginner mode."""
 
 from aqt.qt import (
+    QCheckBox,
     QDialog,
     QGroupBox,
     QHBoxLayout,
@@ -94,12 +95,24 @@ class BeginnerModeDialog(QDialog):
         material_layout.addLayout(material_footer)
         layout.addWidget(self.material_group)
 
-        self.preview_group = QGroupBox("材料预览")
+        self.preview_group = QGroupBox("材料预览与离线识别")
         preview_layout = QVBoxLayout(self.preview_group)
         self.material_preview_label = QLabel()
         self.material_preview_label.setWordWrap(True)
         preview_layout.addWidget(self.material_preview_label)
+        self.recognition_list_layout = QVBoxLayout()
+        preview_layout.addLayout(self.recognition_list_layout)
         layout.addWidget(self.preview_group)
+
+        self.knowledge_group = QGroupBox("选择要制卡的知识点")
+        self.knowledge_layout = QVBoxLayout(self.knowledge_group)
+        self.knowledge_checkboxes = {}
+        layout.addWidget(self.knowledge_group)
+
+        self.candidate_group = QGroupBox("审核候选卡")
+        self.candidate_layout = QVBoxLayout(self.candidate_group)
+        self.candidate_review_checkboxes = {}
+        layout.addWidget(self.candidate_group)
 
         self.completion_group = QGroupBox("本次演练终点")
         completion_layout = QVBoxLayout(self.completion_group)
@@ -141,6 +154,22 @@ class BeginnerModeDialog(QDialog):
             return
         if self.session.current_step is BeginnerFlowStep.SELECT_MATERIAL:
             self.session.select_material()
+        elif self.session.current_step is BeginnerFlowStep.INSPECT_RECOGNITION:
+            self.session.mark_recognition_inspected()
+        elif self.session.current_step is BeginnerFlowStep.CHOOSE_KNOWLEDGE_POINTS:
+            selected_ids = tuple(
+                point_id
+                for point_id, checkbox in self.knowledge_checkboxes.items()
+                if checkbox.isChecked()
+            )
+            self.session.select_knowledge_points(selected_ids)
+            self.session.build_candidate_previews_from_selection()
+        elif self.session.current_step is BeginnerFlowStep.REVIEW_CANDIDATE_CARDS:
+            self.session.change_review_decision(
+                len(self.session.candidate_review_decisions)
+            )
+        elif self.session.current_step is BeginnerFlowStep.CHECK_BEFORE_WRITE:
+            self.session.mark_prewrite_check_inspected()
         else:
             self.session.advance_guide()
         self._render_current_step()
@@ -179,9 +208,13 @@ class BeginnerModeDialog(QDialog):
 
         is_material_step = step is BeginnerFlowStep.SELECT_MATERIAL
         is_preview_step = step is BeginnerFlowStep.INSPECT_RECOGNITION
+        is_knowledge_step = step is BeginnerFlowStep.CHOOSE_KNOWLEDGE_POINTS
+        is_candidate_step = step is BeginnerFlowStep.REVIEW_CANDIDATE_CARDS
         is_complete = step is BeginnerFlowStep.COMPLETED_NO_WRITE
         self.material_group.setVisible(is_material_step)
         self.preview_group.setVisible(is_preview_step)
+        self.knowledge_group.setVisible(is_knowledge_step)
+        self.candidate_group.setVisible(is_candidate_step)
         self.completion_group.setVisible(is_complete)
         self.clear_material_btn.setEnabled(bool(self.session.material_text))
         self.back_btn.setEnabled(not is_material_step)
@@ -195,6 +228,99 @@ class BeginnerModeDialog(QDialog):
             self.material_preview_label.setText(
                 f"共 {self.session.material_char_count} 字符\n\n{preview}"
             )
+            self._render_recognition_results()
+        if is_knowledge_step:
+            self._render_knowledge_selection()
+        if is_candidate_step:
+            self._render_candidate_previews()
+
+    def _render_recognition_results(self):
+        self._clear_layout(self.recognition_list_layout)
+        if not self.session.recognized_knowledge_points:
+            self.recognition_list_layout.addWidget(
+                QLabel("当前材料没有识别出可展示的知识点。")
+            )
+            return
+        for index, point in enumerate(
+            self.session.recognized_knowledge_points,
+            start=1,
+        ):
+            label = QLabel(
+                f"{index}. {point.title}\n"
+                f"说明：{point.explanation}\n"
+                f"材料片段：{point.source_excerpt}"
+            )
+            label.setWordWrap(True)
+            self.recognition_list_layout.addWidget(label)
+
+    def _render_knowledge_selection(self):
+        self._clear_layout(self.knowledge_layout)
+        self.knowledge_checkboxes = {}
+        if not self.session.recognized_knowledge_points:
+            empty_label = QLabel(
+                BEGINNER_STEP_COPY[
+                    BeginnerFlowStep.CHOOSE_KNOWLEDGE_POINTS
+                ].empty_state
+            )
+            empty_label.setWordWrap(True)
+            self.knowledge_layout.addWidget(empty_label)
+            return
+        selected_ids = set(self.session.selected_knowledge_point_ids)
+        for point in self.session.recognized_knowledge_points:
+            checkbox = QCheckBox(f"{point.title}\n{point.explanation}")
+            checkbox.setChecked(point.id in selected_ids)
+            self.knowledge_checkboxes[point.id] = checkbox
+            self.knowledge_layout.addWidget(checkbox)
+
+    def _render_candidate_previews(self):
+        self._clear_layout(self.candidate_layout)
+        self.candidate_review_checkboxes = {}
+        source_note = QLabel("这些候选卡来自你刚才选择的知识点。")
+        source_note.setWordWrap(True)
+        self.candidate_layout.addWidget(source_note)
+        if not self.session.candidate_card_previews:
+            empty_label = QLabel(
+                "还没有选择知识点。请先回到上一步选择你想制卡的内容。"
+            )
+            empty_label.setWordWrap(True)
+            self.candidate_layout.addWidget(empty_label)
+            return
+        for candidate in self.session.candidate_card_previews:
+            card_group = QGroupBox("候选卡预览")
+            card_layout = QVBoxLayout(card_group)
+            content = QLabel(
+                f"问题预览：{candidate.front_preview}\n"
+                f"回答预览：{candidate.back_preview}\n"
+                f"材料来源：{candidate.source_excerpt}"
+            )
+            content.setWordWrap(True)
+            card_layout.addWidget(content)
+            reviewed = QCheckBox("我已检查这张候选卡")
+            reviewed.setChecked(
+                candidate.id in self.session.candidate_review_decisions
+            )
+            reviewed.stateChanged.connect(
+                lambda state, candidate_id=candidate.id: (
+                    self._on_candidate_review_changed(candidate_id, bool(state))
+                )
+            )
+            self.candidate_review_checkboxes[candidate.id] = reviewed
+            card_layout.addWidget(reviewed)
+            self.candidate_layout.addWidget(card_group)
+
+    def _on_candidate_review_changed(self, candidate_id, checked):
+        self.session.set_candidate_review_decision(
+            candidate_id,
+            "reviewed" if checked else None,
+        )
+
+    @staticmethod
+    def _clear_layout(layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
 
     def _discard_session(self):
         self.material_input.blockSignals(True)
