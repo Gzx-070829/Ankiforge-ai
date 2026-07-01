@@ -1,6 +1,6 @@
 """Pure-Python state and copy models for the beginner read-only walkthrough."""
 
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields
 from enum import Enum
 from types import MappingProxyType
 from typing import Mapping, Optional
@@ -45,21 +45,21 @@ BEGINNER_STEP_COPY: Mapping[BeginnerFlowStep, BeginnerStepCopy] = MappingProxyTy
         ),
         BeginnerFlowStep.INSPECT_RECOGNITION: BeginnerStepCopy(
             title="查看系统识别了什么",
-            description="查看系统从材料中识别出的章节和知识内容，先理解结果再继续。",
+            description="查看材料预览，理解未来识别结果会如何呈现，再继续。",
             primary_action="查看识别结果",
-            empty_state="尚无识别结果。请先选择学习材料。",
+            empty_state="尚无材料预览。请先输入学习材料。",
         ),
         BeginnerFlowStep.CHOOSE_KNOWLEDGE_POINTS: BeginnerStepCopy(
             title="选择要制卡的知识点",
-            description="从识别结果中选择值得进一步生成候选卡的知识点。",
+            description="了解未来如何从识别结果中挑选值得制卡的知识点。",
             primary_action="确认知识点选择",
-            empty_state="尚未选择知识点。未选择的内容不会进入后续审核。",
+            empty_state="本次说明尚未产生知识点选择。",
         ),
         BeginnerFlowStep.REVIEW_CANDIDATE_CARDS: BeginnerStepCopy(
             title="审核候选卡",
-            description="逐张检查候选卡的问答、来源和质量提示，并记录人工审核决定。",
+            description="了解未来如何检查候选卡的问答、来源和质量提示。",
             primary_action="开始人工审核",
-            empty_state="尚无候选卡可审核。请先确认知识点选择。",
+            empty_state="本次说明尚未产生候选卡或审核结果。",
         ),
         BeginnerFlowStep.CHECK_BEFORE_WRITE: BeginnerStepCopy(
             title="查看距离真正写入还缺哪些条件",
@@ -89,6 +89,39 @@ BEGINNER_SAFETY_STATUS_COPY = (
 )
 
 
+BEGINNER_GUIDE_STEP_NOTES: Mapping[BeginnerFlowStep, str] = MappingProxyType(
+    {
+        BeginnerFlowStep.SELECT_MATERIAL: (
+            "请在下方输入或粘贴学习材料。内容只保留在当前窗口。"
+        ),
+        BeginnerFlowStep.INSPECT_RECOGNITION: (
+            "本步骤只展示材料预览，尚未分析或识别真实知识点。"
+        ),
+        BeginnerFlowStep.CHOOSE_KNOWLEDGE_POINTS: (
+            "本步骤只提供流程说明，尚未产生知识点选择。"
+        ),
+        BeginnerFlowStep.REVIEW_CANDIDATE_CARDS: (
+            "本步骤只提供流程说明，尚未产生候选卡或审核结果。"
+        ),
+        BeginnerFlowStep.CHECK_BEFORE_WRITE: (
+            "本步骤只解释未来还需检查的事项，尚未产生授权。"
+        ),
+        BeginnerFlowStep.COMPLETED_NO_WRITE: BEGINNER_STEP_COPY[
+            BeginnerFlowStep.COMPLETED_NO_WRITE
+        ].description,
+    }
+)
+
+
+BEGINNER_GUIDE_SAFETY_COPY = (
+    "当前是离线只读演练",
+    "不会联网",
+    "不会调用 AI",
+    "不会写入 Anki",
+    "关闭后丢弃本次内容",
+)
+
+
 BEGINNER_TERM_COPY: Mapping[str, str] = MappingProxyType(
     {
         "Human Review": "人工审核",
@@ -107,6 +140,9 @@ REVIEW_STATE_EXPLANATIONS: Mapping[str, str] = MappingProxyType(
         "approved": "仅表示当前人工审核草稿通过，不代表写入授权。",
         "eligible": "仅表示预览中的条件看起来满足，不代表写入授权。",
         "ready_preview": "仅表示未来写入方式的只读预览可展示，不代表写入授权。",
+        "ready_for_future_confirmation": (
+            "仅表示可以解释未来仍需确认的事项，不代表写入授权。"
+        ),
     }
 )
 
@@ -138,9 +174,10 @@ class BeginnerArtifactState(str, Enum):
 
 @dataclass
 class BeginnerFlowSession:
-    """Content-free, in-memory navigation state for one walkthrough."""
+    """In-memory navigation state for one non-persistent walkthrough."""
 
     current_step: BeginnerFlowStep = BeginnerFlowStep.SELECT_MATERIAL
+    material_text: str = field(default="", repr=False)
     material_revision: int = 0
     knowledge_selection_revision: int = 0
     candidate_revision: int = 0
@@ -192,16 +229,72 @@ class BeginnerFlowSession:
     def persistent(self) -> bool:
         return False
 
-    def select_material(self) -> None:
-        """Select or change material without accepting a path or source content."""
+    @property
+    def material_char_count(self) -> int:
+        return len(self.material_text)
+
+    def material_preview(self, max_chars: int = 300) -> str:
+        if isinstance(max_chars, bool) or not isinstance(max_chars, int):
+            raise ValueError("max_chars must be an integer of at least 4.")
+        if max_chars < 4:
+            raise ValueError("max_chars must be an integer of at least 4.")
+        if len(self.material_text) <= max_chars:
+            return self.material_text
+        return self.material_text[: max_chars - 3].rstrip() + "..."
+
+    def update_material(self, text: str) -> None:
+        """Keep material in memory and clear results derived from older text."""
 
         self._ensure_open()
-        is_change = self.material_revision > 0
+        if not isinstance(text, str):
+            raise ValueError("material text must be a string.")
+        if text == self.material_text:
+            return
+
+        had_material = bool(self.material_text)
+        self.material_text = text
         self.material_revision += 1
+        self.current_step = BeginnerFlowStep.SELECT_MATERIAL
+        self.recognition_state = (
+            BeginnerArtifactState.CLEARED
+            if had_material
+            else BeginnerArtifactState.EMPTY
+        )
+        self._clear_from_knowledge_selection("material_changed")
+
+    def clear_material(self) -> None:
+        """Remove in-memory material and every result derived from it."""
+
+        self._ensure_open()
+        if self.material_text:
+            self.material_revision += 1
+        self.material_text = ""
+        self.current_step = BeginnerFlowStep.SELECT_MATERIAL
+        self.recognition_state = BeginnerArtifactState.CLEARED
+        self._clear_from_knowledge_selection("material_cleared")
+
+    def select_material(self) -> None:
+        """Confirm that non-empty in-memory material may be previewed."""
+
+        self._ensure_open()
+        if not self.material_text.strip():
+            raise ValueError("material text must not be empty.")
         self.recognition_state = BeginnerArtifactState.EMPTY
-        if is_change:
-            self._clear_from_knowledge_selection("material_changed")
         self.current_step = BeginnerFlowStep.INSPECT_RECOGNITION
+
+    def advance_guide(self) -> None:
+        """Advance explanatory navigation without creating pipeline artifacts."""
+
+        self._ensure_open()
+        if self.current_step is BeginnerFlowStep.COMPLETED_NO_WRITE:
+            raise ValueError("the beginner guide is already complete.")
+        if (
+            self.current_step is BeginnerFlowStep.SELECT_MATERIAL
+            and not self.material_text.strip()
+        ):
+            raise ValueError("material text must not be empty.")
+        current_index = BEGINNER_FLOW_STEP_ORDER.index(self.current_step)
+        self.current_step = BEGINNER_FLOW_STEP_ORDER[current_index + 1]
 
     def mark_recognition_inspected(self) -> None:
         self._ensure_open()
@@ -284,6 +377,7 @@ class BeginnerFlowSession:
         """Discard every in-memory result and make this session unusable."""
 
         self.current_step = BeginnerFlowStep.SELECT_MATERIAL
+        self.material_text = ""
         self.material_revision = 0
         self.knowledge_selection_revision = 0
         self.candidate_revision = 0
@@ -315,6 +409,8 @@ class BeginnerFlowSession:
             "anki_collection_access_allowed": self.anki_collection_access_allowed,
             "anki_write_allowed": self.anki_write_allowed,
             "persistent": self.persistent,
+            "material_present": bool(self.material_text),
+            "material_char_count": self.material_char_count,
             "material_revision": self.material_revision,
             "knowledge_selection_revision": self.knowledge_selection_revision,
             "candidate_revision": self.candidate_revision,

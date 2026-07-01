@@ -6,6 +6,7 @@ from pathlib import Path
 from ankiforge_ai.ui.beginner_flow_models import (
     ADVANCED_WORKBENCH_WARNING,
     BEGINNER_FLOW_STEP_ORDER,
+    BEGINNER_GUIDE_SAFETY_COPY,
     BEGINNER_SAFETY_STATUS_COPY,
     BEGINNER_STEP_COPY,
     BEGINNER_TERM_COPY,
@@ -32,6 +33,8 @@ class BeginnerFlowModelTests(unittest.TestCase):
         self.assertFalse(session.anki_collection_access_allowed)
         self.assertFalse(session.anki_write_allowed)
         self.assertFalse(session.persistent)
+        self.assertEqual(session.material_text, "")
+        self.assertEqual(session.material_char_count, 0)
 
     def test_step_order_is_stable(self):
         self.assertEqual(
@@ -50,6 +53,7 @@ class BeginnerFlowModelTests(unittest.TestCase):
         session = BeginnerFlowSession()
         visited = [session.current_step]
 
+        session.update_material("机器学习笔记")
         session.select_material()
         visited.append(session.current_step)
         session.mark_recognition_inspected()
@@ -94,6 +98,17 @@ class BeginnerFlowModelTests(unittest.TestCase):
         ):
             self.assertIn(expected, combined)
 
+        self.assertEqual(
+            BEGINNER_GUIDE_SAFETY_COPY,
+            (
+                "当前是离线只读演练",
+                "不会联网",
+                "不会调用 AI",
+                "不会写入 Anki",
+                "关闭后丢弃本次内容",
+            ),
+        )
+
     def test_completion_copy_is_safe_and_exact(self):
         copy = "\n".join((COMPLETION_TITLE, COMPLETION_SUMMARY, *COMPLETION_FACTS))
 
@@ -118,7 +133,12 @@ class BeginnerFlowModelTests(unittest.TestCase):
     def test_review_states_never_imply_authorization(self):
         self.assertEqual(
             set(REVIEW_STATE_EXPLANATIONS),
-            {"approved", "eligible", "ready_preview"},
+            {
+                "approved",
+                "eligible",
+                "ready_preview",
+                "ready_for_future_confirmation",
+            },
         )
         for state, explanation in REVIEW_STATE_EXPLANATIONS.items():
             with self.subTest(state=state):
@@ -127,15 +147,39 @@ class BeginnerFlowModelTests(unittest.TestCase):
     def test_material_change_clears_all_downstream_state(self):
         session = self.completed_session()
 
-        session.select_material()
+        session.update_material("更新后的材料")
 
-        self.assertEqual(session.current_step, BeginnerFlowStep.INSPECT_RECOGNITION)
-        self.assertEqual(session.recognition_state, BeginnerArtifactState.EMPTY)
+        self.assertEqual(session.current_step, BeginnerFlowStep.SELECT_MATERIAL)
+        self.assertEqual(session.recognition_state, BeginnerArtifactState.CLEARED)
         self.assert_downstream_cleared(session)
         self.assertEqual(session.selected_knowledge_point_count, 0)
         self.assertEqual(session.candidate_count, 0)
         self.assertEqual(session.reviewed_candidate_count, 0)
         self.assertEqual(session.last_clearing_reason, "material_changed")
+
+    def test_material_text_count_and_preview_are_in_memory(self):
+        session = BeginnerFlowSession()
+        material = "第一段\n" + "知识" * 200
+
+        session.update_material(material)
+
+        self.assertEqual(session.material_text, material)
+        self.assertEqual(session.material_char_count, len(material))
+        self.assertEqual(session.material_preview(20)[-3:], "...")
+        self.assertLessEqual(len(session.material_preview(20)), 20)
+        self.assertEqual(session.material_preview(len(material)), material)
+
+    def test_clear_material_discards_text_and_clears_downstream(self):
+        session = self.completed_session()
+
+        session.clear_material()
+
+        self.assertEqual(session.material_text, "")
+        self.assertEqual(session.material_char_count, 0)
+        self.assertEqual(session.current_step, BeginnerFlowStep.SELECT_MATERIAL)
+        self.assertEqual(session.recognition_state, BeginnerArtifactState.CLEARED)
+        self.assert_downstream_cleared(session)
+        self.assertEqual(session.last_clearing_reason, "material_cleared")
 
     def test_knowledge_selection_change_clears_candidates_and_downstream(self):
         session = self.completed_session()
@@ -192,6 +236,8 @@ class BeginnerFlowModelTests(unittest.TestCase):
         self.assertTrue(session.closed)
         self.assertEqual(session.current_step, BeginnerFlowStep.SELECT_MATERIAL)
         self.assertEqual(session.material_revision, 0)
+        self.assertEqual(session.material_text, "")
+        self.assertEqual(session.material_char_count, 0)
         self.assertEqual(session.selected_knowledge_point_count, 0)
         self.assertEqual(session.candidate_count, 0)
         self.assertEqual(session.reviewed_candidate_count, 0)
@@ -225,6 +271,7 @@ class BeginnerFlowModelTests(unittest.TestCase):
 
     def test_session_shape_has_no_sensitive_or_runtime_objects(self):
         field_names = set(BeginnerFlowSession.public_field_names())
+        self.assertIn("material_text", field_names)
         for forbidden in (
             "api_key",
             "provider_config",
@@ -251,13 +298,18 @@ class BeginnerFlowModelTests(unittest.TestCase):
             "private candidate back",
             "private reviewer note",
         )
+        session.update_material(secrets[0])
 
         rendered = repr(session) + json.dumps(session.to_safe_dict())
 
         for secret in secrets:
             self.assertNotIn(secret, rendered)
-        self.assertEqual(session.to_safe_dict()["candidate_count"], 2)
-        self.assertEqual(session.to_safe_dict()["reviewed_candidate_count"], 2)
+        self.assertTrue(session.to_safe_dict()["material_present"])
+        self.assertEqual(
+            session.to_safe_dict()["material_char_count"],
+            len(secrets[0]),
+        )
+        self.assertNotIn("material_text", session.to_safe_dict())
 
     def test_module_has_no_forbidden_runtime_imports_or_calls(self):
         path = self.repo_root() / "ankiforge_ai" / "ui" / "beginner_flow_models.py"
@@ -315,6 +367,7 @@ class BeginnerFlowModelTests(unittest.TestCase):
     @staticmethod
     def completed_session():
         session = BeginnerFlowSession()
+        session.update_material("机器学习笔记")
         session.select_material()
         session.mark_recognition_inspected()
         session.change_knowledge_selection(2)
