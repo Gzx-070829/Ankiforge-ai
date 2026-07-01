@@ -242,6 +242,7 @@ class HumanReviewDraftHelperTests(unittest.TestCase):
                 "生成本地 HumanReview 预览（不写入）",
                 "生成 Write Eligibility 只读摘要（不写入）",
                 "生成只读 Write Plan 预览（不写入）",
+                "生成最终确认契约预览（不写入）",
                 "关闭",
             },
         )
