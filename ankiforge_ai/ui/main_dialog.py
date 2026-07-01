@@ -63,6 +63,8 @@ from ..pipeline.selection_bridge_adapter import (
 from .provider_profile_draft_dialog import ProviderProfileDraftDialog
 from .provider_preview_dialog import ReadOnlyProviderPreviewDialog
 from .human_review_draft_dialog import HumanReviewDecisionDraftDialog
+from .beginner_flow_models import ADVANCED_WORKBENCH_WARNING
+from .beginner_mode_dialog import BeginnerModeDialog
 from .review_helpers import (
     ALL_CHUNKS_LABEL,
     cap_cards,
@@ -98,15 +100,61 @@ class MainDialog(QDialog):
         self.checkboxes = []
         self.chunks = []
         self.file_path = None
-        self.config = load_config()
         self.generation_in_progress = False
         self.settings_collapsed = True
         self.current_generation_label = ALL_CHUNKS_LABEL
+        self._legacy_workbench_built = False
 
         self._build_ui()
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
+
+        beginner_group = QGroupBox("新手模式（推荐）")
+        beginner_group.setStyleSheet("QGroupBox { font-weight: bold; }")
+        beginner_layout = QVBoxLayout(beginner_group)
+        beginner_description = QLabel(
+            "离线只读演练：带你理解从学习材料到候选卡审核的流程。"
+            "本模式不会联网、不会调用 AI 服务、不会写入 Anki。"
+        )
+        beginner_description.setWordWrap(True)
+        beginner_layout.addWidget(beginner_description)
+        self.beginner_entry_btn = QPushButton("开始新手模式")
+        self.beginner_entry_btn.clicked.connect(self.show_beginner_mode)
+        beginner_layout.addWidget(self.beginner_entry_btn)
+        layout.addWidget(beginner_group)
+
+        legacy_group = QGroupBox("旧版工作台（高级）")
+        legacy_group.setToolTip(ADVANCED_WORKBENCH_WARNING)
+        legacy_layout = QVBoxLayout(legacy_group)
+        legacy_description = QLabel(
+            "这里保留开发/调试功能，可能包含真实 Provider 设置或旧版添加到 Anki "
+            "入口。请确认你理解风险后再进入。"
+        )
+        legacy_description.setWordWrap(True)
+        legacy_description.setStyleSheet("color: gray;")
+        legacy_layout.addWidget(legacy_description)
+        self.legacy_entry_btn = QPushButton("打开旧版工作台")
+        self.legacy_entry_btn.clicked.connect(self.show_legacy_workbench)
+        legacy_layout.addWidget(self.legacy_entry_btn)
+        layout.addWidget(legacy_group)
+
+        self.legacy_workbench_container = QWidget()
+        self.legacy_workbench_container.setVisible(False)
+        layout.addWidget(self.legacy_workbench_container, 1)
+
+    def show_beginner_mode(self):
+        BeginnerModeDialog(parent=self).exec()
+
+    def show_legacy_workbench(self):
+        if not self._legacy_workbench_built:
+            self._build_legacy_workbench()
+        self.legacy_workbench_container.setVisible(True)
+        self.legacy_entry_btn.setEnabled(False)
+
+    def _build_legacy_workbench(self):
+        self.config = load_config()
+        layout = QVBoxLayout(self.legacy_workbench_container)
 
         # --- file picker row ---
         file_row = QHBoxLayout()
@@ -282,6 +330,7 @@ class MainDialog(QDialog):
         add_btn.clicked.connect(self.add_to_anki)
         bottom_row.addWidget(add_btn)
         layout.addLayout(bottom_row)
+        self._legacy_workbench_built = True
 
     def pick_file(self):
         path, _ = QFileDialog.getOpenFileName(
