@@ -4,7 +4,7 @@ from pathlib import Path
 
 from ankiforge_ai.ui.beginner_flow_models import (
     ADVANCED_WORKBENCH_WARNING,
-    BEGINNER_SAFETY_STATUS_COPY,
+    BEGINNER_GUIDE_SAFETY_COPY,
     BEGINNER_STEP_COPY,
     COMPLETION_TITLE,
     REVIEW_STATE_EXPLANATIONS,
@@ -28,14 +28,14 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
 
     def test_beginner_copy_states_offline_no_network_no_provider_and_no_write(self):
         entry_source = self.function_source("_build_ui")
-        safety_copy = "\n".join(BEGINNER_SAFETY_STATUS_COPY)
+        safety_copy = "\n".join(BEGINNER_GUIDE_SAFETY_COPY)
 
         self.assertIn("离线只读演练", entry_source)
         self.assertIn("不会联网", entry_source)
         self.assertIn("不会调用 AI 服务", entry_source)
         self.assertIn("不会写入 Anki", entry_source)
         self.assertIn("不会联网", safety_copy)
-        self.assertIn("不会调用 Provider", safety_copy)
+        self.assertIn("不会调用 AI", safety_copy)
         self.assertIn("不会写入 Anki", safety_copy)
 
     def test_beginner_dialog_reads_core_copy_from_pr1_model(self):
@@ -52,12 +52,14 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
         self.assertTrue(
             {
                 "BEGINNER_FLOW_STEP_ORDER",
-                "BEGINNER_SAFETY_STATUS_COPY",
+                "BEGINNER_GUIDE_SAFETY_COPY",
+                "BEGINNER_GUIDE_STEP_NOTES",
                 "BEGINNER_STEP_COPY",
                 "COMPLETION_TITLE",
+                "BeginnerFlowSession",
             }.issubset(imported_names)
         )
-        self.assertIn("五步流程概览", source)
+        self.assertIn("五步流程导航", source)
         self.assertIn("新手模式（离线只读演练）", source)
 
     def test_beginner_buttons_do_not_imply_execution(self):
@@ -68,7 +70,7 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
         dialog_buttons = self.literal_button_labels(self.beginner_dialog_source())
 
         self.assertEqual(main_button, "开始新手模式")
-        self.assertEqual(dialog_buttons, {"关闭"})
+        self.assertEqual(dialog_buttons, {"上一步", "继续", "清空材料", "关闭"})
         for label in (main_button, *dialog_buttons):
             for forbidden in (
                 "写入",
@@ -141,7 +143,12 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
             )
 
     def test_review_preview_states_still_do_not_mean_authorization(self):
-        for state in ("approved", "eligible", "ready_preview"):
+        for state in (
+            "approved",
+            "eligible",
+            "ready_preview",
+            "ready_for_future_confirmation",
+        ):
             self.assertIn("不代表写入授权", REVIEW_STATE_EXPLANATIONS[state])
 
     def test_beginner_copy_avoids_misleading_write_results(self):
