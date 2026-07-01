@@ -67,7 +67,7 @@ class BeginnerKnowledgePointContextTests(unittest.TestCase):
             BEGINNER_STEP_COPY[
                 BeginnerFlowStep.REVIEW_CANDIDATE_CARDS
             ].empty_state,
-            "还没有选择知识点。请先回到上一步选择你想制卡的内容。",
+            "还没有候选卡。请先回到上一步选择知识点。",
         )
 
     def test_selection_change_clears_old_candidates_review_and_later_previews(self):

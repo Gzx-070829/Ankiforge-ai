@@ -59,14 +59,14 @@ BEGINNER_STEP_COPY: Mapping[BeginnerFlowStep, BeginnerStepCopy] = MappingProxyTy
         ),
         BeginnerFlowStep.REVIEW_CANDIDATE_CARDS: BeginnerStepCopy(
             title="审核候选卡",
-            description="检查由已选知识点生成的只读候选卡预览。",
-            primary_action="开始人工审核",
-            empty_state="还没有选择知识点。请先回到上一步选择你想制卡的内容。",
+            description="逐张查看正面、背面和来源，并用普通中文留下本次选择。",
+            primary_action="继续",
+            empty_state="还没有候选卡。请先回到上一步选择知识点。",
         ),
         BeginnerFlowStep.CHECK_BEFORE_WRITE: BeginnerStepCopy(
             title="查看距离真正写入还缺哪些条件",
-            description="查看未来写入前仍需完成的检查；这里仅解释条件，不授予权限。",
-            primary_action="查看尚未满足的条件",
+            description="了解未来真正写入前仍需确认的五类信息；这里不授予权限。",
+            primary_action="继续",
             empty_state="尚无可检查的审核结果。请先完成人工审核。",
         ),
         BeginnerFlowStep.COMPLETED_NO_WRITE: BeginnerStepCopy(
@@ -146,6 +146,85 @@ REVIEW_STATE_EXPLANATIONS: Mapping[str, str] = MappingProxyType(
             "仅表示可以解释未来仍需确认的事项，不代表写入授权。"
         ),
     }
+)
+
+
+class BeginnerReviewDecision(str, Enum):
+    """Plain-language choices for one disposable candidate review."""
+
+    LOOKS_GOOD = "looks_good"
+    NEEDS_CHANGES = "needs_revision"
+    SKIP_FOR_NOW = "skip_for_now"
+
+
+BEGINNER_REVIEW_DECISION_COPY: Mapping[BeginnerReviewDecision, str] = (
+    MappingProxyType(
+        {
+            BeginnerReviewDecision.LOOKS_GOOD: "看起来可以",
+            BeginnerReviewDecision.NEEDS_CHANGES: "需要修改",
+            BeginnerReviewDecision.SKIP_FOR_NOW: "暂时不要",
+        }
+    )
+)
+
+
+BEGINNER_REVIEW_SAFETY_NOTE = (
+    "你的选择只用于本次离线演练，不会写入 Anki。"
+)
+
+
+BEGINNER_PREWRITE_SUMMARY = (
+    "当前只是离线演练。即使你已经审核候选卡，也不会写入 Anki。"
+)
+
+
+@dataclass(frozen=True)
+class BeginnerFutureConditionCopy:
+    id: str
+    title: str
+    status: str
+    explanation: str
+
+
+BEGINNER_FUTURE_CONDITIONS = (
+    BeginnerFutureConditionCopy(
+        id="target_deck",
+        title="目标牌组",
+        status="未来需要确认",
+        explanation="未来需要确认卡片应放到哪个牌组。",
+    ),
+    BeginnerFutureConditionCopy(
+        id="note_type",
+        title="笔记类型",
+        status="未来需要确认",
+        explanation="未来需要确认卡片采用哪一种笔记类型。",
+    ),
+    BeginnerFutureConditionCopy(
+        id="field_mapping",
+        title="字段映射",
+        status="未来需要确认",
+        explanation="未来需要确认正面、背面和来源分别对应哪些字段。",
+    ),
+    BeginnerFutureConditionCopy(
+        id="duplicate_check",
+        title="重复检查",
+        status="未来需要确认",
+        explanation="未来需要在受控流程中检查是否存在重复内容。",
+    ),
+    BeginnerFutureConditionCopy(
+        id="final_confirmation",
+        title="最终确认",
+        status="未来需要确认",
+        explanation="未来仍需要一次独立的最终确认。",
+    ),
+)
+
+
+BEGINNER_TECHNICAL_DETAILS_COPY = (
+    "人工审核：记录本次演练中的选择，不代表写入授权。",
+    "是否满足未来写入条件：这里只说明未来还需检查什么，不代表写入授权。",
+    "未来写入方式预览：本次没有创建正式待写入对象，不代表写入授权。",
+    "真正写入前还需确认什么：这里只读列出未来事项，不代表写入授权。",
 )
 
 
@@ -236,7 +315,7 @@ class BeginnerFlowSession:
         default_factory=tuple,
         repr=False,
     )
-    candidate_review_decisions: dict[str, str] = field(
+    candidate_review_decisions: dict[str, BeginnerReviewDecision] = field(
         default_factory=dict,
         repr=False,
     )
@@ -466,7 +545,7 @@ class BeginnerFlowSession:
     def set_candidate_review_decision(
         self,
         candidate_id: str,
-        decision: Optional[str],
+        decision: Optional[BeginnerReviewDecision | str],
     ) -> None:
         """Update one disposable review marker and invalidate later previews."""
 
@@ -474,16 +553,29 @@ class BeginnerFlowSession:
         candidate_ids = {item.id for item in self.candidate_card_previews}
         if candidate_id not in candidate_ids:
             raise ValueError("unknown candidate preview id.")
-        if decision is not None and decision not in {"reviewed", "needs_revision"}:
-            raise ValueError("unsupported candidate review decision.")
+        normalized_decision = self._normalize_review_decision(decision)
         if decision is None:
             self.candidate_review_decisions.pop(candidate_id, None)
         else:
-            self.candidate_review_decisions[candidate_id] = decision
+            self.candidate_review_decisions[candidate_id] = normalized_decision
         self.review_revision += 1
         self.reviewed_candidate_count = len(self.candidate_review_decisions)
         self.review_state = BeginnerArtifactState.CURRENT
         self._clear_prewrite_previews("candidate_review_changed")
+
+    def complete_candidate_review(self) -> None:
+        """Move to the explanatory check only after every preview has a choice."""
+
+        self._ensure_open()
+        if self.candidate_cards_state is not BeginnerArtifactState.CURRENT:
+            raise ValueError("candidate cards must be current before review.")
+        if self.candidate_count != len(self.candidate_review_decisions):
+            raise ValueError("every candidate preview needs a review choice.")
+        self.review_revision += 1
+        self.reviewed_candidate_count = len(self.candidate_review_decisions)
+        self.review_state = BeginnerArtifactState.CURRENT
+        self._clear_prewrite_previews("review_completed")
+        self.current_step = BeginnerFlowStep.CHECK_BEFORE_WRITE
 
     def clear_candidate_review(self) -> None:
         self._ensure_open()
@@ -675,6 +767,31 @@ class BeginnerFlowSession:
     def _validate_count(value: int, name: str) -> None:
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
             raise ValueError(f"{name} must be a non-negative integer.")
+
+    @staticmethod
+    def _normalize_review_decision(
+        decision: Optional[BeginnerReviewDecision | str],
+    ) -> Optional[BeginnerReviewDecision]:
+        if decision is None:
+            return None
+        if isinstance(decision, BeginnerReviewDecision):
+            return decision
+        aliases = {
+            "reviewed": BeginnerReviewDecision.LOOKS_GOOD,
+            BeginnerReviewDecision.LOOKS_GOOD.value: (
+                BeginnerReviewDecision.LOOKS_GOOD
+            ),
+            BeginnerReviewDecision.NEEDS_CHANGES.value: (
+                BeginnerReviewDecision.NEEDS_CHANGES
+            ),
+            BeginnerReviewDecision.SKIP_FOR_NOW.value: (
+                BeginnerReviewDecision.SKIP_FOR_NOW
+            ),
+        }
+        try:
+            return aliases[decision]
+        except (KeyError, TypeError):
+            raise ValueError("unsupported candidate review decision.") from None
 
     @staticmethod
     def _shorten(text: str, max_chars: int) -> str:

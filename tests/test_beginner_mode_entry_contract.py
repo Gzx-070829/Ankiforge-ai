@@ -70,7 +70,10 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
         dialog_buttons = self.literal_button_labels(self.beginner_dialog_source())
 
         self.assertEqual(main_button, "开始新手模式")
-        self.assertEqual(dialog_buttons, {"上一步", "继续", "清空材料", "关闭"})
+        self.assertEqual(
+            dialog_buttons,
+            {"上一步", "继续", "清空材料", "关闭", "查看技术详情"},
+        )
         for label in (main_button, *dialog_buttons):
             for forbidden in (
                 "写入",
