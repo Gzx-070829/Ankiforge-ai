@@ -240,6 +240,7 @@ class HumanReviewDraftHelperTests(unittest.TestCase):
             {
                 "更新审核草稿（仅本地）",
                 "生成本地 HumanReview 预览（不写入）",
+                "生成 Write Eligibility 只读摘要（不写入）",
                 "关闭",
             },
         )

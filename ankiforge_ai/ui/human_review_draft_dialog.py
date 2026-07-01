@@ -22,6 +22,7 @@ from .human_review_draft_helpers import (
     build_human_review_decision_draft_view_data,
 )
 from .human_review_preview_adapter import build_local_human_review_preview
+from .write_eligibility_preview_adapter import build_write_eligibility_preview
 
 
 class HumanReviewDecisionDraftDialog(QDialog):
@@ -98,6 +99,18 @@ class HumanReviewDecisionDraftDialog(QDialog):
         local_preview_layout.addLayout(self.local_preview_form)
         self.local_preview_group.setVisible(False)
         content_layout.addWidget(self.local_preview_group)
+
+        self.eligibility_group = QGroupBox(
+            "Write Eligibility 只读摘要（不写入）"
+        )
+        eligibility_layout = QVBoxLayout(self.eligibility_group)
+        self.eligibility_summary_label = QLabel()
+        self.eligibility_summary_label.setWordWrap(True)
+        eligibility_layout.addWidget(self.eligibility_summary_label)
+        self.eligibility_form = QFormLayout()
+        eligibility_layout.addLayout(self.eligibility_form)
+        self.eligibility_group.setVisible(False)
+        content_layout.addWidget(self.eligibility_group)
         content_layout.addStretch()
 
         scroll_area.setWidget(scroll_content)
@@ -111,10 +124,24 @@ class HumanReviewDecisionDraftDialog(QDialog):
         self.preview_btn = QPushButton("生成本地 HumanReview 预览（不写入）")
         self.preview_btn.clicked.connect(self.generate_local_human_review_preview)
         button_row.addWidget(self.preview_btn)
+        self.eligibility_btn = QPushButton(
+            "生成 Write Eligibility 只读摘要（不写入）"
+        )
+        self.eligibility_btn.clicked.connect(
+            self.generate_write_eligibility_preview
+        )
+        button_row.addWidget(self.eligibility_btn)
         close_btn = QPushButton("关闭")
         close_btn.clicked.connect(self.reject)
         button_row.addWidget(close_btn)
         layout.addLayout(button_row)
+
+        self.decision_combo.currentTextChanged.connect(
+            self._on_draft_widget_changed
+        )
+        self.reviewer_note_input.textChanged.connect(
+            self._on_draft_widget_changed
+        )
 
         self._on_candidate_changed(self.candidate_combo.currentIndex())
 
@@ -139,10 +166,12 @@ class HumanReviewDecisionDraftDialog(QDialog):
             self.reviewer_note_input.setEnabled(False)
             self.update_btn.setEnabled(False)
             self.preview_btn.setEnabled(False)
+            self.eligibility_btn.setEnabled(False)
             self._render_view(
                 build_human_review_decision_draft_view_data(None)
             )
             self._render_local_human_review_preview(None)
+            self._render_write_eligibility_preview(None)
             return
 
         stored = self._drafts.get(
@@ -154,6 +183,7 @@ class HumanReviewDecisionDraftDialog(QDialog):
         self.reviewer_note_input.setPlainText(stored.reviewer_note)
         self._render_view(view_data)
         self._render_local_human_review_preview(None)
+        self._render_write_eligibility_preview(None)
 
     def update_local_draft(self):
         candidate = self._current_candidate()
@@ -169,6 +199,7 @@ class HumanReviewDecisionDraftDialog(QDialog):
             self._drafts[candidate.candidate_id] = draft
         self._render_view(view_data)
         self._render_local_human_review_preview(None)
+        self._render_write_eligibility_preview(None)
 
     def generate_local_human_review_preview(self):
         candidate = self._current_candidate()
@@ -185,6 +216,29 @@ class HumanReviewDecisionDraftDialog(QDialog):
             self._drafts[candidate.candidate_id] = draft
         self._render_view(view_data)
         self._render_local_human_review_preview(preview)
+        self._render_write_eligibility_preview(None)
+
+    def generate_write_eligibility_preview(self):
+        candidate = self._current_candidate()
+        if candidate is None:
+            return
+        draft = HumanReviewDecisionDraftInput(
+            candidate_id=candidate.candidate_id,
+            decision=self.decision_combo.currentText(),
+            reviewer_note=self.reviewer_note_input.toPlainText(),
+        )
+        view_data = build_human_review_decision_draft_view_data(candidate, draft)
+        review_preview = build_local_human_review_preview(view_data, draft)
+        eligibility = build_write_eligibility_preview(review_preview)
+        if view_data.is_valid:
+            self._drafts[candidate.candidate_id] = draft
+        self._render_view(view_data)
+        self._render_local_human_review_preview(review_preview)
+        self._render_write_eligibility_preview(eligibility)
+
+    def _on_draft_widget_changed(self, *_args):
+        self._render_local_human_review_preview(None)
+        self._render_write_eligibility_preview(None)
 
     def _set_decision_choices(self, view_data, selected):
         decisions = allowed_human_review_draft_decisions(view_data)
@@ -244,6 +298,30 @@ class HumanReviewDecisionDraftDialog(QDialog):
             self.local_preview_form.addRow(f"{label}:", value_label)
         self._add_rows(self.local_preview_form, preview.safety_rows)
         self.local_preview_group.setVisible(True)
+
+    def _render_write_eligibility_preview(self, preview):
+        self._clear_form(self.eligibility_form)
+        if preview is None:
+            self.eligibility_summary_label.clear()
+            self.eligibility_group.setVisible(False)
+            return
+
+        self.eligibility_summary_label.setText(preview.summary_message)
+        reasons = ", ".join(preview.blocking_reasons) or "无"
+        values = (
+            ("Candidate ID", preview.candidate_id or "（无）"),
+            ("Review decision", preview.review_decision or "（无）"),
+            ("Quality status", preview.quality_status or "（未知）"),
+            ("Review valid", "是" if preview.review_valid else "否"),
+            ("Eligibility status", preview.eligibility_status),
+            ("Blocking reasons", reasons),
+        )
+        for label, value in values:
+            value_label = QLabel(value)
+            value_label.setWordWrap(True)
+            self.eligibility_form.addRow(f"{label}:", value_label)
+        self._add_rows(self.eligibility_form, preview.safety_rows)
+        self.eligibility_group.setVisible(True)
 
     @staticmethod
     def _add_rows(form, rows):
