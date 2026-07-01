@@ -6,138 +6,126 @@ from pathlib import Path
 
 from ankiforge_ai.pipeline.card_candidate_preview_adapter import (
     CardCandidatePreviewItem,
-    QualityIssuePreviewItem,
 )
 from ankiforge_ai.ui.human_review_draft_helpers import (
     HumanReviewDecisionDraftInput,
-    HumanReviewDecisionDraftViewData,
     build_human_review_decision_draft_view_data,
 )
 from ankiforge_ai.ui.human_review_preview_adapter import (
-    LocalHumanReviewPreview,
     build_local_human_review_preview,
+)
+from ankiforge_ai.ui.write_eligibility_preview_adapter import (
+    build_write_eligibility_preview,
+)
+from ankiforge_ai.ui.write_plan_preview_adapter import (
+    ReadOnlyWritePlanPreview,
+    build_read_only_write_plan_preview,
 )
 
 
-class LocalHumanReviewPreviewAdapterTests(unittest.TestCase):
-    def test_pending_rejected_and_needs_edit_build_local_previews(self):
-        for decision in ("pending", "rejected", "needs_edit"):
-            with self.subTest(decision=decision):
-                preview = self.preview(self.candidate("failed"), decision=decision)
-                self.assertTrue(preview.is_locally_valid)
-                self.assertEqual(preview.review_decision, decision)
+class ReadOnlyWritePlanPreviewAdapterTests(unittest.TestCase):
+    def test_missing_eligibility_is_safe_unknown_preview(self):
+        plan = build_read_only_write_plan_preview(None)
 
-    def test_approved_passed_and_warning_build_valid_local_previews(self):
-        for status in ("passed", "warning"):
-            with self.subTest(status=status):
-                preview = self.preview(self.candidate(status), decision="approved")
-                self.assertTrue(preview.is_locally_valid)
-                self.assertEqual(preview.quality_status, status)
+        self.assertTrue(plan.is_empty)
+        self.assertEqual(plan.plan_status, "unknown")
+        self.assertEqual(plan.blocking_reasons, ("eligibility_preview_missing",))
+        self.assert_fixed_safety(plan)
 
-    def test_approved_failed_and_unchecked_build_invalid_local_previews(self):
-        for status in ("failed", "unchecked"):
-            with self.subTest(status=status):
-                preview = self.preview(self.candidate(status), decision="approved")
-                self.assertFalse(preview.is_locally_valid)
-                self.assertTrue(preview.validation_errors)
+    def test_eligible_becomes_ready_preview(self):
+        plan = self.plan("passed", "approved")
 
-    def test_empty_view_has_no_local_preview(self):
-        empty = build_human_review_decision_draft_view_data(None)
-        draft = HumanReviewDecisionDraftInput(candidate_id="candidate_1")
+        self.assertEqual(plan.eligibility_status, "eligible")
+        self.assertEqual(plan.plan_status, "ready_preview")
+        self.assertEqual(plan.blocking_reasons, ())
 
-        self.assertIsNone(build_local_human_review_preview(empty, draft))
+    def test_blocked_remains_blocked_with_reasons(self):
+        plan = self.plan("failed", "approved")
 
-    def test_candidate_id_and_decision_must_match_view(self):
-        candidate = self.candidate("passed")
-        draft = self.draft(candidate, decision="pending")
-        view = build_human_review_decision_draft_view_data(candidate, draft)
+        self.assertEqual(plan.plan_status, "blocked")
+        self.assertIn("quality_failed", plan.blocking_reasons)
+        self.assertIn("local_review_invalid", plan.blocking_reasons)
 
-        for forged in (
-            replace(draft, candidate_id="other"),
-            replace(draft, decision="rejected"),
-        ):
-            with self.subTest(forged=forged.to_safe_dict()):
-                with self.assertRaisesRegex(ValueError, "must match"):
-                    build_local_human_review_preview(view, forged)
+    def test_needs_review_remains_needs_review_with_reason(self):
+        plan = self.plan("passed", "pending")
 
-    def test_forged_approval_state_is_rejected(self):
-        candidate = self.candidate("passed")
-        draft = self.draft(candidate)
-        view = build_human_review_decision_draft_view_data(candidate, draft)
+        self.assertEqual(plan.plan_status, "needs_review")
+        self.assertEqual(plan.blocking_reasons, ("review_pending",))
 
-        with self.assertRaisesRegex(ValueError, "inconsistent approval"):
-            build_local_human_review_preview(
-                replace(view, approval_allowed=False),
-                draft,
-            )
+    def test_unknown_eligibility_remains_unknown(self):
+        eligibility = build_write_eligibility_preview(None)
+        plan = build_read_only_write_plan_preview(eligibility)
 
-    def test_reviewer_note_excerpt_is_short_and_safe_output_hides_it(self):
-        note = "private reviewer note " + "N" * 120
-        preview = self.preview(
-            self.candidate("passed"),
-            reviewer_note=note,
-        )
-        rendered = (
-            repr(preview) + json.dumps(preview.to_safe_dict(), ensure_ascii=False)
-        )
+        self.assertTrue(plan.is_empty)
+        self.assertEqual(plan.plan_status, "unknown")
 
-        self.assertLessEqual(len(preview.reviewer_note_excerpt), 80)
-        self.assertEqual(preview.reviewer_note_length, len(note))
-        self.assertNotIn(note, rendered)
-        self.assertNotIn(preview.reviewer_note_excerpt, rendered)
-
-    def test_front_back_and_source_never_enter_preview_safe_output(self):
-        values = {
-            "front": "sk-" + "F" * 30,
-            "back": "Bearer private back",
-            "source": "secret token source",
-        }
-        preview = self.preview(self.candidate("passed", **values))
-        rendered = (
-            repr(preview) + json.dumps(preview.to_safe_dict(), ensure_ascii=False)
-        ).lower()
-
-        for value in values.values():
-            self.assertNotIn(value.lower(), rendered)
-        for marker in ("sk-", "bearer", "secret", "token"):
-            self.assertNotIn(marker, rendered)
-
-    def test_preview_has_fixed_non_persistent_non_writing_status(self):
-        preview = self.preview(self.candidate("passed"))
+    def test_target_bindings_are_preview_only_and_mappings_are_fixed(self):
+        plan = self.plan("warning", "approved")
 
         self.assertEqual(
-            self.row_mapping(preview.safety_rows),
-            {
-                "Created source": "本地审核草稿",
-                "Preview meaning": "这是本地 HumanReview 预览",
-                "Persistence": "尚未保存",
-                "Write authorization": "尚未形成写入授权",
-                "GeneratedCard": "尚未生成 GeneratedCard",
-                "WriteReadyPreviewItem": "尚未生成 WriteReadyPreviewItem",
-                "Writer": "不调用 writer",
-                "Anki write": "不写入 Anki",
-                "Lifetime": "仅当前弹窗，关闭后丢弃",
-            },
+            plan.target_note_type_preview,
+            "未绑定真实 Anki note type，仅预览",
+        )
+        self.assertEqual(plan.target_deck_preview, "未绑定真实 Anki deck，仅预览")
+        self.assertEqual(
+            tuple(
+                (mapping.source_field, mapping.target_field)
+                for mapping in plan.field_mappings
+            ),
+            (("Front", "Front"), ("Back", "Back"), ("Source", "Source")),
+        )
+        self.assertEqual(
+            plan.tag_preview,
+            ("AnkiForgeAI", "pipeline-preview", "human-reviewed"),
         )
 
-    def test_public_preview_shape_has_no_runtime_or_write_objects(self):
-        field_names = {field.name.lower() for field in fields(LocalHumanReviewPreview)}
+    def test_safe_output_excludes_candidate_and_user_content(self):
+        candidate_id = "private-candidate-123"
+        plan = self.plan(
+            "passed",
+            "approved",
+            candidate_id=candidate_id,
+            front="sk-" + "F" * 30,
+            back="Bearer private back",
+            source="secret token source",
+            note="private reviewer note",
+        )
+        rendered = (
+            repr(plan) + json.dumps(plan.to_safe_dict(), ensure_ascii=False)
+        ).lower()
+
+        self.assertEqual(plan.candidate_id, candidate_id)
+        self.assertNotIn(candidate_id.lower(), rendered)
+        for marker in ("sk-", "bearer", "secret", "token", "private reviewer note"):
+            self.assertNotIn(marker, rendered)
+
+    def test_fixed_safety_states_no_authorization_or_execution(self):
+        self.assert_fixed_safety(self.plan("passed", "approved"))
+
+    def test_forged_eligibility_is_rejected(self):
+        eligibility = self.eligibility("passed", "approved")
+
+        with self.assertRaisesRegex(ValueError, "eligible state is inconsistent"):
+            build_read_only_write_plan_preview(
+                replace(eligibility, blocking_reasons=("forged",))
+            )
+
+    def test_public_plan_shape_has_no_runtime_write_objects(self):
+        field_names = {field.name.lower() for field in fields(ReadOnlyWritePlanPreview)}
         for forbidden in (
             "generated_card",
             "write_ready",
             "writer_object",
-            "collection",
+            "collection_object",
             "provider",
             "api_key",
-            "secret",
-            "token",
             "runtime_context",
         ):
             self.assertFalse(any(forbidden in name for name in field_names))
 
     def test_adapter_has_no_forbidden_runtime_dependencies(self):
         path = self.repo_root() / "ankiforge_ai" / "ui" / (
-            "human_review_preview_adapter.py"
+            "write_plan_preview_adapter.py"
         )
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source)
@@ -168,6 +156,7 @@ class LocalHumanReviewPreviewAdapterTests(unittest.TestCase):
         }
 
         for forbidden_module in (
+            "controlled_write_bridge",
             "provider",
             "config",
             "secret_store",
@@ -189,10 +178,8 @@ class LocalHumanReviewPreviewAdapterTests(unittest.TestCase):
                 forbidden_module,
             )
         for forbidden_name in (
-            "HumanReview",
             "GeneratedCard",
             "WriteReadyPreviewItem",
-            "build_pipeline_write_eligibility",
             "build_write_ready_preview_item",
             "add_cards_to_deck",
             "add_note",
@@ -200,7 +187,7 @@ class LocalHumanReviewPreviewAdapterTests(unittest.TestCase):
             self.assertNotIn(forbidden_name, imported_names)
             self.assertNotIn(forbidden_name, called_names)
 
-    def test_dialog_preview_path_calls_pr1_helper_then_pr2_adapter(self):
+    def test_dialog_path_builds_eligibility_before_write_plan(self):
         path = self.repo_root() / "ankiforge_ai" / "ui" / (
             "human_review_draft_dialog.py"
         )
@@ -216,13 +203,13 @@ class LocalHumanReviewPreviewAdapterTests(unittest.TestCase):
             node
             for node in dialog_class.body
             if isinstance(node, ast.FunctionDef)
-            and node.name == "generate_local_human_review_preview"
+            and node.name == "generate_read_only_write_plan_preview"
         )
         method_source = ast.get_source_segment(source, method) or ""
 
         self.assertLess(
-            method_source.index("build_human_review_decision_draft_view_data"),
-            method_source.index("build_local_human_review_preview"),
+            method_source.index("build_write_eligibility_preview"),
+            method_source.index("build_read_only_write_plan_preview"),
         )
         for forbidden in (
             "self.cards",
@@ -236,7 +223,7 @@ class LocalHumanReviewPreviewAdapterTests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, method_source)
 
-    def test_dialog_buttons_are_local_preview_only(self):
+    def test_dialog_clears_stale_write_plan_and_has_safe_buttons(self):
         path = self.repo_root() / "ankiforge_ai" / "ui" / (
             "human_review_draft_dialog.py"
         )
@@ -253,6 +240,7 @@ class LocalHumanReviewPreviewAdapterTests(unittest.TestCase):
             and isinstance(node.args[0].value, str)
         }
 
+        self.assertIn("_render_write_plan_preview(None)", source)
         self.assertEqual(
             labels,
             {
@@ -261,6 +249,25 @@ class LocalHumanReviewPreviewAdapterTests(unittest.TestCase):
                 "生成 Write Eligibility 只读摘要（不写入）",
                 "生成只读 Write Plan 预览（不写入）",
                 "关闭",
+            },
+        )
+
+    def assert_fixed_safety(self, plan):
+        self.assertEqual(
+            self.row_mapping(plan.safety_rows),
+            {
+                "Source": "本地 Write Eligibility 只读摘要",
+                "Preview meaning": "这是只读 Write Plan 预览",
+                "Duplicate check": "未执行",
+                "Anki collection": "尚未绑定真实 Anki collection",
+                "Write authorization": "未授予",
+                "Write execution": "不会执行",
+                "Persistence": "未保存",
+                "GeneratedCard": "尚未生成 GeneratedCard",
+                "WriteReadyPreviewItem": "尚未生成 WriteReadyPreviewItem",
+                "Writer": "不调用 writer",
+                "Anki write": "不写入 Anki",
+                "Lifetime": "仅当前弹窗，关闭后丢弃",
             },
         )
 
@@ -274,11 +281,6 @@ class LocalHumanReviewPreviewAdapterTests(unittest.TestCase):
 
     @staticmethod
     def candidate(status, **overrides):
-        issue = QualityIssuePreviewItem(
-            code="short_back",
-            message="Back is short.",
-            severity="warning",
-        )
         values = {
             "candidate_id": "candidate_1",
             "card_type": "basic",
@@ -289,7 +291,7 @@ class LocalHumanReviewPreviewAdapterTests(unittest.TestCase):
             "source": "学习笔记.md > 过拟合",
             "source_display": "学习笔记.md > 过拟合",
             "quality_status": status,
-            "quality_issues": ((issue,) if status == "warning" else ()),
+            "quality_issues": (),
             "review_decision": "",
             "quality_allows_approval": status in {"passed", "warning"},
             "has_quality_errors": status == "failed",
@@ -302,19 +304,24 @@ class LocalHumanReviewPreviewAdapterTests(unittest.TestCase):
             values["source_display"] = overrides["source"]
         return CardCandidatePreviewItem(**values)
 
-    @staticmethod
-    def draft(candidate, decision="pending", reviewer_note=""):
-        return HumanReviewDecisionDraftInput(
+    @classmethod
+    def eligibility(cls, status, decision, **overrides):
+        note = overrides.pop("note", "")
+        candidate = cls.candidate(status, **overrides)
+        draft = HumanReviewDecisionDraftInput(
             candidate_id=candidate.candidate_id,
             decision=decision,
-            reviewer_note=reviewer_note,
+            reviewer_note=note,
         )
+        view = build_human_review_decision_draft_view_data(candidate, draft)
+        local_review = build_local_human_review_preview(view, draft)
+        return build_write_eligibility_preview(local_review)
 
     @classmethod
-    def preview(cls, candidate, decision="pending", reviewer_note=""):
-        draft = cls.draft(candidate, decision, reviewer_note)
-        view = build_human_review_decision_draft_view_data(candidate, draft)
-        return build_local_human_review_preview(view, draft)
+    def plan(cls, status, decision, **overrides):
+        return build_read_only_write_plan_preview(
+            cls.eligibility(status, decision, **overrides)
+        )
 
 
 if __name__ == "__main__":
