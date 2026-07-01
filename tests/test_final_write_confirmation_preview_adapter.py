@@ -7,6 +7,10 @@ from pathlib import Path
 from ankiforge_ai.pipeline.card_candidate_preview_adapter import (
     CardCandidatePreviewItem,
 )
+from ankiforge_ai.ui.final_write_confirmation_preview_adapter import (
+    FinalWriteConfirmationPreview,
+    build_final_write_confirmation_preview,
+)
 from ankiforge_ai.ui.human_review_draft_helpers import (
     HumanReviewDecisionDraftInput,
     build_human_review_decision_draft_view_data,
@@ -18,70 +22,82 @@ from ankiforge_ai.ui.write_eligibility_preview_adapter import (
     build_write_eligibility_preview,
 )
 from ankiforge_ai.ui.write_plan_preview_adapter import (
-    ReadOnlyWritePlanPreview,
     build_read_only_write_plan_preview,
 )
 
 
-class ReadOnlyWritePlanPreviewAdapterTests(unittest.TestCase):
-    def test_missing_eligibility_is_safe_unknown_preview(self):
-        plan = build_read_only_write_plan_preview(None)
+class FinalWriteConfirmationPreviewAdapterTests(unittest.TestCase):
+    def test_missing_write_plan_is_safe_unknown_state(self):
+        preview = build_final_write_confirmation_preview(None)
 
-        self.assertTrue(plan.is_empty)
-        self.assertEqual(plan.plan_status, "unknown")
-        self.assertEqual(plan.blocking_reasons, ("eligibility_preview_missing",))
-        self.assert_fixed_safety(plan)
-
-    def test_eligible_becomes_ready_preview(self):
-        plan = self.plan("passed", "approved")
-
-        self.assertEqual(plan.eligibility_status, "eligible")
-        self.assertEqual(plan.plan_status, "ready_preview")
-        self.assertEqual(plan.blocking_reasons, ())
-
-    def test_blocked_remains_blocked_with_reasons(self):
-        plan = self.plan("failed", "approved")
-
-        self.assertEqual(plan.plan_status, "blocked")
-        self.assertIn("quality_failed", plan.blocking_reasons)
-        self.assertIn("local_review_invalid", plan.blocking_reasons)
-
-    def test_needs_review_remains_needs_review_with_reason(self):
-        plan = self.plan("passed", "pending")
-
-        self.assertEqual(plan.plan_status, "needs_review")
-        self.assertEqual(plan.blocking_reasons, ("review_pending",))
-
-    def test_unknown_eligibility_remains_unknown(self):
-        eligibility = build_write_eligibility_preview(None)
-        plan = build_read_only_write_plan_preview(eligibility)
-
-        self.assertTrue(plan.is_empty)
-        self.assertEqual(plan.plan_status, "unknown")
-
-    def test_target_bindings_are_preview_only_and_mappings_are_fixed(self):
-        plan = self.plan("warning", "approved")
-
+        self.assertTrue(preview.is_empty)
+        self.assertEqual(preview.final_status, "unknown")
         self.assertEqual(
-            plan.target_note_type_preview,
-            "未绑定真实 Anki note type，仅预览",
+            preview.blocking_reasons,
+            ("write_plan_preview_missing",),
         )
-        self.assertEqual(plan.target_deck_preview, "未绑定真实 Anki deck，仅预览")
+        self.assert_fixed_contract(preview)
+
+    def test_ready_plan_is_ready_for_future_confirmation_without_authority(self):
+        preview = self.preview("passed", "approved")
+
+        self.assertEqual(preview.write_plan_status, "ready_preview")
+        self.assertEqual(preview.final_status, "ready_for_future_confirmation")
+        self.assertEqual(preview.write_authorization, "not_granted")
+        self.assertEqual(preview.final_confirmation_status, "not_requested")
+
+    def test_blocked_plan_remains_blocked(self):
+        preview = self.preview("failed", "approved")
+
+        self.assertEqual(preview.final_status, "blocked")
+        self.assertIn("quality_failed", preview.blocking_reasons)
+        self.assertIn("local_review_invalid", preview.blocking_reasons)
+
+    def test_needs_review_plan_remains_needs_review(self):
+        preview = self.preview("passed", "pending")
+
+        self.assertEqual(preview.final_status, "needs_review")
+        self.assertEqual(preview.blocking_reasons, ("review_pending",))
+
+    def test_unknown_write_plan_remains_unknown(self):
+        write_plan = build_read_only_write_plan_preview(None)
+        preview = build_final_write_confirmation_preview(write_plan)
+
+        self.assertTrue(preview.is_empty)
+        self.assertEqual(preview.final_status, "unknown")
+        self.assert_fixed_contract(preview)
+
+    def test_duplicate_and_confirmation_states_are_fixed(self):
+        preview = self.preview("warning", "approved")
+
+        self.assertEqual(preview.duplicate_check_status, "not_run")
         self.assertEqual(
-            tuple(
-                (mapping.source_field, mapping.target_field)
-                for mapping in plan.field_mappings
+            preview.duplicate_check_requirement,
+            "required_before_write",
+        )
+        self.assertEqual(preview.duplicate_result, "unknown")
+        self.assertEqual(preview.final_confirmation_status, "not_requested")
+        self.assertEqual(preview.write_authorization, "not_granted")
+        self.assertEqual(preview.write_execution, "will_not_execute")
+
+    def test_required_future_steps_are_stable_and_non_executing(self):
+        preview = self.preview("passed", "approved")
+
+        self.assertEqual(
+            preview.required_future_steps,
+            (
+                "重新展示并确认候选内容",
+                "绑定真实 Anki note type 与 deck",
+                "在独立授权流程中执行 duplicate check",
+                "展示 duplicate check 结果",
+                "请求独立的最终用户确认",
+                "仅在确认后重新计算写入授权",
             ),
-            (("Front", "Front"), ("Back", "Back"), ("Source", "Source")),
-        )
-        self.assertEqual(
-            plan.tag_preview,
-            ("AnkiForgeAI", "pipeline-preview", "human-reviewed"),
         )
 
     def test_safe_output_excludes_candidate_and_user_content(self):
-        candidate_id = "private-candidate-123"
-        plan = self.plan(
+        candidate_id = "private-candidate-456"
+        preview = self.preview(
             "passed",
             "approved",
             candidate_id=candidate_id,
@@ -91,27 +107,32 @@ class ReadOnlyWritePlanPreviewAdapterTests(unittest.TestCase):
             note="private reviewer note",
         )
         rendered = (
-            repr(plan) + json.dumps(plan.to_safe_dict(), ensure_ascii=False)
+            repr(preview)
+            + json.dumps(preview.to_safe_dict(), ensure_ascii=False)
         ).lower()
 
-        self.assertEqual(plan.candidate_id, candidate_id)
+        self.assertEqual(preview.candidate_id, candidate_id)
         self.assertNotIn(candidate_id.lower(), rendered)
-        for marker in ("sk-", "bearer", "secret", "token", "private reviewer note"):
+        for marker in (
+            "sk-",
+            "bearer private back",
+            "secret token source",
+            "private reviewer note",
+        ):
             self.assertNotIn(marker, rendered)
 
-    def test_fixed_safety_states_no_authorization_or_execution(self):
-        self.assert_fixed_safety(self.plan("passed", "approved"))
+    def test_forged_write_plan_is_rejected(self):
+        plan = self.plan("passed", "approved")
 
-    def test_forged_eligibility_is_rejected(self):
-        eligibility = self.eligibility("passed", "approved")
-
-        with self.assertRaisesRegex(ValueError, "eligible state is inconsistent"):
-            build_read_only_write_plan_preview(
-                replace(eligibility, blocking_reasons=("forged",))
+        with self.assertRaisesRegex(ValueError, "unsupported blocking reason"):
+            build_final_write_confirmation_preview(
+                replace(plan, blocking_reasons=("private user content",))
             )
 
-    def test_public_plan_shape_has_no_runtime_write_objects(self):
-        field_names = {field.name.lower() for field in fields(ReadOnlyWritePlanPreview)}
+    def test_public_shape_has_no_runtime_write_objects(self):
+        field_names = {
+            field.name.lower() for field in fields(FinalWriteConfirmationPreview)
+        }
         for forbidden in (
             "generated_card",
             "write_ready",
@@ -120,12 +141,13 @@ class ReadOnlyWritePlanPreviewAdapterTests(unittest.TestCase):
             "provider",
             "api_key",
             "runtime_context",
+            "confirmation_token",
         ):
             self.assertFalse(any(forbidden in name for name in field_names))
 
     def test_adapter_has_no_forbidden_runtime_dependencies(self):
         path = self.repo_root() / "ankiforge_ai" / "ui" / (
-            "write_plan_preview_adapter.py"
+            "final_write_confirmation_preview_adapter.py"
         )
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source)
@@ -183,11 +205,12 @@ class ReadOnlyWritePlanPreviewAdapterTests(unittest.TestCase):
             "build_write_ready_preview_item",
             "add_cards_to_deck",
             "add_note",
+            "run_duplicate_check",
         ):
             self.assertNotIn(forbidden_name, imported_names)
             self.assertNotIn(forbidden_name, called_names)
 
-    def test_dialog_path_builds_eligibility_before_write_plan(self):
+    def test_dialog_builds_write_plan_before_final_contract(self):
         path = self.repo_root() / "ankiforge_ai" / "ui" / (
             "human_review_draft_dialog.py"
         )
@@ -203,13 +226,13 @@ class ReadOnlyWritePlanPreviewAdapterTests(unittest.TestCase):
             node
             for node in dialog_class.body
             if isinstance(node, ast.FunctionDef)
-            and node.name == "generate_read_only_write_plan_preview"
+            and node.name == "generate_final_write_confirmation_preview"
         )
         method_source = ast.get_source_segment(source, method) or ""
 
         self.assertLess(
-            method_source.index("build_write_eligibility_preview"),
             method_source.index("build_read_only_write_plan_preview"),
+            method_source.index("build_final_write_confirmation_preview"),
         )
         for forbidden in (
             "self.cards",
@@ -220,10 +243,11 @@ class ReadOnlyWritePlanPreviewAdapterTests(unittest.TestCase):
             "provider",
             "self.config",
             "mw.col",
+            "run_duplicate_check",
         ):
             self.assertNotIn(forbidden, method_source)
 
-    def test_dialog_clears_stale_write_plan_and_has_safe_buttons(self):
+    def test_dialog_clears_stale_final_contract_and_has_safe_buttons(self):
         path = self.repo_root() / "ankiforge_ai" / "ui" / (
             "human_review_draft_dialog.py"
         )
@@ -240,7 +264,10 @@ class ReadOnlyWritePlanPreviewAdapterTests(unittest.TestCase):
             and isinstance(node.args[0].value, str)
         }
 
-        self.assertIn("_render_write_plan_preview(None)", source)
+        self.assertGreaterEqual(
+            source.count("_render_final_write_confirmation_preview(None)"),
+            7,
+        )
         self.assertEqual(
             labels,
             {
@@ -253,15 +280,25 @@ class ReadOnlyWritePlanPreviewAdapterTests(unittest.TestCase):
             },
         )
 
-    def assert_fixed_safety(self, plan):
+    def assert_fixed_contract(self, preview):
+        self.assertEqual(preview.duplicate_check_status, "not_run")
         self.assertEqual(
-            self.row_mapping(plan.safety_rows),
+            preview.duplicate_check_requirement,
+            "required_before_write",
+        )
+        self.assertEqual(preview.duplicate_result, "unknown")
+        self.assertEqual(preview.final_confirmation_status, "not_requested")
+        self.assertEqual(preview.write_authorization, "not_granted")
+        self.assertEqual(preview.write_execution, "will_not_execute")
+        self.assertEqual(
+            self.row_mapping(preview.safety_rows),
             {
-                "Source": "本地 Write Eligibility 只读摘要",
-                "Preview meaning": "这是只读 Write Plan 预览",
-                "Duplicate check": "未执行",
+                "Source": "只读 Write Plan 预览",
+                "Preview meaning": "这是最终确认契约预览",
+                "User confirmation": "这不是用户确认",
+                "Duplicate check": "尚未执行",
                 "Anki collection": "尚未绑定真实 Anki collection",
-                "Write authorization": "未授予",
+                "Write authorization": "不是写入授权；未授予",
                 "Write execution": "不会执行",
                 "Persistence": "未保存",
                 "GeneratedCard": "尚未生成 GeneratedCard",
@@ -306,7 +343,7 @@ class ReadOnlyWritePlanPreviewAdapterTests(unittest.TestCase):
         return CardCandidatePreviewItem(**values)
 
     @classmethod
-    def eligibility(cls, status, decision, **overrides):
+    def plan(cls, status, decision, **overrides):
         note = overrides.pop("note", "")
         candidate = cls.candidate(status, **overrides)
         draft = HumanReviewDecisionDraftInput(
@@ -316,12 +353,13 @@ class ReadOnlyWritePlanPreviewAdapterTests(unittest.TestCase):
         )
         view = build_human_review_decision_draft_view_data(candidate, draft)
         local_review = build_local_human_review_preview(view, draft)
-        return build_write_eligibility_preview(local_review)
+        eligibility = build_write_eligibility_preview(local_review)
+        return build_read_only_write_plan_preview(eligibility)
 
     @classmethod
-    def plan(cls, status, decision, **overrides):
-        return build_read_only_write_plan_preview(
-            cls.eligibility(status, decision, **overrides)
+    def preview(cls, status, decision, **overrides):
+        return build_final_write_confirmation_preview(
+            cls.plan(status, decision, **overrides)
         )
 
 
