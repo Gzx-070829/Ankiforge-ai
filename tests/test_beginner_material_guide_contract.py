@@ -124,7 +124,10 @@ class BeginnerMaterialGuideContractTests(unittest.TestCase):
             and isinstance(node.args[0].value, str)
         }
 
-        self.assertEqual(labels, {"上一步", "继续", "清空材料", "关闭"})
+        self.assertEqual(
+            labels,
+            {"上一步", "继续", "清空材料", "关闭", "查看技术详情"},
+        )
         for label in labels:
             for forbidden in ("保存", "应用", "执行", "确认", "写入"):
                 self.assertNotIn(forbidden, label)
