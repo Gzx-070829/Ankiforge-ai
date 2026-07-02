@@ -307,6 +307,19 @@ class BeginnerArtifactState(str, Enum):
     CLEARED = "cleared"
 
 
+class BeginnerAIGenerationState(str, Enum):
+    """Safe lifecycle states for explicit AI draft generation."""
+
+    IDLE = "idle"
+    RUNNING = "running"
+    SUCCESS = "success"
+    PROVIDER_ERROR = "provider_error"
+    TIMEOUT = "timeout"
+    INVALID_JSON = "invalid_json"
+    EMPTY_OUTPUT = "empty_output"
+    EMPTY_CARDS = "empty_cards"
+
+
 @dataclass(frozen=True, repr=False)
 class BeginnerKnowledgePointPreview:
     """A disposable, non-pipeline knowledge-point preview."""
@@ -418,6 +431,9 @@ class BeginnerFlowSession:
     knowledge_selection_state: BeginnerArtifactState = BeginnerArtifactState.EMPTY
     candidate_cards_state: BeginnerArtifactState = BeginnerArtifactState.EMPTY
     ai_draft_state: BeginnerArtifactState = BeginnerArtifactState.EMPTY
+    ai_generation_state: BeginnerAIGenerationState = (
+        BeginnerAIGenerationState.IDLE
+    )
     review_state: BeginnerArtifactState = BeginnerArtifactState.EMPTY
     eligibility_state: BeginnerArtifactState = BeginnerArtifactState.EMPTY
     write_plan_preview_state: BeginnerArtifactState = BeginnerArtifactState.EMPTY
@@ -686,6 +702,7 @@ class BeginnerFlowSession:
         self.ai_draft_revision += 1
         self.ai_candidate_card_drafts = resolved
         self.ai_draft_state = BeginnerArtifactState.CURRENT
+        self.ai_generation_state = BeginnerAIGenerationState.SUCCESS
         self.ai_draft_error_code = None
         self.candidate_revision += 1
         self.candidate_card_previews = tuple(
@@ -704,15 +721,37 @@ class BeginnerFlowSession:
         self._clear_from_review("ai_drafts_generated")
         self.current_step = BeginnerFlowStep.REVIEW_CANDIDATE_CARDS
 
-    def record_ai_card_draft_error(self, error_code: str) -> None:
+    def begin_ai_candidate_generation(self) -> None:
+        """Clear every older result before one explicit provider request."""
+
+        self._ensure_open()
+        self.ai_draft_revision += 1
+        self._clear_from_candidates("ai_generation_started")
+        self.ai_generation_state = BeginnerAIGenerationState.RUNNING
+        self.current_step = BeginnerFlowStep.SELECT_MATERIAL
+
+    def record_ai_card_draft_error(
+        self,
+        generation_state: BeginnerAIGenerationState,
+        error_code: str,
+    ) -> None:
         """Record only a non-sensitive code after a failed explicit request."""
 
         self._ensure_open()
+        if generation_state not in {
+            BeginnerAIGenerationState.PROVIDER_ERROR,
+            BeginnerAIGenerationState.TIMEOUT,
+            BeginnerAIGenerationState.INVALID_JSON,
+            BeginnerAIGenerationState.EMPTY_OUTPUT,
+            BeginnerAIGenerationState.EMPTY_CARDS,
+        }:
+            raise ValueError("generation_state must describe a failed request.")
         if not isinstance(error_code, str) or not error_code.strip():
             raise ValueError("error_code must be a non-empty string.")
         self.ai_draft_revision += 1
         self._clear_from_candidates("ai_draft_error")
         self.ai_draft_state = BeginnerArtifactState.CLEARED
+        self.ai_generation_state = generation_state
         self.ai_draft_error_code = error_code.strip()
         self.current_step = BeginnerFlowStep.SELECT_MATERIAL
 
@@ -722,6 +761,7 @@ class BeginnerFlowSession:
         self._ensure_open()
         self.ai_draft_revision += 1
         self._clear_from_candidates("ai_runtime_settings_changed")
+        self.ai_generation_state = BeginnerAIGenerationState.IDLE
         self.current_step = BeginnerFlowStep.SELECT_MATERIAL
 
     def set_candidate_review_decision(
@@ -885,6 +925,7 @@ class BeginnerFlowSession:
         self.knowledge_selection_state = BeginnerArtifactState.EMPTY
         self.candidate_cards_state = BeginnerArtifactState.EMPTY
         self.ai_draft_state = BeginnerArtifactState.EMPTY
+        self.ai_generation_state = BeginnerAIGenerationState.IDLE
         self.review_state = BeginnerArtifactState.EMPTY
         self.eligibility_state = BeginnerArtifactState.EMPTY
         self.write_plan_preview_state = BeginnerArtifactState.EMPTY
@@ -932,6 +973,7 @@ class BeginnerFlowSession:
             "knowledge_selection_state": self.knowledge_selection_state.value,
             "candidate_cards_state": self.candidate_cards_state.value,
             "ai_draft_state": self.ai_draft_state.value,
+            "ai_generation_state": self.ai_generation_state.value,
             "review_state": self.review_state.value,
             "eligibility_state": self.eligibility_state.value,
             "write_plan_preview_state": self.write_plan_preview_state.value,
@@ -971,6 +1013,7 @@ class BeginnerFlowSession:
     def _clear_ai_draft_values(self, state: BeginnerArtifactState) -> None:
         self.ai_candidate_card_drafts = ()
         self.ai_draft_state = state
+        self.ai_generation_state = BeginnerAIGenerationState.IDLE
         self.ai_draft_error_code = None
 
     def _clear_from_review(self, reason: str) -> None:

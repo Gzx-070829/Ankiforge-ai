@@ -3,7 +3,9 @@
 from dataclasses import dataclass, field
 from enum import Enum
 import json
+import socket
 from typing import Optional
+import urllib.error
 from urllib.parse import urlsplit
 
 from ..pipeline.openai_compatible_http_transport import (
@@ -13,7 +15,10 @@ from ..pipeline.openai_compatible_provider import (
     OpenAICompatibleTransport,
     build_chat_completions_url,
 )
-from .beginner_flow_models import BeginnerAICardDraft
+from .beginner_flow_models import (
+    BeginnerAICardDraft,
+    BeginnerAIGenerationState,
+)
 
 
 BEGINNER_AI_PROVIDER_DISCLOSURE_COPY = (
@@ -21,10 +26,32 @@ BEGINNER_AI_PROVIDER_DISCLOSURE_COPY = (
     "本次请求会联网；API key 只用于当前窗口，不会保存；当前不会写入 Anki。"
 )
 
-BEGINNER_AI_SAFE_ERROR_COPY = (
-    "未能生成可审核的候选卡。没有写入 Anki。"
-    "你可以修改材料或检查本次会话设置后重试。"
+BEGINNER_AI_PROVIDER_ERROR_COPY = (
+    "AI 生成失败。你可以检查 API key、模型名称、base_url 或稍后重试。"
+    "没有写入 Anki，也没有访问 Anki collection。"
 )
+
+BEGINNER_AI_TIMEOUT_COPY = (
+    "AI 响应超时。没有写入 Anki，你可以重试。"
+    "没有访问 Anki collection。"
+)
+
+BEGINNER_AI_INVALID_JSON_COPY = (
+    "AI 返回的格式暂时无法解析。没有写入 Anki，你可以重新生成。"
+    "没有访问 Anki collection。"
+)
+
+BEGINNER_AI_EMPTY_OUTPUT_COPY = (
+    "AI 没有返回可解析的内容。没有写入 Anki，你可以重新生成。"
+    "没有访问 Anki collection。"
+)
+
+BEGINNER_AI_EMPTY_CARDS_COPY = (
+    "这次没有生成可用候选卡。可以换一段更完整的材料，或重新生成。"
+    "没有写入 Anki，也没有访问 Anki collection。"
+)
+
+BEGINNER_AI_SAFE_ERROR_COPY = BEGINNER_AI_PROVIDER_ERROR_COPY
 
 BEGINNER_AI_SETTINGS_HELP_COPY = (
     "请填写本次会话的 Provider、Base URL、模型和 API key，"
@@ -32,7 +59,8 @@ BEGINNER_AI_SETTINGS_HELP_COPY = (
 )
 
 BEGINNER_AI_GENERATING_COPY = (
-    "正在向所选 AI Provider 发送当前材料，请稍候。当前不会写入 Anki。"
+    "生成中：正在向所选 AI Provider 发送当前材料，请稍候。"
+    "当前不会写入 Anki，也不会访问 Anki collection。"
 )
 
 
@@ -46,8 +74,8 @@ _USER_PROMPT_TEMPLATE = """Create at most {max_cards} Basic Anki card drafts.
 Front must be a short, clear question. Back must be accurate and useful for review.
 Include a short source_excerpt copied or closely quoted from the supplied material.
 If the material is insufficient, return fewer cards or an empty cards array.
-Return this exact JSON shape:
-{{"cards":[{{"front":"...","back":"...","source_excerpt":"..."}}]}}
+Return a JSON array in this exact shape:
+[{{"front":"...","back":"...","source_excerpt":"..."}}]
 
 Learning material:
 {material_text}"""
@@ -55,8 +83,10 @@ Learning material:
 
 class BeginnerAIDraftErrorCode(str, Enum):
     REQUEST_FAILED = "request_failed"
+    TIMEOUT = "timeout"
     MALFORMED_RESPONSE = "malformed_response"
     INVALID_CARD_PAYLOAD = "invalid_card_payload"
+    EMPTY_OUTPUT = "empty_output"
     NO_CARDS = "no_cards"
 
 
@@ -110,6 +140,7 @@ class BeginnerAIProviderRuntimeSettings:
 class BeginnerAICardDraftGenerationResult:
     """Safe result without raw response, exception, material, or credentials."""
 
+    state: BeginnerAIGenerationState = BeginnerAIGenerationState.IDLE
     drafts: tuple[BeginnerAICardDraft, ...] = field(
         default_factory=tuple,
         repr=False,
@@ -118,6 +149,8 @@ class BeginnerAICardDraftGenerationResult:
     user_message: str = ""
 
     def __post_init__(self) -> None:
+        if not isinstance(self.state, BeginnerAIGenerationState):
+            raise ValueError("state must be a BeginnerAIGenerationState.")
         if not isinstance(self.drafts, tuple) or not all(
             isinstance(item, BeginnerAICardDraft) for item in self.drafts
         ):
@@ -129,16 +162,25 @@ class BeginnerAICardDraftGenerationResult:
             raise ValueError("error_code must be a BeginnerAIDraftErrorCode.")
         if self.error_code is not None and self.drafts:
             raise ValueError("failed results cannot contain drafts.")
+        if self.state is BeginnerAIGenerationState.SUCCESS and not self.drafts:
+            raise ValueError("successful results must contain drafts.")
+        if self.state is not BeginnerAIGenerationState.SUCCESS and self.drafts:
+            raise ValueError("only successful results can contain drafts.")
         if not isinstance(self.user_message, str):
             raise ValueError("user_message must be a string.")
 
     @property
     def success(self) -> bool:
-        return bool(self.drafts) and self.error_code is None
+        return (
+            self.state is BeginnerAIGenerationState.SUCCESS
+            and bool(self.drafts)
+            and self.error_code is None
+        )
 
     def to_safe_dict(self) -> dict:
         return {
             "success": self.success,
+            "state": self.state.value,
             "draft_count": len(self.drafts),
             "error_code": self.error_code.value if self.error_code else None,
             "user_message": self.user_message,
@@ -163,7 +205,7 @@ class BeginnerAICardDraftGenerator:
         if not isinstance(settings, BeginnerAIProviderRuntimeSettings):
             raise ValueError("settings must be BeginnerAIProviderRuntimeSettings.")
         if not isinstance(material_text, str) or not material_text.strip():
-            return _failure(BeginnerAIDraftErrorCode.INVALID_CARD_PAYLOAD)
+            return _failure(BeginnerAIGenerationState.EMPTY_CARDS)
         if (
             isinstance(max_cards, bool)
             or not isinstance(max_cards, int)
@@ -182,14 +224,20 @@ class BeginnerAICardDraftGenerator:
                 payload=_build_payload(settings, material_text, max_cards),
                 timeout_seconds=settings.timeout_seconds,
             )
-        except Exception:
-            return _failure(BeginnerAIDraftErrorCode.REQUEST_FAILED)
+        except Exception as error:
+            state = (
+                BeginnerAIGenerationState.TIMEOUT
+                if _is_timeout_error(error)
+                else BeginnerAIGenerationState.PROVIDER_ERROR
+            )
+            return _failure(state)
 
-        if not 200 <= response.status_code < 300:
-            return _failure(BeginnerAIDraftErrorCode.REQUEST_FAILED)
+        status_code = getattr(response, "status_code", None)
+        if not isinstance(status_code, int) or not 200 <= status_code < 300:
+            return _failure(BeginnerAIGenerationState.PROVIDER_ERROR)
         content = _extract_assistant_content(response.json_body)
-        if content is None:
-            return _failure(BeginnerAIDraftErrorCode.MALFORMED_RESPONSE)
+        if not content:
+            return _failure(BeginnerAIGenerationState.EMPTY_OUTPUT)
         return parse_beginner_ai_card_drafts(content, max_cards=max_cards)
 
 
@@ -199,24 +247,28 @@ def parse_beginner_ai_card_drafts(
 ) -> BeginnerAICardDraftGenerationResult:
     """Parse a JSON array or {cards: [...]} into isolated draft models."""
 
-    if not isinstance(json_text, str):
-        return _failure(BeginnerAIDraftErrorCode.MALFORMED_RESPONSE)
-    normalized = _strip_markdown_fence(json_text.strip())
-    try:
-        payload = json.loads(normalized)
-    except (json.JSONDecodeError, TypeError):
-        return _failure(BeginnerAIDraftErrorCode.MALFORMED_RESPONSE)
+    if not isinstance(json_text, str) or not json_text.strip():
+        return _failure(BeginnerAIGenerationState.EMPTY_OUTPUT)
+    if (
+        isinstance(max_cards, bool)
+        or not isinstance(max_cards, int)
+        or not 1 <= max_cards <= 5
+    ):
+        raise ValueError("max_cards must be an integer from 1 to 5.")
+    payload = _extract_first_json_value(_strip_markdown_fence(json_text.strip()))
+    if payload is None:
+        return _failure(BeginnerAIGenerationState.INVALID_JSON)
 
     cards = payload.get("cards") if isinstance(payload, dict) else payload
     if not isinstance(cards, list):
-        return _failure(BeginnerAIDraftErrorCode.INVALID_CARD_PAYLOAD)
+        return _failure(BeginnerAIGenerationState.INVALID_JSON)
     if not cards:
-        return _failure(BeginnerAIDraftErrorCode.NO_CARDS)
+        return _failure(BeginnerAIGenerationState.EMPTY_CARDS)
 
     drafts = []
     for index, card in enumerate(cards[:max_cards], start=1):
         if not isinstance(card, dict):
-            return _failure(BeginnerAIDraftErrorCode.INVALID_CARD_PAYLOAD)
+            return _failure(BeginnerAIGenerationState.INVALID_JSON)
         front = _validated_text(card.get("front"), max_chars=500)
         back = _validated_text(card.get("back"), max_chars=4000)
         source_excerpt = _validated_text(
@@ -224,7 +276,7 @@ def parse_beginner_ai_card_drafts(
             max_chars=1000,
         )
         if not all((front, back, source_excerpt)):
-            return _failure(BeginnerAIDraftErrorCode.INVALID_CARD_PAYLOAD)
+            return _failure(BeginnerAIGenerationState.INVALID_JSON)
         drafts.append(
             BeginnerAICardDraft(
                 id=f"ai-draft-{index}",
@@ -235,6 +287,7 @@ def parse_beginner_ai_card_drafts(
         )
 
     return BeginnerAICardDraftGenerationResult(
+        state=BeginnerAIGenerationState.SUCCESS,
         drafts=tuple(drafts),
         user_message=(
             f"已生成 {len(drafts)} 张只读候选卡草稿，请逐张核对。"
@@ -261,7 +314,6 @@ def _build_payload(
             },
         ],
         "temperature": 0.2,
-        "response_format": {"type": "json_object"},
     }
 
 
@@ -283,6 +335,27 @@ def _strip_markdown_fence(text: str) -> str:
     return text
 
 
+def _extract_first_json_value(text: str) -> object:
+    decoder = json.JSONDecoder()
+    try:
+        value, _ = decoder.raw_decode(text)
+        if isinstance(value, (list, dict)):
+            return value
+    except json.JSONDecodeError:
+        pass
+
+    for index, character in enumerate(text):
+        if character not in "[{":
+            continue
+        try:
+            value, _ = decoder.raw_decode(text[index:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, (list, dict)):
+            return value
+    return None
+
+
 def _validated_text(value: object, max_chars: int) -> str:
     if not isinstance(value, str):
         return ""
@@ -292,10 +365,44 @@ def _validated_text(value: object, max_chars: int) -> str:
     return normalized
 
 
+def _is_timeout_error(error: Exception) -> bool:
+    if isinstance(error, (TimeoutError, socket.timeout)):
+        return True
+    if isinstance(error, urllib.error.URLError):
+        return isinstance(error.reason, (TimeoutError, socket.timeout))
+    return False
+
+
+_ERROR_DETAILS = {
+    BeginnerAIGenerationState.PROVIDER_ERROR: (
+        BeginnerAIDraftErrorCode.REQUEST_FAILED,
+        BEGINNER_AI_PROVIDER_ERROR_COPY,
+    ),
+    BeginnerAIGenerationState.TIMEOUT: (
+        BeginnerAIDraftErrorCode.TIMEOUT,
+        BEGINNER_AI_TIMEOUT_COPY,
+    ),
+    BeginnerAIGenerationState.INVALID_JSON: (
+        BeginnerAIDraftErrorCode.MALFORMED_RESPONSE,
+        BEGINNER_AI_INVALID_JSON_COPY,
+    ),
+    BeginnerAIGenerationState.EMPTY_OUTPUT: (
+        BeginnerAIDraftErrorCode.EMPTY_OUTPUT,
+        BEGINNER_AI_EMPTY_OUTPUT_COPY,
+    ),
+    BeginnerAIGenerationState.EMPTY_CARDS: (
+        BeginnerAIDraftErrorCode.NO_CARDS,
+        BEGINNER_AI_EMPTY_CARDS_COPY,
+    ),
+}
+
+
 def _failure(
-    code: BeginnerAIDraftErrorCode,
+    state: BeginnerAIGenerationState,
 ) -> BeginnerAICardDraftGenerationResult:
+    code, user_message = _ERROR_DETAILS[state]
     return BeginnerAICardDraftGenerationResult(
+        state=state,
         error_code=code,
-        user_message=BEGINNER_AI_SAFE_ERROR_COPY,
+        user_message=user_message,
     )

@@ -77,6 +77,7 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
                 "继续",
                 "使用示例材料",
                 "用 AI 生成候选卡",
+                "重新生成",
                 "清空材料",
                 "关闭",
                 "查看技术详情",
