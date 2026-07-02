@@ -166,8 +166,11 @@ class BeginnerModeDialog(QDialog):
         self.ai_status_label.setWordWrap(True)
         self.ai_generate_btn = QPushButton("用 AI 生成候选卡")
         self.ai_generate_btn.clicked.connect(self._generate_ai_candidate_drafts)
+        self.ai_retry_btn = QPushButton("重新生成")
+        self.ai_retry_btn.clicked.connect(self._generate_ai_candidate_drafts)
         ai_action_row.addWidget(self.ai_status_label, 1)
         ai_action_row.addWidget(self.ai_generate_btn)
+        ai_action_row.addWidget(self.ai_retry_btn)
         ai_layout.addLayout(ai_action_row)
         layout.addWidget(self.ai_provider_group)
 
@@ -297,7 +300,9 @@ class BeginnerModeDialog(QDialog):
             self.ai_status_label.setText(BEGINNER_AI_SETTINGS_HELP_COPY)
             return
 
+        self.session.begin_ai_candidate_generation()
         self.ai_generate_btn.setEnabled(False)
+        self.ai_retry_btn.setEnabled(False)
         self.ai_status_label.setText(BEGINNER_AI_GENERATING_COPY)
         QApplication.processEvents()
         result = BeginnerAICardDraftGenerator().generate(
@@ -307,7 +312,10 @@ class BeginnerModeDialog(QDialog):
         if result.success:
             self.session.apply_ai_candidate_card_drafts(result.drafts)
         else:
-            self.session.record_ai_card_draft_error(result.error_code.value)
+            self.session.record_ai_card_draft_error(
+                result.state,
+                result.error_code.value,
+            )
         self.ai_status_label.setText(result.user_message)
         self._render_current_step()
 
@@ -571,7 +579,9 @@ class BeginnerModeDialog(QDialog):
         )
 
     def _update_ai_action_state(self, *unused):
-        self.ai_generate_btn.setEnabled(self._ai_request_ready())
+        enabled = self._ai_request_ready()
+        self.ai_generate_btn.setEnabled(enabled)
+        self.ai_retry_btn.setEnabled(enabled)
 
     def _toggle_technical_details(self):
         self.technical_details_expanded = not self.technical_details_expanded

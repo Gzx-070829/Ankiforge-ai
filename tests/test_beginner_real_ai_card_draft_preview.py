@@ -8,7 +8,7 @@ from ankiforge_ai.pipeline.openai_compatible_provider import (
 )
 from ankiforge_ai.ui.beginner_ai_card_drafts import (
     BEGINNER_AI_PROVIDER_DISCLOSURE_COPY,
-    BEGINNER_AI_SAFE_ERROR_COPY,
+    BEGINNER_AI_INVALID_JSON_COPY,
     BeginnerAICardDraftGenerator,
     BeginnerAIDraftErrorCode,
     BeginnerAIProviderRuntimeSettings,
@@ -119,7 +119,7 @@ class BeginnerRealAICardDraftPreviewTests(unittest.TestCase):
             result.error_code,
             BeginnerAIDraftErrorCode.MALFORMED_RESPONSE,
         )
-        self.assertEqual(result.user_message, BEGINNER_AI_SAFE_ERROR_COPY)
+        self.assertEqual(result.user_message, BEGINNER_AI_INVALID_JSON_COPY)
         self.assertIn("没有写入 Anki", result.user_message)
 
     def test_provider_exception_does_not_leak_api_key_or_raw_exception(self):
