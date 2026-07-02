@@ -126,7 +126,14 @@ class BeginnerMaterialGuideContractTests(unittest.TestCase):
 
         self.assertEqual(
             labels,
-            {"上一步", "继续", "清空材料", "关闭", "查看技术详情"},
+            {
+                "上一步",
+                "继续",
+                "使用示例材料",
+                "清空材料",
+                "关闭",
+                "查看技术详情",
+            },
         )
         for label in labels:
             for forbidden in ("保存", "应用", "执行", "确认", "写入"):

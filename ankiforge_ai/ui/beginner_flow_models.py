@@ -124,6 +124,20 @@ BEGINNER_GUIDE_SAFETY_COPY = (
 )
 
 
+BEGINNER_EXAMPLE_MATERIAL = (
+    "机器学习模型如果过度贴合训练数据，可能出现过拟合：训练表现很好，"
+    "但面对新数据时表现变差。\n"
+    "正则化通过限制模型复杂度来降低过拟合风险，常见方法包括 L1 正则化和 L2 正则化。\n"
+    "交叉验证会把数据分成多份，轮流用于训练和验证，帮助评估模型在新数据上的表现。\n"
+    "早停会观察验证集表现；当表现不再改善时提前停止训练，避免模型继续记忆训练数据。"
+)
+
+
+BEGINNER_MATERIAL_EMPTY_HINT = (
+    "你可以粘贴自己的学习材料，也可以先使用示例材料体验流程。"
+)
+
+
 BEGINNER_TERM_COPY: Mapping[str, str] = MappingProxyType(
     {
         "Human Review": "人工审核",
@@ -396,6 +410,16 @@ class BeginnerFlowSession:
             else BeginnerArtifactState.EMPTY
         )
         self._clear_from_knowledge_selection("material_changed")
+
+    def load_example_material(self) -> None:
+        """Load the built-in offline example into this disposable session."""
+
+        self._ensure_open()
+        if self.material_text == BEGINNER_EXAMPLE_MATERIAL:
+            self.current_step = BeginnerFlowStep.SELECT_MATERIAL
+            self._clear_from_recognition("example_material_reloaded")
+            return
+        self.update_material(BEGINNER_EXAMPLE_MATERIAL)
 
     def clear_material(self) -> None:
         """Remove in-memory material and every result derived from it."""

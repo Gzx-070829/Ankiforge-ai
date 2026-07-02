@@ -72,7 +72,14 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
         self.assertEqual(main_button, "开始新手模式")
         self.assertEqual(
             dialog_buttons,
-            {"上一步", "继续", "清空材料", "关闭", "查看技术详情"},
+            {
+                "上一步",
+                "继续",
+                "使用示例材料",
+                "清空材料",
+                "关闭",
+                "查看技术详情",
+            },
         )
         for label in (main_button, *dialog_buttons):
             for forbidden in (

@@ -1,4 +1,4 @@
-"""In-memory Qt guide for the v0.9 beginner mode."""
+"""In-memory Qt guide for the beginner mode."""
 
 from aqt.qt import (
     QButtonGroup,
@@ -18,6 +18,7 @@ from .beginner_flow_models import (
     BEGINNER_FUTURE_CONDITIONS,
     BEGINNER_GUIDE_SAFETY_COPY,
     BEGINNER_GUIDE_STEP_NOTES,
+    BEGINNER_MATERIAL_EMPTY_HINT,
     BEGINNER_PREWRITE_SUMMARY,
     BEGINNER_REVIEW_DECISION_COPY,
     BEGINNER_REVIEW_SAFETY_NOTE,
@@ -89,16 +90,22 @@ class BeginnerModeDialog(QDialog):
 
         self.material_group = QGroupBox("材料输入页")
         material_layout = QVBoxLayout(self.material_group)
+        material_hint = QLabel(BEGINNER_MATERIAL_EMPTY_HINT)
+        material_hint.setWordWrap(True)
+        material_layout.addWidget(material_hint)
         self.material_input = QTextEdit()
         self.material_input.setPlaceholderText("在这里输入或粘贴学习材料")
         self.material_input.textChanged.connect(self._on_material_changed)
         material_layout.addWidget(self.material_input)
         material_footer = QHBoxLayout()
         self.material_count_label = QLabel("0 字符")
+        self.example_material_btn = QPushButton("使用示例材料")
+        self.example_material_btn.clicked.connect(self._use_example_material)
         self.clear_material_btn = QPushButton("清空材料")
         self.clear_material_btn.clicked.connect(self._clear_material)
         material_footer.addWidget(self.material_count_label)
         material_footer.addStretch()
+        material_footer.addWidget(self.example_material_btn)
         material_footer.addWidget(self.clear_material_btn)
         material_layout.addLayout(material_footer)
         layout.addWidget(self.material_group)
@@ -184,6 +191,13 @@ class BeginnerModeDialog(QDialog):
         self.material_input.clear()
         self.material_input.blockSignals(False)
         self.session.clear_material()
+        self._render_current_step()
+
+    def _use_example_material(self):
+        self.session.load_example_material()
+        self.material_input.blockSignals(True)
+        self.material_input.setPlainText(self.session.material_text)
+        self.material_input.blockSignals(False)
         self._render_current_step()
 
     def _continue_guide(self):
