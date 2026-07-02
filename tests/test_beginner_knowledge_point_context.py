@@ -5,6 +5,7 @@ from pathlib import Path
 
 from ankiforge_ai.ui.beginner_flow_models import (
     BEGINNER_GUIDE_STEP_NOTES,
+    BEGINNER_NO_SELECTED_KNOWLEDGE_COPY,
     BEGINNER_STEP_COPY,
     COMPLETION_TITLE,
     BeginnerArtifactState,
@@ -67,7 +68,7 @@ class BeginnerKnowledgePointContextTests(unittest.TestCase):
             BEGINNER_STEP_COPY[
                 BeginnerFlowStep.REVIEW_CANDIDATE_CARDS
             ].empty_state,
-            "还没有候选卡。请先回到上一步选择知识点。",
+            BEGINNER_NO_SELECTED_KNOWLEDGE_COPY,
         )
 
     def test_selection_change_clears_old_candidates_review_and_later_previews(self):

@@ -159,7 +159,8 @@ class BeginnerReviewProgressiveDisclosureTests(unittest.TestCase):
         self.assertIn('"隐藏技术详情"', source)
         self.assertIn("self.technical_toggle_btn.setFlat(True)", source)
         self.assertIn("self.next_btn.setDefault(True)", source)
-        self.assertIn("self.session.complete_candidate_review()", source)
+        self.assertIn("self.session.view_prewrite_conditions()", source)
+        self.assertIn("self.session.finish_prewrite_walkthrough()", source)
 
     def test_dialog_review_controls_are_session_driven_radio_choices(self):
         source = self.dialog_source()
