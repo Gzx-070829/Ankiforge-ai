@@ -4,6 +4,7 @@ from aqt.qt import (
     QApplication,
     QButtonGroup,
     QCheckBox,
+    QComboBox,
     QDialog,
     QFormLayout,
     QGroupBox,
@@ -47,14 +48,24 @@ from .beginner_flow_models import (
     BeginnerFlowStep,
     BeginnerReviewDecision,
 )
+from .read_only_anki_targets import (
+    ANKI_MAPPING_PREVIEW_SAFETY_COPY,
+    BeginnerAnkiReadState,
+    ReadOnlyAnkiTargetAdapter,
+    build_beginner_field_mapping_preview,
+)
 
 
 class BeginnerModeDialog(QDialog):
     """Guide one disposable session without starting pipeline work."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, collection=None):
         super().__init__(parent)
         self.session = BeginnerFlowSession()
+        self.anki_target_adapter = ReadOnlyAnkiTargetAdapter(collection)
+        self.anki_target_snapshot = None
+        self.anki_field_snapshot = None
+        self.anki_mapping_preview = None
         self.setWindowTitle("新手模式（只读演练）")
         self.resize(760, 680)
 
@@ -222,6 +233,56 @@ class BeginnerModeDialog(QDialog):
             )
             condition_label.setWordWrap(True)
             prewrite_layout.addWidget(condition_label)
+
+        self.anki_target_group = QGroupBox("未来写入设置预览")
+        anki_target_layout = QVBoxLayout(self.anki_target_group)
+        anki_target_safety = QLabel(ANKI_MAPPING_PREVIEW_SAFETY_COPY)
+        anki_target_safety.setWordWrap(True)
+        anki_target_safety.setStyleSheet("font-weight: bold;")
+        anki_target_layout.addWidget(anki_target_safety)
+        anki_read_row = QHBoxLayout()
+        self.read_anki_targets_btn = QPushButton("读取 Anki 结构")
+        self.read_anki_targets_btn.clicked.connect(self._read_anki_targets)
+        self.reload_anki_targets_btn = QPushButton("重新读取")
+        self.reload_anki_targets_btn.clicked.connect(self._read_anki_targets)
+        self.anki_target_status_label = QLabel()
+        self.anki_target_status_label.setWordWrap(True)
+        anki_read_row.addWidget(self.read_anki_targets_btn)
+        anki_read_row.addWidget(self.reload_anki_targets_btn)
+        anki_read_row.addWidget(self.anki_target_status_label, 1)
+        anki_target_layout.addLayout(anki_read_row)
+
+        anki_target_form = QFormLayout()
+        self.anki_deck_combo = QComboBox()
+        self.anki_deck_combo.setEnabled(False)
+        self.anki_deck_combo.currentIndexChanged.connect(
+            self._on_anki_deck_changed
+        )
+        anki_target_form.addRow("选择目标牌组:", self.anki_deck_combo)
+        self.anki_note_type_combo = QComboBox()
+        self.anki_note_type_combo.setEnabled(False)
+        self.anki_note_type_combo.currentIndexChanged.connect(
+            self._on_anki_note_type_changed
+        )
+        anki_target_form.addRow("选择笔记类型:", self.anki_note_type_combo)
+        self.anki_front_field_combo = QComboBox()
+        self.anki_back_field_combo = QComboBox()
+        self.anki_source_field_combo = QComboBox()
+        for combo in (
+            self.anki_front_field_combo,
+            self.anki_back_field_combo,
+            self.anki_source_field_combo,
+        ):
+            combo.setEnabled(False)
+            combo.currentIndexChanged.connect(self._on_anki_mapping_changed)
+        anki_target_form.addRow("候选卡正面 →", self.anki_front_field_combo)
+        anki_target_form.addRow("候选卡背面 →", self.anki_back_field_combo)
+        anki_target_form.addRow("候选卡来源 →", self.anki_source_field_combo)
+        anki_target_layout.addLayout(anki_target_form)
+        self.anki_mapping_preview_label = QLabel(ANKI_MAPPING_PREVIEW_SAFETY_COPY)
+        self.anki_mapping_preview_label.setWordWrap(True)
+        anki_target_layout.addWidget(self.anki_mapping_preview_label)
+        prewrite_layout.addWidget(self.anki_target_group)
         layout.addWidget(self.prewrite_group)
 
         self.technical_details_expanded = False
@@ -318,6 +379,180 @@ class BeginnerModeDialog(QDialog):
             )
         self.ai_status_label.setText(result.user_message)
         self._render_current_step()
+
+    def _read_anki_targets(self):
+        self.session.clear_anki_target_selection()
+        self.anki_mapping_preview = None
+        self.anki_field_snapshot = None
+        snapshot = self.anki_target_adapter.read_targets()
+        self.anki_target_snapshot = snapshot
+        self.anki_target_status_label.setText(snapshot.user_message)
+        self._populate_anki_target_combos(snapshot)
+        self.anki_mapping_preview_label.setText(
+            ANKI_MAPPING_PREVIEW_SAFETY_COPY
+        )
+
+    def _populate_anki_target_combos(self, snapshot):
+        for combo in (self.anki_deck_combo, self.anki_note_type_combo):
+            combo.blockSignals(True)
+            combo.clear()
+            combo.addItem("请选择", None)
+        for deck in snapshot.decks:
+            self.anki_deck_combo.addItem(deck.name, deck.id)
+        for note_type in snapshot.note_types:
+            self.anki_note_type_combo.addItem(note_type.name, note_type.id)
+        for combo in (self.anki_deck_combo, self.anki_note_type_combo):
+            combo.setCurrentIndex(0)
+            combo.setEnabled(combo.count() > 1)
+            combo.blockSignals(False)
+        self._clear_anki_field_combos()
+
+    def _on_anki_deck_changed(self, index):
+        deck = self._selected_anki_deck()
+        if deck is None:
+            self.session.clear_anki_deck_selection()
+            self.anki_mapping_preview = None
+            self.anki_mapping_preview_label.setText(
+                ANKI_MAPPING_PREVIEW_SAFETY_COPY
+            )
+            return
+        self.session.select_anki_deck(deck.id, deck.name)
+        self._update_anki_mapping_preview()
+
+    def _on_anki_note_type_changed(self, index):
+        note_type = self._selected_anki_note_type()
+        if note_type is None:
+            self.session.clear_anki_note_type_selection()
+            self._clear_anki_field_combos()
+            self.anki_mapping_preview = None
+            self.anki_mapping_preview_label.setText(
+                ANKI_MAPPING_PREVIEW_SAFETY_COPY
+            )
+            return
+        field_snapshot = self.anki_target_adapter.read_fields(note_type.id)
+        self.anki_field_snapshot = field_snapshot
+        self.anki_target_status_label.setText(field_snapshot.user_message)
+        if field_snapshot.state is not BeginnerAnkiReadState.SUCCESS:
+            self._clear_anki_field_combos()
+            return
+        self.session.select_anki_note_type(
+            note_type.id,
+            note_type.name,
+            field_snapshot.fields,
+        )
+        self._populate_anki_field_combos(field_snapshot.fields)
+        self._update_anki_mapping_preview()
+
+    def _populate_anki_field_combos(self, fields):
+        for combo in (
+            self.anki_front_field_combo,
+            self.anki_back_field_combo,
+            self.anki_source_field_combo,
+        ):
+            combo.blockSignals(True)
+            combo.clear()
+        self.anki_front_field_combo.addItem("请选择", None)
+        self.anki_back_field_combo.addItem("请选择", None)
+        self.anki_source_field_combo.addItem("不映射来源", None)
+        for field_name in fields:
+            self.anki_front_field_combo.addItem(field_name, field_name)
+            self.anki_back_field_combo.addItem(field_name, field_name)
+            self.anki_source_field_combo.addItem(field_name, field_name)
+        self._select_matching_field(self.anki_front_field_combo, ("front",))
+        self._select_matching_field(self.anki_back_field_combo, ("back",))
+        self._select_matching_field(
+            self.anki_source_field_combo,
+            ("source", "extra"),
+        )
+        for combo in (
+            self.anki_front_field_combo,
+            self.anki_back_field_combo,
+            self.anki_source_field_combo,
+        ):
+            combo.setEnabled(True)
+            combo.blockSignals(False)
+
+    def _clear_anki_field_combos(self):
+        for combo in (
+            self.anki_front_field_combo,
+            self.anki_back_field_combo,
+            self.anki_source_field_combo,
+        ):
+            combo.blockSignals(True)
+            combo.clear()
+            combo.setEnabled(False)
+            combo.blockSignals(False)
+
+    @staticmethod
+    def _select_matching_field(combo, candidates):
+        for index in range(combo.count()):
+            value = combo.itemData(index)
+            if isinstance(value, str) and value.casefold() in candidates:
+                combo.setCurrentIndex(index)
+                return
+
+    def _on_anki_mapping_changed(self, index):
+        self._update_anki_mapping_preview()
+
+    def _update_anki_mapping_preview(self):
+        deck = self._selected_anki_deck()
+        note_type = self._selected_anki_note_type()
+        if (
+            deck is None
+            or note_type is None
+            or self.anki_field_snapshot is None
+            or self.anki_field_snapshot.state is not BeginnerAnkiReadState.SUCCESS
+        ):
+            return
+        front_field = self.anki_front_field_combo.currentData()
+        back_field = self.anki_back_field_combo.currentData()
+        source_field = self.anki_source_field_combo.currentData()
+        if not front_field or not back_field:
+            self.session.clear_anki_field_mapping()
+            self.anki_mapping_preview = None
+            self.anki_mapping_preview_label.setText(
+                ANKI_MAPPING_PREVIEW_SAFETY_COPY
+            )
+            return
+        self.session.set_anki_field_mapping(
+            front_field,
+            back_field,
+            source_field,
+        )
+        preview = build_beginner_field_mapping_preview(
+            deck=deck,
+            note_type=note_type,
+            available_fields=self.anki_field_snapshot.fields,
+            front_field=front_field,
+            back_field=back_field,
+            source_field=source_field,
+        )
+        self.anki_mapping_preview = preview
+        self.anki_mapping_preview_label.setText(
+            "\n".join(preview.summary_lines)
+        )
+
+    def _selected_anki_deck(self):
+        if self.anki_target_snapshot is None:
+            return None
+        selected_id = self.anki_deck_combo.currentData()
+        return next(
+            (item for item in self.anki_target_snapshot.decks if item.id == selected_id),
+            None,
+        )
+
+    def _selected_anki_note_type(self):
+        if self.anki_target_snapshot is None:
+            return None
+        selected_id = self.anki_note_type_combo.currentData()
+        return next(
+            (
+                item
+                for item in self.anki_target_snapshot.note_types
+                if item.id == selected_id
+            ),
+            None,
+        )
 
     def _continue_guide(self):
         if self.session.current_step is BeginnerFlowStep.COMPLETED_NO_WRITE:
@@ -612,6 +847,9 @@ class BeginnerModeDialog(QDialog):
         self.ai_api_key_input.blockSignals(True)
         self.ai_api_key_input.clear()
         self.ai_api_key_input.blockSignals(False)
+        self.anki_target_snapshot = None
+        self.anki_field_snapshot = None
+        self.anki_mapping_preview = None
         self.session.close()
 
     def reject(self):

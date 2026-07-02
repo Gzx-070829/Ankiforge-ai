@@ -116,7 +116,8 @@ class MainDialog(QDialog):
         beginner_description = QLabel(
             "只读演练：带你理解从学习材料到候选卡审核的流程。"
             "打开窗口不会联网；只有你主动点击 AI 生成按钮后才会按提示联网。"
-            "本模式不会写入 Anki。"
+            "只有点击读取按钮才会只读访问 Anki collection；"
+            "本模式不会修改 Anki，也不会写入 Anki。"
         )
         beginner_description.setWordWrap(True)
         beginner_layout.addWidget(beginner_description)
@@ -145,7 +146,9 @@ class MainDialog(QDialog):
         layout.addWidget(self.legacy_workbench_container, 1)
 
     def show_beginner_mode(self):
-        BeginnerModeDialog(parent=self).exec()
+        main_window = self.parent()
+        collection = getattr(main_window, "col", None)
+        BeginnerModeDialog(parent=self, collection=collection).exec()
 
     def show_legacy_workbench(self):
         if not self._legacy_workbench_built:
