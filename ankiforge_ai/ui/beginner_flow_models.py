@@ -29,6 +29,47 @@ BEGINNER_FLOW_STEP_ORDER = (
 )
 
 
+BEGINNER_MATERIAL_EMPTY_HINT = (
+    "还没有学习材料。你可以粘贴自己的学习材料，也可以点击“使用示例材料”。"
+    "当前只是离线只读演练，不会写入 Anki。"
+)
+
+BEGINNER_RECOGNITION_EMPTY_MATERIAL_COPY = (
+    "当前没有材料可查看。请返回第一步，输入材料或使用示例材料。"
+    "当前只是离线只读演练，不会写入 Anki。"
+)
+
+BEGINNER_RECOGNITION_NO_RESULTS_COPY = (
+    "这段材料暂时没有拆出知识点。请换一段更完整的学习材料。"
+    "当前使用离线演练规则，不会写入 Anki。"
+)
+
+BEGINNER_KNOWLEDGE_SELECTION_GUIDANCE = (
+    "请至少选择一个想复习的知识点。后面的候选卡只会来自你选中的知识点。"
+    "当前只是离线只读演练，不会写入 Anki。"
+)
+
+BEGINNER_NO_SELECTED_KNOWLEDGE_COPY = (
+    "还没有选择知识点。请回到上一步，至少选择一个想复习的知识点。"
+    "当前不会生成候选卡，也不会写入 Anki。"
+)
+
+BEGINNER_NO_CANDIDATE_PREVIEWS_COPY = (
+    "当前没有可展示的候选卡。这是离线演练预览，你可以返回调整材料或知识点选择。"
+    "当前不会写入 Anki。"
+)
+
+BEGINNER_REVIEW_CHOICE_GUIDANCE = (
+    "请为候选卡选择“看起来可以”“需要修改”或“暂时不要”。"
+    "这些选择只用于本次离线演练，不是写入授权，也不会写入 Anki。"
+)
+
+BEGINNER_PREWRITE_INCOMPLETE_REVIEW_COPY = (
+    "候选卡还没有全部审核。你还可以先回到上一步审核候选卡，"
+    "也可以继续查看未来需要确认的事项。当前不会写入 Anki。"
+)
+
+
 @dataclass(frozen=True)
 class BeginnerStepCopy:
     title: str
@@ -43,31 +84,34 @@ BEGINNER_STEP_COPY: Mapping[BeginnerFlowStep, BeginnerStepCopy] = MappingProxyTy
             title="选择学习材料",
             description="选择一份 Markdown 学习材料，作为本次离线演练的起点。",
             primary_action="选择学习材料",
-            empty_state="尚未选择材料。选择后，内容只用于当前内存会话。",
+            empty_state=BEGINNER_MATERIAL_EMPTY_HINT,
         ),
         BeginnerFlowStep.INSPECT_RECOGNITION: BeginnerStepCopy(
             title="查看系统识别了什么",
             description="查看当前材料经离线演练规则识别出的知识点，再继续。",
             primary_action="查看识别结果",
-            empty_state="尚无材料预览。请先输入学习材料。",
+            empty_state=BEGINNER_RECOGNITION_EMPTY_MATERIAL_COPY,
         ),
         BeginnerFlowStep.CHOOSE_KNOWLEDGE_POINTS: BeginnerStepCopy(
             title="选择要制卡的知识点",
             description="从刚才的离线识别结果中挑选本次想继续查看的知识点。",
             primary_action="确认知识点选择",
-            empty_state="当前材料没有可选知识点。请返回并调整材料。",
+            empty_state=(
+                "当前没有可选知识点。请返回调整材料，再至少选择一个想复习的知识点。"
+                "后面的候选卡只会来自你选中的知识点；当前不会写入 Anki。"
+            ),
         ),
         BeginnerFlowStep.REVIEW_CANDIDATE_CARDS: BeginnerStepCopy(
             title="审核候选卡",
             description="逐张查看正面、背面和来源，并用普通中文留下本次选择。",
             primary_action="继续",
-            empty_state="还没有候选卡。请先回到上一步选择知识点。",
+            empty_state=BEGINNER_NO_SELECTED_KNOWLEDGE_COPY,
         ),
         BeginnerFlowStep.CHECK_BEFORE_WRITE: BeginnerStepCopy(
             title="查看距离真正写入还缺哪些条件",
             description="了解未来真正写入前仍需确认的五类信息；这里不授予权限。",
             primary_action="继续",
-            empty_state="尚无可检查的审核结果。请先完成人工审核。",
+            empty_state=BEGINNER_PREWRITE_INCOMPLETE_REVIEW_COPY,
         ),
         BeginnerFlowStep.COMPLETED_NO_WRITE: BeginnerStepCopy(
             title="演练完成，尚未写入 Anki",
@@ -130,11 +174,6 @@ BEGINNER_EXAMPLE_MATERIAL = (
     "正则化通过限制模型复杂度来降低过拟合风险，常见方法包括 L1 正则化和 L2 正则化。\n"
     "交叉验证会把数据分成多份，轮流用于训练和验证，帮助评估模型在新数据上的表现。\n"
     "早停会观察验证集表现；当表现不再改善时提前停止训练，避免模型继续记忆训练数据。"
-)
-
-
-BEGINNER_MATERIAL_EMPTY_HINT = (
-    "你可以粘贴自己的学习材料，也可以先使用示例材料体验流程。"
 )
 
 
@@ -381,6 +420,14 @@ class BeginnerFlowSession:
     def material_char_count(self) -> int:
         return len(self.material_text)
 
+    @property
+    def candidate_review_complete(self) -> bool:
+        return (
+            self.candidate_cards_state is BeginnerArtifactState.CURRENT
+            and self.candidate_count > 0
+            and len(self.candidate_review_decisions) == self.candidate_count
+        )
+
     def material_preview(self, max_chars: int = 300) -> str:
         if isinstance(max_chars, bool) or not isinstance(max_chars, int):
             raise ValueError("max_chars must be an integer of at least 4.")
@@ -453,11 +500,19 @@ class BeginnerFlowSession:
         if max_points < 1:
             raise ValueError("max_points must be a positive integer.")
 
-        fragments = tuple(
-            fragment.strip()
-            for fragment in re.split(r"[。！？；.!?;\r\n]+", self.material_text)
-            if fragment.strip()
-        )[:max_points]
+        normalized_material = "".join(self.material_text.split())
+        fragments = (
+            tuple(
+                fragment.strip()
+                for fragment in re.split(
+                    r"[。！？；.!?;\r\n]+",
+                    self.material_text,
+                )
+                if fragment.strip()
+            )[:max_points]
+            if len(normalized_material) >= 6
+            else ()
+        )
         self.recognized_knowledge_points = tuple(
             BeginnerKnowledgePointPreview(
                 id=f"kp-{index}",
@@ -601,6 +656,18 @@ class BeginnerFlowSession:
         self._clear_prewrite_previews("review_completed")
         self.current_step = BeginnerFlowStep.CHECK_BEFORE_WRITE
 
+    def view_prewrite_conditions(self) -> None:
+        """Show explanatory future conditions without requiring review completion."""
+
+        self._ensure_open()
+        if self.current_step is not BeginnerFlowStep.REVIEW_CANDIDATE_CARDS:
+            raise ValueError("future conditions follow the candidate review step.")
+        if self.candidate_review_complete:
+            self.complete_candidate_review()
+            return
+        self._clear_prewrite_previews("review_incomplete")
+        self.current_step = BeginnerFlowStep.CHECK_BEFORE_WRITE
+
     def clear_candidate_review(self) -> None:
         self._ensure_open()
         self.review_revision += 1
@@ -654,6 +721,18 @@ class BeginnerFlowSession:
         self.write_plan_preview_state = BeginnerArtifactState.CURRENT
         self.final_confirmation_preview_state = BeginnerArtifactState.CURRENT
         self.last_clearing_reason = None
+        self.current_step = BeginnerFlowStep.COMPLETED_NO_WRITE
+
+    def finish_prewrite_walkthrough(self) -> None:
+        """Finish the explanation without turning incomplete review into readiness."""
+
+        self._ensure_open()
+        if self.current_step is not BeginnerFlowStep.CHECK_BEFORE_WRITE:
+            raise ValueError("the future-conditions step must be visible first.")
+        if self.candidate_review_complete:
+            self.mark_prewrite_check_inspected()
+            return
+        self._clear_prewrite_previews("review_incomplete")
         self.current_step = BeginnerFlowStep.COMPLETED_NO_WRITE
 
     def go_back(self, target_step: BeginnerFlowStep) -> None:

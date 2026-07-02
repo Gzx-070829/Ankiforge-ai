@@ -18,8 +18,15 @@ from .beginner_flow_models import (
     BEGINNER_FUTURE_CONDITIONS,
     BEGINNER_GUIDE_SAFETY_COPY,
     BEGINNER_GUIDE_STEP_NOTES,
+    BEGINNER_KNOWLEDGE_SELECTION_GUIDANCE,
     BEGINNER_MATERIAL_EMPTY_HINT,
+    BEGINNER_NO_CANDIDATE_PREVIEWS_COPY,
+    BEGINNER_NO_SELECTED_KNOWLEDGE_COPY,
     BEGINNER_PREWRITE_SUMMARY,
+    BEGINNER_PREWRITE_INCOMPLETE_REVIEW_COPY,
+    BEGINNER_RECOGNITION_EMPTY_MATERIAL_COPY,
+    BEGINNER_RECOGNITION_NO_RESULTS_COPY,
+    BEGINNER_REVIEW_CHOICE_GUIDANCE,
     BEGINNER_REVIEW_DECISION_COPY,
     BEGINNER_REVIEW_SAFETY_NOTE,
     BEGINNER_STEP_COPY,
@@ -136,6 +143,9 @@ class BeginnerModeDialog(QDialog):
         prewrite_summary = QLabel(BEGINNER_PREWRITE_SUMMARY)
         prewrite_summary.setWordWrap(True)
         prewrite_layout.addWidget(prewrite_summary)
+        self.prewrite_review_hint = QLabel(BEGINNER_PREWRITE_INCOMPLETE_REVIEW_COPY)
+        self.prewrite_review_hint.setWordWrap(True)
+        prewrite_layout.addWidget(self.prewrite_review_hint)
         for index, condition in enumerate(BEGINNER_FUTURE_CONDITIONS, start=1):
             condition_label = QLabel(
                 f"{index}. {condition.title}｜{condition.status}\n"
@@ -218,9 +228,9 @@ class BeginnerModeDialog(QDialog):
             self.session.select_knowledge_points(selected_ids)
             self.session.build_candidate_previews_from_selection()
         elif self.session.current_step is BeginnerFlowStep.REVIEW_CANDIDATE_CARDS:
-            self.session.complete_candidate_review()
+            self.session.view_prewrite_conditions()
         elif self.session.current_step is BeginnerFlowStep.CHECK_BEFORE_WRITE:
-            self.session.mark_prewrite_check_inspected()
+            self.session.finish_prewrite_walkthrough()
         else:
             self.session.advance_guide()
         self._render_current_step()
@@ -269,6 +279,9 @@ class BeginnerModeDialog(QDialog):
         self.knowledge_group.setVisible(is_knowledge_step)
         self.candidate_group.setVisible(is_candidate_step)
         self.prewrite_group.setVisible(is_prewrite_step)
+        self.prewrite_review_hint.setVisible(
+            is_prewrite_step and not self.session.candidate_review_complete
+        )
         show_technical_option = is_candidate_step or is_prewrite_step
         self.technical_toggle_btn.setVisible(show_technical_option)
         self.technical_details_group.setVisible(
@@ -294,8 +307,13 @@ class BeginnerModeDialog(QDialog):
     def _render_recognition_results(self):
         self._clear_layout(self.recognition_list_layout)
         if not self.session.recognized_knowledge_points:
+            empty_copy = (
+                BEGINNER_RECOGNITION_EMPTY_MATERIAL_COPY
+                if not self.session.material_text.strip()
+                else BEGINNER_RECOGNITION_NO_RESULTS_COPY
+            )
             self.recognition_list_layout.addWidget(
-                QLabel("当前材料没有识别出可展示的知识点。")
+                QLabel(empty_copy)
             )
             return
         for index, point in enumerate(
@@ -313,6 +331,9 @@ class BeginnerModeDialog(QDialog):
     def _render_knowledge_selection(self):
         self._clear_layout(self.knowledge_layout)
         self.knowledge_checkboxes = {}
+        guidance_label = QLabel(BEGINNER_KNOWLEDGE_SELECTION_GUIDANCE)
+        guidance_label.setWordWrap(True)
+        self.knowledge_layout.addWidget(guidance_label)
         if not self.session.recognized_knowledge_points:
             empty_label = QLabel(
                 BEGINNER_STEP_COPY[
@@ -341,12 +362,20 @@ class BeginnerModeDialog(QDialog):
         safety_note.setWordWrap(True)
         self.candidate_layout.addWidget(safety_note)
         if not self.session.candidate_card_previews:
+            empty_copy = (
+                BEGINNER_NO_SELECTED_KNOWLEDGE_COPY
+                if not self.session.selected_knowledge_point_ids
+                else BEGINNER_NO_CANDIDATE_PREVIEWS_COPY
+            )
             empty_label = QLabel(
-                "还没有候选卡。请先回到上一步选择知识点。"
+                empty_copy
             )
             empty_label.setWordWrap(True)
             self.candidate_layout.addWidget(empty_label)
             return
+        review_guidance = QLabel(BEGINNER_REVIEW_CHOICE_GUIDANCE)
+        review_guidance.setWordWrap(True)
+        self.candidate_layout.addWidget(review_guidance)
         for candidate in self.session.candidate_card_previews:
             card_group = QGroupBox("候选卡预览")
             card_layout = QVBoxLayout(card_group)
@@ -402,17 +431,19 @@ class BeginnerModeDialog(QDialog):
             return
         reviewed = len(self.session.candidate_review_decisions)
         total = len(self.session.candidate_card_previews)
-        self.review_progress_label.setText(f"已选择 {reviewed}/{total} 张")
+        if reviewed == total:
+            copy = f"已选择 {reviewed}/{total} 张，可以继续查看下一步。"
+        else:
+            copy = (
+                f"已选择 {reviewed}/{total} 张。你可以继续选择，"
+                "也可以先查看下一步说明。"
+            )
+        self.review_progress_label.setText(copy)
 
     def _update_primary_action_state(self):
         step = self.session.current_step
         if step is BeginnerFlowStep.SELECT_MATERIAL:
             enabled = bool(self.session.material_text.strip())
-        elif step is BeginnerFlowStep.REVIEW_CANDIDATE_CARDS:
-            total = len(self.session.candidate_card_previews)
-            enabled = total > 0 and len(
-                self.session.candidate_review_decisions
-            ) == total
         else:
             enabled = True
         self.next_btn.setEnabled(enabled)
