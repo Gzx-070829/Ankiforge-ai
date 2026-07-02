@@ -444,6 +444,8 @@ class BeginnerFlowSession:
     final_confirmation_preview_state: BeginnerArtifactState = (
         BeginnerArtifactState.EMPTY
     )
+    final_confirmation_card_count: int = 0
+    final_confirmation_missing_condition_count: int = 0
     last_clearing_reason: Optional[str] = None
     ai_draft_error_code: Optional[str] = None
     candidate_origin: str = "none"
@@ -948,6 +950,26 @@ class BeginnerFlowSession:
         self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
         self._clear_final_confirmation_preview("duplicate_check_cleared")
 
+    def apply_final_confirmation_preview(
+        self,
+        card_count: int,
+        missing_condition_count: int,
+    ) -> None:
+        """Record only structural facts about one display-only final preview."""
+
+        self._ensure_open()
+        self._validate_count(card_count, "card_count")
+        self._validate_count(
+            missing_condition_count,
+            "missing_condition_count",
+        )
+        if card_count != len(self.candidate_card_previews):
+            raise ValueError("card_count must match the current candidate previews.")
+        self.final_confirmation_preview_state = BeginnerArtifactState.CURRENT
+        self.final_confirmation_card_count = card_count
+        self.final_confirmation_missing_condition_count = missing_condition_count
+        self.last_clearing_reason = None
+
     def set_candidate_review_decision(
         self,
         candidate_id: str,
@@ -1049,7 +1071,6 @@ class BeginnerFlowSession:
             raise ValueError("review must be current before the pre-write check.")
         self.eligibility_state = BeginnerArtifactState.CURRENT
         self.write_plan_preview_state = BeginnerArtifactState.CURRENT
-        self.final_confirmation_preview_state = BeginnerArtifactState.CURRENT
         self.last_clearing_reason = None
         self.current_step = BeginnerFlowStep.COMPLETED_NO_WRITE
 
@@ -1116,6 +1137,8 @@ class BeginnerFlowSession:
         self.eligibility_state = BeginnerArtifactState.EMPTY
         self.write_plan_preview_state = BeginnerArtifactState.EMPTY
         self.final_confirmation_preview_state = BeginnerArtifactState.EMPTY
+        self.final_confirmation_card_count = 0
+        self.final_confirmation_missing_condition_count = 0
         self.last_clearing_reason = "session_closed"
         self.ai_draft_error_code = None
         self.candidate_origin = "none"
@@ -1181,6 +1204,10 @@ class BeginnerFlowSession:
             "write_plan_preview_state": self.write_plan_preview_state.value,
             "final_confirmation_preview_state": (
                 self.final_confirmation_preview_state.value
+            ),
+            "final_confirmation_card_count": self.final_confirmation_card_count,
+            "final_confirmation_missing_condition_count": (
+                self.final_confirmation_missing_condition_count
             ),
             "last_clearing_reason": self.last_clearing_reason,
             "ai_draft_error_code": self.ai_draft_error_code,
@@ -1255,11 +1282,12 @@ class BeginnerFlowSession:
     def _clear_prewrite_previews(self, reason: str) -> None:
         self.eligibility_state = BeginnerArtifactState.CLEARED
         self.write_plan_preview_state = BeginnerArtifactState.CLEARED
-        self.final_confirmation_preview_state = BeginnerArtifactState.CLEARED
-        self.last_clearing_reason = reason
+        self._clear_final_confirmation_preview(reason)
 
     def _clear_final_confirmation_preview(self, reason: str) -> None:
         self.final_confirmation_preview_state = BeginnerArtifactState.CLEARED
+        self.final_confirmation_card_count = 0
+        self.final_confirmation_missing_condition_count = 0
         self.last_clearing_reason = reason
 
     def _ensure_open(self) -> None:

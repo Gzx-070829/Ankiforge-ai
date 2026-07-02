@@ -136,6 +136,7 @@ class BeginnerMaterialGuideContractTests(unittest.TestCase):
                 "重新读取",
                 "检查是否可能重复",
                 "重新检查",
+                "查看汇总预览",
                 "清空材料",
                 "关闭",
                 "查看技术详情",

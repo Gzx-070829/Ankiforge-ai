@@ -49,6 +49,12 @@ from .beginner_flow_models import (
     BeginnerFlowStep,
     BeginnerReviewDecision,
 )
+from .beginner_final_confirmation import (
+    FINAL_CONFIRMATION_EMPTY_COPY,
+    FINAL_CONFIRMATION_FUTURE_COPY,
+    FINAL_CONFIRMATION_SAFETY_COPY,
+    build_beginner_final_confirmation_preview,
+)
 from .read_only_anki_targets import (
     ANKI_MAPPING_PREVIEW_SAFETY_COPY,
     BeginnerAnkiReadState,
@@ -75,6 +81,7 @@ class BeginnerModeDialog(QDialog):
         self.anki_field_snapshot = None
         self.anki_mapping_preview = None
         self.duplicate_check_preview = None
+        self.final_confirmation_preview = None
         self.setWindowTitle("新手模式（只读演练）")
         self.resize(760, 680)
 
@@ -310,6 +317,27 @@ class BeginnerModeDialog(QDialog):
         self.duplicate_check_result_label.setWordWrap(True)
         duplicate_layout.addWidget(self.duplicate_check_result_label)
         anki_target_layout.addWidget(duplicate_group)
+
+        final_confirmation_group = QGroupBox("最终确认预览")
+        final_confirmation_layout = QVBoxLayout(final_confirmation_group)
+        final_confirmation_safety = QLabel(FINAL_CONFIRMATION_SAFETY_COPY)
+        final_confirmation_safety.setWordWrap(True)
+        final_confirmation_safety.setStyleSheet("font-weight: bold;")
+        final_confirmation_layout.addWidget(final_confirmation_safety)
+        self.final_confirmation_btn = QPushButton("查看汇总预览")
+        self.final_confirmation_btn.clicked.connect(
+            self._show_final_confirmation_preview
+        )
+        final_confirmation_layout.addWidget(self.final_confirmation_btn)
+        self.final_confirmation_result_label = QLabel(
+            FINAL_CONFIRMATION_EMPTY_COPY
+        )
+        self.final_confirmation_result_label.setWordWrap(True)
+        final_confirmation_layout.addWidget(self.final_confirmation_result_label)
+        final_confirmation_future = QLabel(FINAL_CONFIRMATION_FUTURE_COPY)
+        final_confirmation_future.setWordWrap(True)
+        final_confirmation_layout.addWidget(final_confirmation_future)
+        anki_target_layout.addWidget(final_confirmation_group)
         prewrite_layout.addWidget(self.anki_target_group)
         layout.addWidget(self.prewrite_group)
 
@@ -371,6 +399,7 @@ class BeginnerModeDialog(QDialog):
     def _on_ai_runtime_settings_changed(self, *unused):
         self.session.mark_ai_runtime_settings_changed()
         self.ai_status_label.clear()
+        self._clear_final_confirmation_display()
         self._update_ai_action_state()
 
     def _generate_ai_candidate_drafts(self):
@@ -567,6 +596,7 @@ class BeginnerModeDialog(QDialog):
 
     def _run_duplicate_check(self):
         self.session.begin_duplicate_check()
+        self._clear_final_confirmation_display()
         preview = self.duplicate_check_adapter.check(
             self.session.candidate_card_previews,
             self.anki_mapping_preview,
@@ -604,7 +634,59 @@ class BeginnerModeDialog(QDialog):
     def _clear_duplicate_display(self):
         self.duplicate_check_preview = None
         self.duplicate_check_result_label.setText(DUPLICATE_CHECK_SCOPE_COPY)
+        self._clear_final_confirmation_display()
         self._update_duplicate_action_state()
+
+    def _show_final_confirmation_preview(self):
+        preview = build_beginner_final_confirmation_preview(
+            self.session,
+            self.anki_mapping_preview,
+            self.duplicate_check_preview,
+        )
+        self.final_confirmation_preview = preview
+        self.session.apply_final_confirmation_preview(
+            preview.candidate_count,
+            len(preview.missing_conditions),
+        )
+        lines = [
+            FINAL_CONFIRMATION_SAFETY_COPY,
+            f"候选卡总数：{preview.candidate_count}",
+            f"目标牌组：{preview.deck_name or '未选择'}",
+            f"笔记类型：{preview.note_type_name or '未选择'}",
+            (
+                "字段映射："
+                f"正面 → {preview.front_field or '未选择'}；"
+                f"背面 → {preview.back_field or '未选择'}；"
+                f"来源 → {preview.source_field or '不映射'}"
+            ),
+        ]
+        if preview.missing_conditions:
+            lines.append("当前不能进入真实写入，还缺少：")
+            lines.extend(f"- {item}" for item in preview.missing_conditions)
+        else:
+            lines.append(
+                "未来所需信息已汇总，但这仍是只读预览，不代表写入授权。"
+            )
+        for index, card in enumerate(preview.cards, start=1):
+            lines.extend(
+                (
+                    f"候选卡 {index}",
+                    f"正面：{card.front}",
+                    f"背面：{card.back}",
+                    f"来源：{card.source}",
+                    f"人工审核：{card.review_copy}",
+                    f"重复检查：{card.duplicate_copy}",
+                    f"提示：{card.attention_copy}",
+                )
+            )
+        lines.append(FINAL_CONFIRMATION_FUTURE_COPY)
+        self.final_confirmation_result_label.setText("\n".join(lines))
+
+    def _clear_final_confirmation_display(self):
+        self.final_confirmation_preview = None
+        self.final_confirmation_result_label.setText(
+            FINAL_CONFIRMATION_EMPTY_COPY
+        )
 
     def _update_duplicate_action_state(self):
         enabled = bool(
@@ -737,6 +819,12 @@ class BeginnerModeDialog(QDialog):
             and self.duplicate_check_preview is not None
         ):
             self._clear_duplicate_display()
+        if (
+            self.session.final_confirmation_preview_state
+            is not BeginnerArtifactState.CURRENT
+            and self.final_confirmation_preview is not None
+        ):
+            self._clear_final_confirmation_display()
         self._update_primary_action_state()
         self._update_ai_action_state()
         self._update_duplicate_action_state()
@@ -867,6 +955,7 @@ class BeginnerModeDialog(QDialog):
         if not checked:
             return
         self.session.set_candidate_review_decision(candidate_id, decision)
+        self._clear_final_confirmation_display()
         self._update_review_progress()
         self._update_primary_action_state()
 
@@ -942,6 +1031,7 @@ class BeginnerModeDialog(QDialog):
         self.anki_field_snapshot = None
         self.anki_mapping_preview = None
         self.duplicate_check_preview = None
+        self.final_confirmation_preview = None
         self.session.close()
 
     def reject(self):
