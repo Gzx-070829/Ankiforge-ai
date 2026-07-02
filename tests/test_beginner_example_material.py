@@ -25,7 +25,8 @@ class BeginnerExampleMaterialTests(unittest.TestCase):
         self.assertEqual(session.material_text, BEGINNER_EXAMPLE_MATERIAL)
         self.assertFalse(session.persistent)
         self.assertFalse(session.network_allowed)
-        self.assertFalse(session.anki_collection_access_allowed)
+        self.assertTrue(session.anki_collection_read_allowed)
+        self.assertFalse(session.anki_collection_write_allowed)
         self.assertFalse(session.anki_write_allowed)
 
     def test_loading_example_clears_all_downstream_state(self):

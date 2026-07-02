@@ -191,7 +191,8 @@ class BeginnerRealAICardDraftPreviewTests(unittest.TestCase):
         self.assertEqual(session.current_step, BeginnerFlowStep.REVIEW_CANDIDATE_CARDS)
         self.assertEqual(session.candidate_origin, "real_ai_draft")
         self.assertEqual(session.candidate_card_previews[0].front_preview, draft.front)
-        self.assertFalse(session.anki_collection_access_allowed)
+        self.assertTrue(session.anki_collection_read_allowed)
+        self.assertFalse(session.anki_collection_write_allowed)
         self.assertFalse(session.duplicate_check_allowed)
         self.assertFalse(session.anki_write_allowed)
 

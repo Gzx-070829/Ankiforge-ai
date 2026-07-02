@@ -78,6 +78,8 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
                 "使用示例材料",
                 "用 AI 生成候选卡",
                 "重新生成",
+                "读取 Anki 结构",
+                "重新读取",
                 "清空材料",
                 "关闭",
                 "查看技术详情",
@@ -113,7 +115,6 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
                     "self.cards",
                     "provider",
                     "writer",
-                    "collection",
                     "mw.col",
                     "config",
                     "load_config",
@@ -122,6 +123,9 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
                     "create_provider",
                 ):
                     self.assertNotIn(forbidden, handler_source.lower())
+        beginner_source = self.function_source("show_beginner_mode")
+        self.assertIn("collection", beginner_source)
+        self.assertNotIn("add_note", beginner_source)
 
     def test_new_dialog_has_no_runtime_or_network_dependencies(self):
         source = self.beginner_dialog_source()

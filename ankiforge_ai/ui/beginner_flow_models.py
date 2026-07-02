@@ -129,7 +129,8 @@ BEGINNER_SAFETY_STATUS_COPY = (
     "只有主动点击 AI 生成按钮才会联网调用 Provider",
     "API key 只用于当前窗口，不会保存",
     "不会执行 duplicate check",
-    "不会访问 Anki collection",
+    "只有点击读取按钮才会只读访问 Anki collection",
+    "不会修改 Anki collection",
     "不会写入 Anki",
     "关闭后本次演练丢弃",
 )
@@ -164,6 +165,8 @@ BEGINNER_GUIDE_SAFETY_COPY = (
     "打开窗口不会联网",
     "只有主动点击 AI 生成按钮才会联网",
     "API key 只用于当前窗口",
+    "只有点击读取按钮才会只读访问 Anki collection",
+    "不会修改 Anki collection",
     "不会写入 Anki",
     "关闭后丢弃本次内容",
 )
@@ -288,7 +291,7 @@ COMPLETION_FACTS = (
     "未创建 note",
     "未修改卡组",
     "未保存本次演练",
-    "未访问 Anki collection",
+    "未修改 Anki collection",
     "未写入 Anki",
 )
 
@@ -443,6 +446,15 @@ class BeginnerFlowSession:
     last_clearing_reason: Optional[str] = None
     ai_draft_error_code: Optional[str] = None
     candidate_origin: str = "none"
+    selected_anki_deck_id: Optional[int] = None
+    selected_anki_deck_name: str = ""
+    selected_anki_note_type_id: Optional[int] = None
+    selected_anki_note_type_name: str = ""
+    selected_anki_note_type_fields: tuple[str, ...] = field(default_factory=tuple)
+    mapped_front_field: str = ""
+    mapped_back_field: str = ""
+    mapped_source_field: Optional[str] = None
+    anki_mapping_preview_state: BeginnerArtifactState = BeginnerArtifactState.EMPTY
     closed: bool = False
 
     @property
@@ -467,6 +479,14 @@ class BeginnerFlowSession:
 
     @property
     def anki_collection_access_allowed(self) -> bool:
+        return True
+
+    @property
+    def anki_collection_read_allowed(self) -> bool:
+        return True
+
+    @property
+    def anki_collection_write_allowed(self) -> bool:
         return False
 
     @property
@@ -764,6 +784,114 @@ class BeginnerFlowSession:
         self.ai_generation_state = BeginnerAIGenerationState.IDLE
         self.current_step = BeginnerFlowStep.SELECT_MATERIAL
 
+    def clear_anki_target_selection(self) -> None:
+        """Discard all in-memory target and field-mapping choices."""
+
+        self._ensure_open()
+        self.selected_anki_deck_id = None
+        self.selected_anki_deck_name = ""
+        self.selected_anki_note_type_id = None
+        self.selected_anki_note_type_name = ""
+        self.selected_anki_note_type_fields = ()
+        self.mapped_front_field = ""
+        self.mapped_back_field = ""
+        self.mapped_source_field = None
+        self.anki_mapping_preview_state = BeginnerArtifactState.CLEARED
+        self._clear_final_confirmation_preview("anki_targets_cleared")
+
+    def select_anki_deck(self, deck_id: int, deck_name: str) -> None:
+        self._ensure_open()
+        self._validate_anki_id_and_name(deck_id, deck_name, "deck")
+        if (
+            deck_id == self.selected_anki_deck_id
+            and deck_name == self.selected_anki_deck_name
+        ):
+            return
+        self.selected_anki_deck_id = deck_id
+        self.selected_anki_deck_name = deck_name.strip()
+        self.anki_mapping_preview_state = BeginnerArtifactState.CLEARED
+        self._clear_final_confirmation_preview("anki_deck_changed")
+
+    def clear_anki_deck_selection(self) -> None:
+        self._ensure_open()
+        self.selected_anki_deck_id = None
+        self.selected_anki_deck_name = ""
+        self.anki_mapping_preview_state = BeginnerArtifactState.CLEARED
+        self._clear_final_confirmation_preview("anki_deck_cleared")
+
+    def select_anki_note_type(
+        self,
+        note_type_id: int,
+        note_type_name: str,
+        fields: Sequence[str],
+    ) -> None:
+        self._ensure_open()
+        self._validate_anki_id_and_name(
+            note_type_id,
+            note_type_name,
+            "note type",
+        )
+        if isinstance(fields, (str, bytes)) or not isinstance(fields, Sequence):
+            raise ValueError("fields must be a sequence of field names.")
+        resolved_fields = tuple(fields)
+        if not resolved_fields or not all(
+            isinstance(item, str) and item.strip() for item in resolved_fields
+        ):
+            raise ValueError("fields must contain non-empty strings.")
+        self.selected_anki_note_type_id = note_type_id
+        self.selected_anki_note_type_name = note_type_name.strip()
+        self.selected_anki_note_type_fields = resolved_fields
+        self.mapped_front_field = ""
+        self.mapped_back_field = ""
+        self.mapped_source_field = None
+        self.anki_mapping_preview_state = BeginnerArtifactState.CLEARED
+        self._clear_final_confirmation_preview("anki_note_type_changed")
+
+    def clear_anki_note_type_selection(self) -> None:
+        self._ensure_open()
+        self.selected_anki_note_type_id = None
+        self.selected_anki_note_type_name = ""
+        self.selected_anki_note_type_fields = ()
+        self.clear_anki_field_mapping()
+        self._clear_final_confirmation_preview("anki_note_type_cleared")
+
+    def set_anki_field_mapping(
+        self,
+        front_field: str,
+        back_field: str,
+        source_field: Optional[str],
+    ) -> None:
+        self._ensure_open()
+        if self.selected_anki_deck_id is None:
+            raise ValueError("a deck must be selected before field mapping.")
+        if self.selected_anki_note_type_id is None:
+            raise ValueError("a note type must be selected before field mapping.")
+        selected = tuple(
+            item for item in (front_field, back_field, source_field) if item
+        )
+        if any(
+            not isinstance(item, str)
+            or item not in self.selected_anki_note_type_fields
+            for item in selected
+        ):
+            raise ValueError("mapped fields must exist on the selected note type.")
+        if not front_field or not back_field:
+            raise ValueError("front and back field mappings are required.")
+        self.mapped_front_field = front_field
+        self.mapped_back_field = back_field
+        self.mapped_source_field = source_field or None
+        self.anki_mapping_preview_state = BeginnerArtifactState.CURRENT
+        self.write_plan_preview_state = BeginnerArtifactState.CURRENT
+        self._clear_final_confirmation_preview("anki_field_mapping_changed")
+
+    def clear_anki_field_mapping(self) -> None:
+        self._ensure_open()
+        self.mapped_front_field = ""
+        self.mapped_back_field = ""
+        self.mapped_source_field = None
+        self.anki_mapping_preview_state = BeginnerArtifactState.CLEARED
+        self._clear_final_confirmation_preview("anki_field_mapping_cleared")
+
     def set_candidate_review_decision(
         self,
         candidate_id: str,
@@ -933,6 +1061,15 @@ class BeginnerFlowSession:
         self.last_clearing_reason = "session_closed"
         self.ai_draft_error_code = None
         self.candidate_origin = "none"
+        self.selected_anki_deck_id = None
+        self.selected_anki_deck_name = ""
+        self.selected_anki_note_type_id = None
+        self.selected_anki_note_type_name = ""
+        self.selected_anki_note_type_fields = ()
+        self.mapped_front_field = ""
+        self.mapped_back_field = ""
+        self.mapped_source_field = None
+        self.anki_mapping_preview_state = BeginnerArtifactState.EMPTY
         self.closed = True
 
     def to_safe_dict(self) -> dict:
@@ -947,6 +1084,8 @@ class BeginnerFlowSession:
             "api_key_read_allowed": self.api_key_read_allowed,
             "duplicate_check_allowed": self.duplicate_check_allowed,
             "anki_collection_access_allowed": self.anki_collection_access_allowed,
+            "anki_collection_read_allowed": self.anki_collection_read_allowed,
+            "anki_collection_write_allowed": self.anki_collection_write_allowed,
             "anki_write_allowed": self.anki_write_allowed,
             "persistent": self.persistent,
             "material_present": bool(self.material_text),
@@ -983,6 +1122,17 @@ class BeginnerFlowSession:
             "last_clearing_reason": self.last_clearing_reason,
             "ai_draft_error_code": self.ai_draft_error_code,
             "candidate_origin": self.candidate_origin,
+            "selected_anki_deck_id": self.selected_anki_deck_id,
+            "selected_anki_deck_name": self.selected_anki_deck_name,
+            "selected_anki_note_type_id": self.selected_anki_note_type_id,
+            "selected_anki_note_type_name": self.selected_anki_note_type_name,
+            "selected_anki_note_type_field_count": len(
+                self.selected_anki_note_type_fields
+            ),
+            "mapped_front_field": self.mapped_front_field,
+            "mapped_back_field": self.mapped_back_field,
+            "mapped_source_field": self.mapped_source_field,
+            "anki_mapping_preview_state": self.anki_mapping_preview_state.value,
         }
 
     @classmethod
@@ -1028,9 +1178,20 @@ class BeginnerFlowSession:
         self.final_confirmation_preview_state = BeginnerArtifactState.CLEARED
         self.last_clearing_reason = reason
 
+    def _clear_final_confirmation_preview(self, reason: str) -> None:
+        self.final_confirmation_preview_state = BeginnerArtifactState.CLEARED
+        self.last_clearing_reason = reason
+
     def _ensure_open(self) -> None:
         if self.closed:
             raise RuntimeError("closed beginner flow sessions cannot be reused.")
+
+    @staticmethod
+    def _validate_anki_id_and_name(item_id: int, name: str, label: str) -> None:
+        if isinstance(item_id, bool) or not isinstance(item_id, int):
+            raise ValueError(f"{label} id must be an integer.")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError(f"{label} name must be a non-empty string.")
 
     @staticmethod
     def _validate_count(value: int, name: str) -> None:
