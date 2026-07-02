@@ -1,18 +1,29 @@
 """In-memory Qt guide for the beginner mode."""
 
 from aqt.qt import (
+    QApplication,
     QButtonGroup,
     QCheckBox,
     QDialog,
+    QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QRadioButton,
+    QSpinBox,
     QTextEdit,
     QVBoxLayout,
 )
 
+from .beginner_ai_card_drafts import (
+    BEGINNER_AI_GENERATING_COPY,
+    BEGINNER_AI_PROVIDER_DISCLOSURE_COPY,
+    BEGINNER_AI_SETTINGS_HELP_COPY,
+    BeginnerAICardDraftGenerator,
+    BeginnerAIProviderRuntimeSettings,
+)
 from .beginner_flow_models import (
     BEGINNER_FLOW_STEP_ORDER,
     BEGINNER_FUTURE_CONDITIONS,
@@ -44,7 +55,7 @@ class BeginnerModeDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.session = BeginnerFlowSession()
-        self.setWindowTitle("新手模式（离线只读演练）")
+        self.setWindowTitle("新手模式（只读演练）")
         self.resize(760, 680)
 
         layout = QVBoxLayout(self)
@@ -59,7 +70,7 @@ class BeginnerModeDialog(QDialog):
         welcome_layout.addWidget(welcome)
         layout.addWidget(welcome_group)
 
-        safety_group = QGroupBox("离线只读安全状态")
+        safety_group = QGroupBox("新手模式安全状态")
         safety_layout = QHBoxLayout(safety_group)
         for status in BEGINNER_GUIDE_SAFETY_COPY:
             status_label = QLabel(status)
@@ -116,6 +127,61 @@ class BeginnerModeDialog(QDialog):
         material_footer.addWidget(self.clear_material_btn)
         material_layout.addLayout(material_footer)
         layout.addWidget(self.material_group)
+
+        self.ai_provider_group = QGroupBox("真实 AI 候选卡草稿（可选）")
+        ai_layout = QVBoxLayout(self.ai_provider_group)
+        ai_disclosure = QLabel(BEGINNER_AI_PROVIDER_DISCLOSURE_COPY)
+        ai_disclosure.setWordWrap(True)
+        ai_disclosure.setStyleSheet("font-weight: bold;")
+        ai_layout.addWidget(ai_disclosure)
+        ai_form = QFormLayout()
+        self.ai_provider_name_input = QLineEdit("OpenAI-compatible")
+        ai_form.addRow("Provider:", self.ai_provider_name_input)
+        self.ai_base_url_input = QLineEdit()
+        self.ai_base_url_input.setPlaceholderText("https://example.com/v1")
+        ai_form.addRow("Base URL:", self.ai_base_url_input)
+        self.ai_model_input = QLineEdit()
+        self.ai_model_input.setPlaceholderText("本次会话使用的模型")
+        ai_form.addRow("Model:", self.ai_model_input)
+        self.ai_api_key_input = QLineEdit()
+        password_mode = (
+            QLineEdit.EchoMode.Password
+            if hasattr(QLineEdit, "EchoMode")
+            else QLineEdit.Password
+        )
+        self.ai_api_key_input.setEchoMode(password_mode)
+        self.ai_api_key_input.setPlaceholderText("只用于当前窗口")
+        ai_form.addRow("本次会话 API key:", self.ai_api_key_input)
+        self.ai_timeout_input = QSpinBox()
+        self.ai_timeout_input.setRange(1, 300)
+        self.ai_timeout_input.setValue(60)
+        ai_form.addRow("Timeout 秒:", self.ai_timeout_input)
+        ai_layout.addLayout(ai_form)
+        self.ai_send_consent = QCheckBox(
+            "我知道本次会联网，并把当前材料发送给所选 AI Provider。"
+        )
+        ai_layout.addWidget(self.ai_send_consent)
+        ai_action_row = QHBoxLayout()
+        self.ai_status_label = QLabel()
+        self.ai_status_label.setWordWrap(True)
+        self.ai_generate_btn = QPushButton("用 AI 生成候选卡")
+        self.ai_generate_btn.clicked.connect(self._generate_ai_candidate_drafts)
+        ai_action_row.addWidget(self.ai_status_label, 1)
+        ai_action_row.addWidget(self.ai_generate_btn)
+        ai_layout.addLayout(ai_action_row)
+        layout.addWidget(self.ai_provider_group)
+
+        for widget in (
+            self.ai_provider_name_input,
+            self.ai_base_url_input,
+            self.ai_model_input,
+            self.ai_api_key_input,
+        ):
+            widget.textChanged.connect(self._on_ai_runtime_settings_changed)
+        self.ai_timeout_input.valueChanged.connect(
+            self._on_ai_runtime_settings_changed
+        )
+        self.ai_send_consent.stateChanged.connect(self._update_ai_action_state)
 
         self.preview_group = QGroupBox("材料预览与离线识别")
         preview_layout = QVBoxLayout(self.preview_group)
@@ -210,6 +276,41 @@ class BeginnerModeDialog(QDialog):
         self.material_input.blockSignals(False)
         self._render_current_step()
 
+    def _on_ai_runtime_settings_changed(self, *unused):
+        self.session.mark_ai_runtime_settings_changed()
+        self.ai_status_label.clear()
+        self._update_ai_action_state()
+
+    def _generate_ai_candidate_drafts(self):
+        if not self._ai_request_ready():
+            self.ai_status_label.setText(BEGINNER_AI_SETTINGS_HELP_COPY)
+            return
+        try:
+            settings = BeginnerAIProviderRuntimeSettings(
+                provider_name=self.ai_provider_name_input.text(),
+                base_url=self.ai_base_url_input.text(),
+                model=self.ai_model_input.text(),
+                api_key=self.ai_api_key_input.text(),
+                timeout_seconds=self.ai_timeout_input.value(),
+            )
+        except ValueError:
+            self.ai_status_label.setText(BEGINNER_AI_SETTINGS_HELP_COPY)
+            return
+
+        self.ai_generate_btn.setEnabled(False)
+        self.ai_status_label.setText(BEGINNER_AI_GENERATING_COPY)
+        QApplication.processEvents()
+        result = BeginnerAICardDraftGenerator().generate(
+            settings=settings,
+            material_text=self.session.material_text,
+        )
+        if result.success:
+            self.session.apply_ai_candidate_card_drafts(result.drafts)
+        else:
+            self.session.record_ai_card_draft_error(result.error_code.value)
+        self.ai_status_label.setText(result.user_message)
+        self._render_current_step()
+
     def _continue_guide(self):
         if self.session.current_step is BeginnerFlowStep.COMPLETED_NO_WRITE:
             self.reject()
@@ -275,6 +376,7 @@ class BeginnerModeDialog(QDialog):
         is_prewrite_step = step is BeginnerFlowStep.CHECK_BEFORE_WRITE
         is_complete = step is BeginnerFlowStep.COMPLETED_NO_WRITE
         self.material_group.setVisible(is_material_step)
+        self.ai_provider_group.setVisible(is_material_step)
         self.preview_group.setVisible(is_preview_step)
         self.knowledge_group.setVisible(is_knowledge_step)
         self.candidate_group.setVisible(is_candidate_step)
@@ -303,6 +405,7 @@ class BeginnerModeDialog(QDialog):
         if is_candidate_step:
             self._render_candidate_previews()
         self._update_primary_action_state()
+        self._update_ai_action_state()
 
     def _render_recognition_results(self):
         self._clear_layout(self.recognition_list_layout)
@@ -355,7 +458,14 @@ class BeginnerModeDialog(QDialog):
         self.candidate_review_controls = {}
         self.candidate_review_button_groups = {}
         self.review_progress_label = None
-        source_note = QLabel("这些候选卡来自你刚才选择的知识点。")
+        if self.session.candidate_origin == "real_ai_draft":
+            source_copy = (
+                "这些只读候选卡草稿来自你刚才主动调用的 AI Provider。"
+                "请逐张核对；当前不会写入 Anki。"
+            )
+        else:
+            source_copy = "这些候选卡来自你刚才选择的知识点。"
+        source_note = QLabel(source_copy)
         source_note.setWordWrap(True)
         self.candidate_layout.addWidget(source_note)
         safety_note = QLabel(BEGINNER_REVIEW_SAFETY_NOTE)
@@ -448,6 +558,21 @@ class BeginnerModeDialog(QDialog):
             enabled = True
         self.next_btn.setEnabled(enabled)
 
+    def _ai_request_ready(self):
+        return all(
+            (
+                self.session.material_text.strip(),
+                self.ai_provider_name_input.text().strip(),
+                self.ai_base_url_input.text().strip(),
+                self.ai_model_input.text().strip(),
+                self.ai_api_key_input.text().strip(),
+                self.ai_send_consent.isChecked(),
+            )
+        )
+
+    def _update_ai_action_state(self, *unused):
+        self.ai_generate_btn.setEnabled(self._ai_request_ready())
+
     def _toggle_technical_details(self):
         self.technical_details_expanded = not self.technical_details_expanded
         self.technical_details_group.setVisible(self.technical_details_expanded)
@@ -474,6 +599,9 @@ class BeginnerModeDialog(QDialog):
         self.material_input.blockSignals(True)
         self.material_input.clear()
         self.material_input.blockSignals(False)
+        self.ai_api_key_input.blockSignals(True)
+        self.ai_api_key_input.clear()
+        self.ai_api_key_input.blockSignals(False)
         self.session.close()
 
     def reject(self):

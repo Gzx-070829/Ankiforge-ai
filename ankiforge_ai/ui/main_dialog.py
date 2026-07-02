@@ -114,8 +114,9 @@ class MainDialog(QDialog):
         beginner_group.setStyleSheet("QGroupBox { font-weight: bold; }")
         beginner_layout = QVBoxLayout(beginner_group)
         beginner_description = QLabel(
-            "离线只读演练：带你理解从学习材料到候选卡审核的流程。"
-            "本模式不会联网、不会调用 AI 服务、不会写入 Anki。"
+            "只读演练：带你理解从学习材料到候选卡审核的流程。"
+            "打开窗口不会联网；只有你主动点击 AI 生成按钮后才会按提示联网。"
+            "本模式不会写入 Anki。"
         )
         beginner_description.setWordWrap(True)
         beginner_layout.addWidget(beginner_description)
