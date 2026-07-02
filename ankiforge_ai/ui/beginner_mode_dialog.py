@@ -44,6 +44,7 @@ from .beginner_flow_models import (
     BEGINNER_STEP_COPY,
     BEGINNER_TECHNICAL_DETAILS_COPY,
     COMPLETION_TITLE,
+    BeginnerArtifactState,
     BeginnerFlowSession,
     BeginnerFlowStep,
     BeginnerReviewDecision,
@@ -54,6 +55,12 @@ from .read_only_anki_targets import (
     ReadOnlyAnkiTargetAdapter,
     build_beginner_field_mapping_preview,
 )
+from .read_only_duplicate_check import (
+    DUPLICATE_CHECK_SCOPE_COPY,
+    BeginnerDuplicatePreviewState,
+    BeginnerDuplicateStatus,
+    ReadOnlyDuplicateCheckAdapter,
+)
 
 
 class BeginnerModeDialog(QDialog):
@@ -63,9 +70,11 @@ class BeginnerModeDialog(QDialog):
         super().__init__(parent)
         self.session = BeginnerFlowSession()
         self.anki_target_adapter = ReadOnlyAnkiTargetAdapter(collection)
+        self.duplicate_check_adapter = ReadOnlyDuplicateCheckAdapter(collection)
         self.anki_target_snapshot = None
         self.anki_field_snapshot = None
         self.anki_mapping_preview = None
+        self.duplicate_check_preview = None
         self.setWindowTitle("新手模式（只读演练）")
         self.resize(760, 680)
 
@@ -282,6 +291,25 @@ class BeginnerModeDialog(QDialog):
         self.anki_mapping_preview_label = QLabel(ANKI_MAPPING_PREVIEW_SAFETY_COPY)
         self.anki_mapping_preview_label.setWordWrap(True)
         anki_target_layout.addWidget(self.anki_mapping_preview_label)
+
+        duplicate_group = QGroupBox("重复检查只读预览")
+        duplicate_layout = QVBoxLayout(duplicate_group)
+        duplicate_scope = QLabel(DUPLICATE_CHECK_SCOPE_COPY)
+        duplicate_scope.setWordWrap(True)
+        duplicate_layout.addWidget(duplicate_scope)
+        duplicate_button_row = QHBoxLayout()
+        self.duplicate_check_btn = QPushButton("检查是否可能重复")
+        self.duplicate_check_btn.clicked.connect(self._run_duplicate_check)
+        self.duplicate_recheck_btn = QPushButton("重新检查")
+        self.duplicate_recheck_btn.clicked.connect(self._run_duplicate_check)
+        duplicate_button_row.addWidget(self.duplicate_check_btn)
+        duplicate_button_row.addWidget(self.duplicate_recheck_btn)
+        duplicate_button_row.addStretch()
+        duplicate_layout.addLayout(duplicate_button_row)
+        self.duplicate_check_result_label = QLabel(DUPLICATE_CHECK_SCOPE_COPY)
+        self.duplicate_check_result_label.setWordWrap(True)
+        duplicate_layout.addWidget(self.duplicate_check_result_label)
+        anki_target_layout.addWidget(duplicate_group)
         prewrite_layout.addWidget(self.anki_target_group)
         layout.addWidget(self.prewrite_group)
 
@@ -384,6 +412,7 @@ class BeginnerModeDialog(QDialog):
         self.session.clear_anki_target_selection()
         self.anki_mapping_preview = None
         self.anki_field_snapshot = None
+        self._clear_duplicate_display()
         snapshot = self.anki_target_adapter.read_targets()
         self.anki_target_snapshot = snapshot
         self.anki_target_status_label.setText(snapshot.user_message)
@@ -408,6 +437,7 @@ class BeginnerModeDialog(QDialog):
         self._clear_anki_field_combos()
 
     def _on_anki_deck_changed(self, index):
+        self._clear_duplicate_display()
         deck = self._selected_anki_deck()
         if deck is None:
             self.session.clear_anki_deck_selection()
@@ -420,6 +450,7 @@ class BeginnerModeDialog(QDialog):
         self._update_anki_mapping_preview()
 
     def _on_anki_note_type_changed(self, index):
+        self._clear_duplicate_display()
         note_type = self._selected_anki_note_type()
         if note_type is None:
             self.session.clear_anki_note_type_selection()
@@ -495,6 +526,7 @@ class BeginnerModeDialog(QDialog):
         self._update_anki_mapping_preview()
 
     def _update_anki_mapping_preview(self):
+        self._clear_duplicate_display()
         deck = self._selected_anki_deck()
         note_type = self._selected_anki_note_type()
         if (
@@ -531,6 +563,56 @@ class BeginnerModeDialog(QDialog):
         self.anki_mapping_preview_label.setText(
             "\n".join(preview.summary_lines)
         )
+        self._update_duplicate_action_state()
+
+    def _run_duplicate_check(self):
+        self.session.begin_duplicate_check()
+        preview = self.duplicate_check_adapter.check(
+            self.session.candidate_card_previews,
+            self.anki_mapping_preview,
+        )
+        self.duplicate_check_preview = preview
+        if preview.state is BeginnerDuplicatePreviewState.SUCCESS:
+            possible_count = sum(
+                item.status is BeginnerDuplicateStatus.POSSIBLE_DUPLICATE
+                for item in preview.results
+            )
+            self.session.apply_duplicate_check_preview(
+                len(preview.results),
+                possible_count,
+            )
+        elif preview.state is BeginnerDuplicatePreviewState.ERROR:
+            self.session.record_duplicate_check_error("collection_read_failed")
+        else:
+            self.session.clear_duplicate_check_preview()
+        self._render_duplicate_check_preview(preview)
+
+    def _render_duplicate_check_preview(self, preview):
+        lines = [preview.user_message]
+        for index, result in enumerate(preview.results, start=1):
+            lines.append(f"候选卡 {index}：{result.status_copy}")
+            if result.status is BeginnerDuplicateStatus.POSSIBLE_DUPLICATE:
+                lines.append(f"匹配字段：{', '.join(result.matched_fields)}")
+                lines.append(f"匹配 note id：{result.matched_note_id}")
+                if result.matched_field_preview:
+                    lines.append(
+                        f"字段预览：{result.matched_field_preview}"
+                    )
+        self.duplicate_check_result_label.setText("\n".join(lines))
+        self._update_duplicate_action_state()
+
+    def _clear_duplicate_display(self):
+        self.duplicate_check_preview = None
+        self.duplicate_check_result_label.setText(DUPLICATE_CHECK_SCOPE_COPY)
+        self._update_duplicate_action_state()
+
+    def _update_duplicate_action_state(self):
+        enabled = bool(
+            self.session.candidate_card_previews
+            and self.anki_mapping_preview is not None
+        )
+        self.duplicate_check_btn.setEnabled(enabled)
+        self.duplicate_recheck_btn.setEnabled(enabled)
 
     def _selected_anki_deck(self):
         if self.anki_target_snapshot is None:
@@ -647,8 +729,17 @@ class BeginnerModeDialog(QDialog):
             self._render_knowledge_selection()
         if is_candidate_step:
             self._render_candidate_previews()
+        if (
+            is_prewrite_step
+            and self.session.duplicate_check_preview_state
+            is not BeginnerArtifactState.CURRENT
+            and self.session.duplicate_check_error_code is None
+            and self.duplicate_check_preview is not None
+        ):
+            self._clear_duplicate_display()
         self._update_primary_action_state()
         self._update_ai_action_state()
+        self._update_duplicate_action_state()
 
     def _render_recognition_results(self):
         self._clear_layout(self.recognition_list_layout)
@@ -850,6 +941,7 @@ class BeginnerModeDialog(QDialog):
         self.anki_target_snapshot = None
         self.anki_field_snapshot = None
         self.anki_mapping_preview = None
+        self.duplicate_check_preview = None
         self.session.close()
 
     def reject(self):

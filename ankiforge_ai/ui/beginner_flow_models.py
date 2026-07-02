@@ -128,7 +128,7 @@ BEGINNER_SAFETY_STATUS_COPY = (
     "打开窗口不会联网",
     "只有主动点击 AI 生成按钮才会联网调用 Provider",
     "API key 只用于当前窗口，不会保存",
-    "不会执行 duplicate check",
+    "只有点击检查按钮才会执行只读 duplicate check",
     "只有点击读取按钮才会只读访问 Anki collection",
     "不会修改 Anki collection",
     "不会写入 Anki",
@@ -166,6 +166,7 @@ BEGINNER_GUIDE_SAFETY_COPY = (
     "只有主动点击 AI 生成按钮才会联网",
     "API key 只用于当前窗口",
     "只有点击读取按钮才会只读访问 Anki collection",
+    "只有点击检查按钮才会执行只读 duplicate check",
     "不会修改 Anki collection",
     "不会写入 Anki",
     "关闭后丢弃本次内容",
@@ -455,6 +456,12 @@ class BeginnerFlowSession:
     mapped_back_field: str = ""
     mapped_source_field: Optional[str] = None
     anki_mapping_preview_state: BeginnerArtifactState = BeginnerArtifactState.EMPTY
+    duplicate_check_preview_state: BeginnerArtifactState = (
+        BeginnerArtifactState.EMPTY
+    )
+    duplicate_check_result_count: int = 0
+    possible_duplicate_count: int = 0
+    duplicate_check_error_code: Optional[str] = None
     closed: bool = False
 
     @property
@@ -475,7 +482,11 @@ class BeginnerFlowSession:
 
     @property
     def duplicate_check_allowed(self) -> bool:
-        return False
+        return True
+
+    @property
+    def duplicate_check_read_allowed(self) -> bool:
+        return True
 
     @property
     def anki_collection_access_allowed(self) -> bool:
@@ -797,6 +808,7 @@ class BeginnerFlowSession:
         self.mapped_back_field = ""
         self.mapped_source_field = None
         self.anki_mapping_preview_state = BeginnerArtifactState.CLEARED
+        self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
         self._clear_final_confirmation_preview("anki_targets_cleared")
 
     def select_anki_deck(self, deck_id: int, deck_name: str) -> None:
@@ -810,6 +822,7 @@ class BeginnerFlowSession:
         self.selected_anki_deck_id = deck_id
         self.selected_anki_deck_name = deck_name.strip()
         self.anki_mapping_preview_state = BeginnerArtifactState.CLEARED
+        self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
         self._clear_final_confirmation_preview("anki_deck_changed")
 
     def clear_anki_deck_selection(self) -> None:
@@ -817,6 +830,7 @@ class BeginnerFlowSession:
         self.selected_anki_deck_id = None
         self.selected_anki_deck_name = ""
         self.anki_mapping_preview_state = BeginnerArtifactState.CLEARED
+        self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
         self._clear_final_confirmation_preview("anki_deck_cleared")
 
     def select_anki_note_type(
@@ -845,6 +859,7 @@ class BeginnerFlowSession:
         self.mapped_back_field = ""
         self.mapped_source_field = None
         self.anki_mapping_preview_state = BeginnerArtifactState.CLEARED
+        self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
         self._clear_final_confirmation_preview("anki_note_type_changed")
 
     def clear_anki_note_type_selection(self) -> None:
@@ -882,6 +897,7 @@ class BeginnerFlowSession:
         self.mapped_source_field = source_field or None
         self.anki_mapping_preview_state = BeginnerArtifactState.CURRENT
         self.write_plan_preview_state = BeginnerArtifactState.CURRENT
+        self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
         self._clear_final_confirmation_preview("anki_field_mapping_changed")
 
     def clear_anki_field_mapping(self) -> None:
@@ -890,7 +906,47 @@ class BeginnerFlowSession:
         self.mapped_back_field = ""
         self.mapped_source_field = None
         self.anki_mapping_preview_state = BeginnerArtifactState.CLEARED
+        self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
         self._clear_final_confirmation_preview("anki_field_mapping_cleared")
+
+    def begin_duplicate_check(self) -> None:
+        """Clear older results before one explicit read-only check."""
+
+        self._ensure_open()
+        self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
+        self._clear_final_confirmation_preview("duplicate_check_started")
+
+    def apply_duplicate_check_preview(
+        self,
+        result_count: int,
+        possible_duplicate_count: int,
+    ) -> None:
+        self._ensure_open()
+        self._validate_count(result_count, "result_count")
+        self._validate_count(
+            possible_duplicate_count,
+            "possible_duplicate_count",
+        )
+        if possible_duplicate_count > result_count:
+            raise ValueError("possible_duplicate_count cannot exceed result_count.")
+        self.duplicate_check_preview_state = BeginnerArtifactState.CURRENT
+        self.duplicate_check_result_count = result_count
+        self.possible_duplicate_count = possible_duplicate_count
+        self.duplicate_check_error_code = None
+        self._clear_final_confirmation_preview("duplicate_check_changed")
+
+    def record_duplicate_check_error(self, error_code: str) -> None:
+        self._ensure_open()
+        if not isinstance(error_code, str) or not error_code.strip():
+            raise ValueError("error_code must be a non-empty string.")
+        self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
+        self.duplicate_check_error_code = error_code.strip()
+        self._clear_final_confirmation_preview("duplicate_check_error")
+
+    def clear_duplicate_check_preview(self) -> None:
+        self._ensure_open()
+        self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
+        self._clear_final_confirmation_preview("duplicate_check_cleared")
 
     def set_candidate_review_decision(
         self,
@@ -911,6 +967,7 @@ class BeginnerFlowSession:
         self.review_revision += 1
         self.reviewed_candidate_count = len(self.candidate_review_decisions)
         self.review_state = BeginnerArtifactState.CURRENT
+        self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
         self._clear_prewrite_previews("candidate_review_changed")
 
     def complete_candidate_review(self) -> None:
@@ -980,6 +1037,7 @@ class BeginnerFlowSession:
         self.review_revision += 1
         self.reviewed_candidate_count = reviewed_candidate_count
         self.review_state = BeginnerArtifactState.CURRENT
+        self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
         self._clear_prewrite_previews("review_decision_changed")
         self.current_step = BeginnerFlowStep.CHECK_BEFORE_WRITE
 
@@ -1070,6 +1128,10 @@ class BeginnerFlowSession:
         self.mapped_back_field = ""
         self.mapped_source_field = None
         self.anki_mapping_preview_state = BeginnerArtifactState.EMPTY
+        self.duplicate_check_preview_state = BeginnerArtifactState.EMPTY
+        self.duplicate_check_result_count = 0
+        self.possible_duplicate_count = 0
+        self.duplicate_check_error_code = None
         self.closed = True
 
     def to_safe_dict(self) -> dict:
@@ -1083,6 +1145,7 @@ class BeginnerFlowSession:
             "provider_call_allowed": self.provider_call_allowed,
             "api_key_read_allowed": self.api_key_read_allowed,
             "duplicate_check_allowed": self.duplicate_check_allowed,
+            "duplicate_check_read_allowed": self.duplicate_check_read_allowed,
             "anki_collection_access_allowed": self.anki_collection_access_allowed,
             "anki_collection_read_allowed": self.anki_collection_read_allowed,
             "anki_collection_write_allowed": self.anki_collection_write_allowed,
@@ -1133,6 +1196,12 @@ class BeginnerFlowSession:
             "mapped_back_field": self.mapped_back_field,
             "mapped_source_field": self.mapped_source_field,
             "anki_mapping_preview_state": self.anki_mapping_preview_state.value,
+            "duplicate_check_preview_state": (
+                self.duplicate_check_preview_state.value
+            ),
+            "duplicate_check_result_count": self.duplicate_check_result_count,
+            "possible_duplicate_count": self.possible_duplicate_count,
+            "duplicate_check_error_code": self.duplicate_check_error_code,
         }
 
     @classmethod
@@ -1158,6 +1227,7 @@ class BeginnerFlowSession:
         self.candidate_count = 0
         self._clear_ai_draft_values(BeginnerArtifactState.CLEARED)
         self.candidate_origin = "none"
+        self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
         self._clear_from_review(reason)
 
     def _clear_ai_draft_values(self, state: BeginnerArtifactState) -> None:
@@ -1166,10 +1236,20 @@ class BeginnerFlowSession:
         self.ai_generation_state = BeginnerAIGenerationState.IDLE
         self.ai_draft_error_code = None
 
+    def _clear_duplicate_preview_values(
+        self,
+        state: BeginnerArtifactState,
+    ) -> None:
+        self.duplicate_check_preview_state = state
+        self.duplicate_check_result_count = 0
+        self.possible_duplicate_count = 0
+        self.duplicate_check_error_code = None
+
     def _clear_from_review(self, reason: str) -> None:
         self.review_state = BeginnerArtifactState.CLEARED
         self.candidate_review_decisions.clear()
         self.reviewed_candidate_count = 0
+        self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
         self._clear_prewrite_previews(reason)
 
     def _clear_prewrite_previews(self, reason: str) -> None:

@@ -193,7 +193,7 @@ class BeginnerRealAICardDraftPreviewTests(unittest.TestCase):
         self.assertEqual(session.candidate_card_previews[0].front_preview, draft.front)
         self.assertTrue(session.anki_collection_read_allowed)
         self.assertFalse(session.anki_collection_write_allowed)
-        self.assertFalse(session.duplicate_check_allowed)
+        self.assertTrue(session.duplicate_check_read_allowed)
         self.assertFalse(session.anki_write_allowed)
 
         imported_names = self.imported_names(self.model_source()) | self.imported_names(
