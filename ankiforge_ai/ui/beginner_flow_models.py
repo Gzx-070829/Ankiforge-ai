@@ -124,10 +124,10 @@ BEGINNER_STEP_COPY: Mapping[BeginnerFlowStep, BeginnerStepCopy] = MappingProxyTy
 
 
 BEGINNER_SAFETY_STATUS_COPY = (
-    "当前为离线只读演练",
-    "不会联网",
-    "不会调用 Provider",
-    "不会读取 API Key",
+    "当前为只读演练",
+    "打开窗口不会联网",
+    "只有主动点击 AI 生成按钮才会联网调用 Provider",
+    "API key 只用于当前窗口，不会保存",
     "不会执行 duplicate check",
     "不会访问 Anki collection",
     "不会写入 Anki",
@@ -160,9 +160,10 @@ BEGINNER_GUIDE_STEP_NOTES: Mapping[BeginnerFlowStep, str] = MappingProxyType(
 
 
 BEGINNER_GUIDE_SAFETY_COPY = (
-    "当前是离线只读演练",
-    "不会联网",
-    "不会调用 AI",
+    "当前是只读演练",
+    "打开窗口不会联网",
+    "只有主动点击 AI 生成按钮才会联网",
+    "API key 只用于当前窗口",
     "不会写入 Anki",
     "关闭后丢弃本次内容",
 )
@@ -222,12 +223,12 @@ BEGINNER_REVIEW_DECISION_COPY: Mapping[BeginnerReviewDecision, str] = (
 
 
 BEGINNER_REVIEW_SAFETY_NOTE = (
-    "你的选择只用于本次离线演练，不会写入 Anki。"
+    "你的选择只用于本次会话演练，不会写入 Anki。"
 )
 
 
 BEGINNER_PREWRITE_SUMMARY = (
-    "当前只是离线演练。即使你已经审核候选卡，也不会写入 Anki。"
+    "当前只是候选卡审核演练。即使你已经审核候选卡，也不会写入 Anki。"
 )
 
 
@@ -287,8 +288,8 @@ COMPLETION_FACTS = (
     "未创建 note",
     "未修改卡组",
     "未保存本次演练",
-    "未联网",
-    "未调用 provider",
+    "未访问 Anki collection",
+    "未写入 Anki",
 )
 
 
@@ -324,6 +325,42 @@ class BeginnerKnowledgePointPreview:
 
 
 @dataclass(frozen=True, repr=False)
+class BeginnerAICardDraft:
+    """A disposable AI card draft with no writer-compatible behavior."""
+
+    id: str
+    front: str = field(repr=False)
+    back: str = field(repr=False)
+    source_excerpt: str = field(repr=False)
+
+    def __post_init__(self) -> None:
+        for value, name in (
+            (self.id, "id"),
+            (self.front, "front"),
+            (self.back, "back"),
+            (self.source_excerpt, "source_excerpt"),
+        ):
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{name} must be a non-empty string.")
+
+    def __repr__(self) -> str:
+        return (
+            "BeginnerAICardDraft("
+            f"id={self.id!r}, front_chars={len(self.front)}, "
+            f"back_chars={len(self.back)}, "
+            f"source_excerpt_chars={len(self.source_excerpt)})"
+        )
+
+    def to_safe_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "front_chars": len(self.front),
+            "back_chars": len(self.back),
+            "source_excerpt_chars": len(self.source_excerpt),
+        }
+
+
+@dataclass(frozen=True, repr=False)
 class BeginnerCandidateCardPreview:
     """A disposable card-shaped preview that cannot be written anywhere."""
 
@@ -353,6 +390,7 @@ class BeginnerFlowSession:
     knowledge_selection_revision: int = 0
     candidate_revision: int = 0
     review_revision: int = 0
+    ai_draft_revision: int = 0
     selected_knowledge_point_count: int = 0
     candidate_count: int = 0
     reviewed_candidate_count: int = 0
@@ -368,6 +406,10 @@ class BeginnerFlowSession:
         default_factory=tuple,
         repr=False,
     )
+    ai_candidate_card_drafts: tuple[BeginnerAICardDraft, ...] = field(
+        default_factory=tuple,
+        repr=False,
+    )
     candidate_review_decisions: dict[str, BeginnerReviewDecision] = field(
         default_factory=dict,
         repr=False,
@@ -375,6 +417,7 @@ class BeginnerFlowSession:
     recognition_state: BeginnerArtifactState = BeginnerArtifactState.EMPTY
     knowledge_selection_state: BeginnerArtifactState = BeginnerArtifactState.EMPTY
     candidate_cards_state: BeginnerArtifactState = BeginnerArtifactState.EMPTY
+    ai_draft_state: BeginnerArtifactState = BeginnerArtifactState.EMPTY
     review_state: BeginnerArtifactState = BeginnerArtifactState.EMPTY
     eligibility_state: BeginnerArtifactState = BeginnerArtifactState.EMPTY
     write_plan_preview_state: BeginnerArtifactState = BeginnerArtifactState.EMPTY
@@ -382,6 +425,8 @@ class BeginnerFlowSession:
         BeginnerArtifactState.EMPTY
     )
     last_clearing_reason: Optional[str] = None
+    ai_draft_error_code: Optional[str] = None
+    candidate_origin: str = "none"
     closed: bool = False
 
     @property
@@ -617,9 +662,67 @@ class BeginnerFlowSession:
         self.candidate_revision += 1
         self.candidate_count = len(self.candidate_card_previews)
         self.candidate_cards_state = BeginnerArtifactState.CURRENT
+        self._clear_ai_draft_values(BeginnerArtifactState.CLEARED)
+        self.candidate_origin = "offline_selection"
         self._clear_from_review("candidate_previews_rebuilt")
         self.current_step = BeginnerFlowStep.REVIEW_CANDIDATE_CARDS
         return self.candidate_card_previews
+
+    def apply_ai_candidate_card_drafts(
+        self,
+        drafts: Sequence[BeginnerAICardDraft],
+    ) -> None:
+        """Show validated AI drafts as disposable review previews."""
+
+        self._ensure_open()
+        if isinstance(drafts, (str, bytes)) or not isinstance(drafts, Sequence):
+            raise ValueError("drafts must be a sequence of BeginnerAICardDraft.")
+        resolved = tuple(drafts)
+        if not resolved or not all(
+            isinstance(item, BeginnerAICardDraft) for item in resolved
+        ):
+            raise ValueError("drafts must contain BeginnerAICardDraft values.")
+
+        self.ai_draft_revision += 1
+        self.ai_candidate_card_drafts = resolved
+        self.ai_draft_state = BeginnerArtifactState.CURRENT
+        self.ai_draft_error_code = None
+        self.candidate_revision += 1
+        self.candidate_card_previews = tuple(
+            BeginnerCandidateCardPreview(
+                id=f"candidate-{draft.id}",
+                knowledge_point_id=f"ai-{draft.id}",
+                front_preview=draft.front,
+                back_preview=draft.back,
+                source_excerpt=draft.source_excerpt,
+            )
+            for draft in resolved
+        )
+        self.candidate_count = len(self.candidate_card_previews)
+        self.candidate_cards_state = BeginnerArtifactState.CURRENT
+        self.candidate_origin = "real_ai_draft"
+        self._clear_from_review("ai_drafts_generated")
+        self.current_step = BeginnerFlowStep.REVIEW_CANDIDATE_CARDS
+
+    def record_ai_card_draft_error(self, error_code: str) -> None:
+        """Record only a non-sensitive code after a failed explicit request."""
+
+        self._ensure_open()
+        if not isinstance(error_code, str) or not error_code.strip():
+            raise ValueError("error_code must be a non-empty string.")
+        self.ai_draft_revision += 1
+        self._clear_from_candidates("ai_draft_error")
+        self.ai_draft_state = BeginnerArtifactState.CLEARED
+        self.ai_draft_error_code = error_code.strip()
+        self.current_step = BeginnerFlowStep.SELECT_MATERIAL
+
+    def mark_ai_runtime_settings_changed(self) -> None:
+        """Invalidate AI output without storing any runtime setting or secret."""
+
+        self._ensure_open()
+        self.ai_draft_revision += 1
+        self._clear_from_candidates("ai_runtime_settings_changed")
+        self.current_step = BeginnerFlowStep.SELECT_MATERIAL
 
     def set_candidate_review_decision(
         self,
@@ -692,6 +795,7 @@ class BeginnerFlowSession:
         if self.knowledge_selection_state is not BeginnerArtifactState.CURRENT:
             raise ValueError("knowledge selection must be current before candidates.")
         self.candidate_revision += 1
+        self._clear_ai_draft_values(BeginnerArtifactState.CLEARED)
         self.candidate_card_previews = ()
         self.candidate_count = candidate_count
         self.candidate_cards_state = BeginnerArtifactState.CURRENT
@@ -768,21 +872,26 @@ class BeginnerFlowSession:
         self.knowledge_selection_revision = 0
         self.candidate_revision = 0
         self.review_revision = 0
+        self.ai_draft_revision = 0
         self.selected_knowledge_point_count = 0
         self.candidate_count = 0
         self.reviewed_candidate_count = 0
         self.recognized_knowledge_points = ()
         self.selected_knowledge_point_ids = ()
         self.candidate_card_previews = ()
+        self.ai_candidate_card_drafts = ()
         self.candidate_review_decisions.clear()
         self.recognition_state = BeginnerArtifactState.EMPTY
         self.knowledge_selection_state = BeginnerArtifactState.EMPTY
         self.candidate_cards_state = BeginnerArtifactState.EMPTY
+        self.ai_draft_state = BeginnerArtifactState.EMPTY
         self.review_state = BeginnerArtifactState.EMPTY
         self.eligibility_state = BeginnerArtifactState.EMPTY
         self.write_plan_preview_state = BeginnerArtifactState.EMPTY
         self.final_confirmation_preview_state = BeginnerArtifactState.EMPTY
         self.last_clearing_reason = "session_closed"
+        self.ai_draft_error_code = None
+        self.candidate_origin = "none"
         self.closed = True
 
     def to_safe_dict(self) -> dict:
@@ -806,6 +915,7 @@ class BeginnerFlowSession:
             "knowledge_selection_revision": self.knowledge_selection_revision,
             "candidate_revision": self.candidate_revision,
             "review_revision": self.review_revision,
+            "ai_draft_revision": self.ai_draft_revision,
             "selected_knowledge_point_count": self.selected_knowledge_point_count,
             "candidate_count": self.candidate_count,
             "reviewed_candidate_count": self.reviewed_candidate_count,
@@ -815,9 +925,13 @@ class BeginnerFlowSession:
             "candidate_review_decision_count": len(
                 self.candidate_review_decisions
             ),
+            "ai_candidate_card_draft_count": len(
+                self.ai_candidate_card_drafts
+            ),
             "recognition_state": self.recognition_state.value,
             "knowledge_selection_state": self.knowledge_selection_state.value,
             "candidate_cards_state": self.candidate_cards_state.value,
+            "ai_draft_state": self.ai_draft_state.value,
             "review_state": self.review_state.value,
             "eligibility_state": self.eligibility_state.value,
             "write_plan_preview_state": self.write_plan_preview_state.value,
@@ -825,6 +939,8 @@ class BeginnerFlowSession:
                 self.final_confirmation_preview_state.value
             ),
             "last_clearing_reason": self.last_clearing_reason,
+            "ai_draft_error_code": self.ai_draft_error_code,
+            "candidate_origin": self.candidate_origin,
         }
 
     @classmethod
@@ -848,7 +964,14 @@ class BeginnerFlowSession:
         self.candidate_cards_state = BeginnerArtifactState.CLEARED
         self.candidate_card_previews = ()
         self.candidate_count = 0
+        self._clear_ai_draft_values(BeginnerArtifactState.CLEARED)
+        self.candidate_origin = "none"
         self._clear_from_review(reason)
+
+    def _clear_ai_draft_values(self, state: BeginnerArtifactState) -> None:
+        self.ai_candidate_card_drafts = ()
+        self.ai_draft_state = state
+        self.ai_draft_error_code = None
 
     def _clear_from_review(self, reason: str) -> None:
         self.review_state = BeginnerArtifactState.CLEARED

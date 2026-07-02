@@ -109,7 +109,7 @@ class BeginnerReviewProgressiveDisclosureTests(unittest.TestCase):
         )
         self.assertEqual(
             BEGINNER_PREWRITE_SUMMARY,
-            "当前只是离线演练。即使你已经审核候选卡，也不会写入 Anki。",
+            "当前只是候选卡审核演练。即使你已经审核候选卡，也不会写入 Anki。",
         )
 
     def test_future_condition_copy_never_claims_write_readiness(self):
@@ -172,7 +172,7 @@ class BeginnerReviewProgressiveDisclosureTests(unittest.TestCase):
         self.assertIn("来源片段", source)
         self.assertEqual(
             BEGINNER_REVIEW_SAFETY_NOTE,
-            "你的选择只用于本次离线演练，不会写入 Anki。",
+            "你的选择只用于本次会话演练，不会写入 Anki。",
         )
 
     def test_dialog_does_not_duplicate_future_condition_copy(self):

@@ -66,7 +66,7 @@ class BeginnerMaterialGuideContractTests(unittest.TestCase):
 
         for expected in (
             "欢迎使用新手模式",
-            "离线只读安全状态",
+            "新手模式安全状态",
             "五步流程导航",
             "当前步骤说明",
             "材料输入页",
@@ -130,6 +130,7 @@ class BeginnerMaterialGuideContractTests(unittest.TestCase):
                 "上一步",
                 "继续",
                 "使用示例材料",
+                "用 AI 生成候选卡",
                 "清空材料",
                 "关闭",
                 "查看技术详情",
@@ -144,9 +145,10 @@ class BeginnerMaterialGuideContractTests(unittest.TestCase):
         self.assertEqual(
             BEGINNER_GUIDE_SAFETY_COPY,
             (
-                "当前是离线只读演练",
-                "不会联网",
-                "不会调用 AI",
+                "当前是只读演练",
+                "打开窗口不会联网",
+                "只有主动点击 AI 生成按钮才会联网",
+                "API key 只用于当前窗口",
                 "不会写入 Anki",
                 "关闭后丢弃本次内容",
             ),
