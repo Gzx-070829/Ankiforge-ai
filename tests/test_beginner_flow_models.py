@@ -29,7 +29,8 @@ class BeginnerFlowModelTests(unittest.TestCase):
         self.assertFalse(session.network_allowed)
         self.assertFalse(session.provider_call_allowed)
         self.assertFalse(session.api_key_read_allowed)
-        self.assertFalse(session.duplicate_check_allowed)
+        self.assertTrue(session.duplicate_check_allowed)
+        self.assertTrue(session.duplicate_check_read_allowed)
         self.assertTrue(session.anki_collection_access_allowed)
         self.assertTrue(session.anki_collection_read_allowed)
         self.assertFalse(session.anki_collection_write_allowed)
@@ -73,7 +74,7 @@ class BeginnerFlowModelTests(unittest.TestCase):
         visited.append(session.current_step)
 
         self.assertEqual(tuple(visited), BEGINNER_FLOW_STEP_ORDER)
-        self.assertFalse(session.duplicate_check_allowed)
+        self.assertTrue(session.duplicate_check_read_allowed)
         self.assertTrue(session.anki_collection_read_allowed)
         self.assertFalse(session.anki_collection_write_allowed)
         self.assertFalse(session.anki_write_allowed)
@@ -94,7 +95,7 @@ class BeginnerFlowModelTests(unittest.TestCase):
             "打开窗口不会联网",
             "主动点击 AI 生成按钮",
             "API key 只用于当前窗口，不会保存",
-            "不会执行 duplicate check",
+            "只读 duplicate check",
             "只读访问 Anki collection",
             "不会修改 Anki collection",
             "不会写入 Anki",
@@ -110,6 +111,7 @@ class BeginnerFlowModelTests(unittest.TestCase):
                 "只有主动点击 AI 生成按钮才会联网",
                 "API key 只用于当前窗口",
                 "只有点击读取按钮才会只读访问 Anki collection",
+                "只有点击检查按钮才会执行只读 duplicate check",
                 "不会修改 Anki collection",
                 "不会写入 Anki",
                 "关闭后丢弃本次内容",

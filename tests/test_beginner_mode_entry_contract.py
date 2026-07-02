@@ -80,6 +80,8 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
                 "重新生成",
                 "读取 Anki 结构",
                 "重新读取",
+                "检查是否可能重复",
+                "重新检查",
                 "清空材料",
                 "关闭",
                 "查看技术详情",
