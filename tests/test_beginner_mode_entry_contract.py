@@ -36,7 +36,7 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
         self.assertIn("不会写入 Anki", entry_source)
         self.assertIn("打开窗口不会联网", safety_copy)
         self.assertIn("主动点击 AI 生成按钮", safety_copy)
-        self.assertIn("不会写入 Anki", safety_copy)
+        self.assertIn("二次确认才会创建 Anki note", safety_copy)
 
     def test_beginner_dialog_reads_core_copy_from_pr1_model(self):
         source = self.beginner_dialog_source()
@@ -60,7 +60,7 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
             }.issubset(imported_names)
         )
         self.assertIn("五步流程导航", source)
-        self.assertIn("新手模式（只读演练）", source)
+        self.assertIn("新手模式（默认只读，确认后可写入）", source)
 
     def test_beginner_buttons_do_not_imply_execution(self):
         main_button = self.assigned_button_label(
@@ -83,12 +83,13 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
                 "检查是否可能重复",
                 "重新检查",
                 "查看汇总预览",
+                "确认写入选中的卡片",
                 "清空材料",
                 "关闭",
                 "查看技术详情",
             },
         )
-        for label in (main_button, *dialog_buttons):
+        for label in (main_button, *dialog_buttons - {"确认写入选中的卡片"}):
             for forbidden in (
                 "写入",
                 "添加到 Anki",
@@ -145,10 +146,10 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
             for alias in node.names
         )
 
+        self.assertIn("anki_writer.minimal_write", imported_modules)
         for forbidden in (
             "config",
             "provider",
-            "writer",
             "collection",
             "requests",
             "httpx",

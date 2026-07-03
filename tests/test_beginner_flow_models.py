@@ -91,14 +91,14 @@ class BeginnerFlowModelTests(unittest.TestCase):
     def test_safety_status_copy_is_complete(self):
         combined = "\n".join(BEGINNER_SAFETY_STATUS_COPY)
         for expected in (
-            "当前为只读演练",
+            "默认从只读流程开始",
             "打开窗口不会联网",
             "主动点击 AI 生成按钮",
             "API key 只用于当前窗口，不会保存",
             "只读 duplicate check",
             "只读访问 Anki collection",
-            "不会修改 Anki collection",
-            "不会写入 Anki",
+            "打开窗口不会修改 Anki collection",
+            "二次确认才会创建 Anki note",
             "关闭后本次演练丢弃",
         ):
             self.assertIn(expected, combined)
@@ -106,14 +106,14 @@ class BeginnerFlowModelTests(unittest.TestCase):
         self.assertEqual(
             BEGINNER_GUIDE_SAFETY_COPY,
             (
-                "当前是只读演练",
+                "默认从只读流程开始",
                 "打开窗口不会联网",
                 "只有主动点击 AI 生成按钮才会联网",
                 "API key 只用于当前窗口",
                 "只有点击读取按钮才会只读访问 Anki collection",
                 "只有点击检查按钮才会执行只读 duplicate check",
-                "不会修改 Anki collection",
-                "不会写入 Anki",
+                "打开窗口不会修改 Anki collection",
+                "只有最终确认并通过二次确认才会创建 Anki note",
                 "关闭后丢弃本次内容",
             ),
         )
@@ -135,7 +135,7 @@ class BeginnerFlowModelTests(unittest.TestCase):
             "未修改卡组",
             "未保存本次演练",
             "未修改 Anki collection",
-            "未写入 Anki",
+            "未确认真实写入时不会创建 Anki note",
         ):
             self.assertIn(expected, COMPLETION_FACTS)
 

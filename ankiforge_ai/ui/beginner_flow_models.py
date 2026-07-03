@@ -124,14 +124,14 @@ BEGINNER_STEP_COPY: Mapping[BeginnerFlowStep, BeginnerStepCopy] = MappingProxyTy
 
 
 BEGINNER_SAFETY_STATUS_COPY = (
-    "当前为只读演练",
+    "默认从只读流程开始",
     "打开窗口不会联网",
     "只有主动点击 AI 生成按钮才会联网调用 Provider",
     "API key 只用于当前窗口，不会保存",
     "只有点击检查按钮才会执行只读 duplicate check",
     "只有点击读取按钮才会只读访问 Anki collection",
-    "不会修改 Anki collection",
-    "不会写入 Anki",
+    "打开窗口不会修改 Anki collection",
+    "只有最终确认并通过二次确认才会创建 Anki note",
     "关闭后本次演练丢弃",
 )
 
@@ -161,14 +161,14 @@ BEGINNER_GUIDE_STEP_NOTES: Mapping[BeginnerFlowStep, str] = MappingProxyType(
 
 
 BEGINNER_GUIDE_SAFETY_COPY = (
-    "当前是只读演练",
+    "默认从只读流程开始",
     "打开窗口不会联网",
     "只有主动点击 AI 生成按钮才会联网",
     "API key 只用于当前窗口",
     "只有点击读取按钮才会只读访问 Anki collection",
     "只有点击检查按钮才会执行只读 duplicate check",
-    "不会修改 Anki collection",
-    "不会写入 Anki",
+    "打开窗口不会修改 Anki collection",
+    "只有最终确认并通过二次确认才会创建 Anki note",
     "关闭后丢弃本次内容",
 )
 
@@ -293,7 +293,7 @@ COMPLETION_FACTS = (
     "未修改卡组",
     "未保存本次演练",
     "未修改 Anki collection",
-    "未写入 Anki",
+    "未确认真实写入时不会创建 Anki note",
 )
 
 
@@ -322,6 +322,17 @@ class BeginnerAIGenerationState(str, Enum):
     INVALID_JSON = "invalid_json"
     EMPTY_OUTPUT = "empty_output"
     EMPTY_CARDS = "empty_cards"
+
+
+class BeginnerWriteState(str, Enum):
+    """Lifecycle of one explicitly confirmed in-memory write attempt."""
+
+    IDLE = "idle"
+    WRITING = "writing"
+    SUCCESS = "success"
+    PARTIAL = "partial"
+    FAILED = "failed"
+    CLEARED = "cleared"
 
 
 @dataclass(frozen=True, repr=False)
@@ -464,11 +475,23 @@ class BeginnerFlowSession:
     duplicate_check_result_count: int = 0
     possible_duplicate_count: int = 0
     duplicate_check_error_code: Optional[str] = None
+    write_state: BeginnerWriteState = BeginnerWriteState.IDLE
+    write_snapshot_id: str = ""
+    write_requested_count: int = 0
+    write_success_count: int = 0
+    write_skipped_count: int = 0
+    write_failed_count: int = 0
+    write_created_note_ids: tuple[int, ...] = field(default_factory=tuple)
+    completed_write_snapshot_ids: tuple[str, ...] = field(default_factory=tuple)
     closed: bool = False
 
     @property
     def is_offline_read_only(self) -> bool:
-        return True
+        return self.write_state not in {
+            BeginnerWriteState.WRITING,
+            BeginnerWriteState.SUCCESS,
+            BeginnerWriteState.PARTIAL,
+        }
 
     @property
     def network_allowed(self) -> bool:
@@ -500,11 +523,11 @@ class BeginnerFlowSession:
 
     @property
     def anki_collection_write_allowed(self) -> bool:
-        return False
+        return self.write_state is BeginnerWriteState.WRITING
 
     @property
     def anki_write_allowed(self) -> bool:
-        return False
+        return self.write_state is BeginnerWriteState.WRITING
 
     @property
     def persistent(self) -> bool:
@@ -970,6 +993,83 @@ class BeginnerFlowSession:
         self.final_confirmation_missing_condition_count = missing_condition_count
         self.last_clearing_reason = None
 
+    def has_completed_write_snapshot(self, snapshot_id: str) -> bool:
+        if not isinstance(snapshot_id, str) or not snapshot_id.strip():
+            return False
+        return snapshot_id in self.completed_write_snapshot_ids
+
+    def begin_write(
+        self,
+        snapshot_id: str,
+        requested_count: int,
+        skipped_count: int,
+    ) -> None:
+        """Open the narrow write window after UI confirmation has succeeded."""
+
+        self._ensure_open()
+        if self.final_confirmation_preview_state is not BeginnerArtifactState.CURRENT:
+            raise ValueError("a current final confirmation preview is required.")
+        if not isinstance(snapshot_id, str) or not snapshot_id.strip():
+            raise ValueError("snapshot_id must be a non-empty string.")
+        self._validate_count(requested_count, "requested_count")
+        self._validate_count(skipped_count, "skipped_count")
+        if requested_count < 1:
+            raise ValueError("requested_count must be positive.")
+        if self.has_completed_write_snapshot(snapshot_id):
+            raise ValueError("this snapshot has already been written.")
+        self.write_state = BeginnerWriteState.WRITING
+        self.write_snapshot_id = snapshot_id
+        self.write_requested_count = requested_count
+        self.write_success_count = 0
+        self.write_skipped_count = skipped_count
+        self.write_failed_count = 0
+        self.write_created_note_ids = ()
+
+    def record_write_result(
+        self,
+        snapshot_id: str,
+        created_note_ids: Sequence[int],
+        skipped_count: int,
+        failed_count: int,
+    ) -> None:
+        """Keep only structural results from the current explicit write attempt."""
+
+        self._ensure_open()
+        if self.write_state is not BeginnerWriteState.WRITING:
+            raise ValueError("a write attempt must be active.")
+        if snapshot_id != self.write_snapshot_id:
+            raise ValueError("write result snapshot does not match the active write.")
+        if isinstance(created_note_ids, (str, bytes)) or not isinstance(
+            created_note_ids,
+            Sequence,
+        ):
+            raise ValueError("created_note_ids must be a sequence of integers.")
+        resolved_ids = tuple(created_note_ids)
+        if not all(
+            not isinstance(item, bool) and isinstance(item, int) and item > 0
+            for item in resolved_ids
+        ):
+            raise ValueError("created_note_ids must contain positive integers.")
+        self._validate_count(skipped_count, "skipped_count")
+        self._validate_count(failed_count, "failed_count")
+        if len(resolved_ids) + failed_count != self.write_requested_count:
+            raise ValueError("write result counts do not match the active write.")
+        self.write_created_note_ids = resolved_ids
+        self.write_success_count = len(resolved_ids)
+        self.write_skipped_count = skipped_count
+        self.write_failed_count = failed_count
+        if self.write_success_count and failed_count:
+            self.write_state = BeginnerWriteState.PARTIAL
+        elif self.write_success_count:
+            self.write_state = BeginnerWriteState.SUCCESS
+        else:
+            self.write_state = BeginnerWriteState.FAILED
+        if self.write_success_count and snapshot_id not in self.completed_write_snapshot_ids:
+            self.completed_write_snapshot_ids = (
+                *self.completed_write_snapshot_ids,
+                snapshot_id,
+            )
+
     def set_candidate_review_decision(
         self,
         candidate_id: str,
@@ -1155,6 +1255,14 @@ class BeginnerFlowSession:
         self.duplicate_check_result_count = 0
         self.possible_duplicate_count = 0
         self.duplicate_check_error_code = None
+        self.write_state = BeginnerWriteState.IDLE
+        self.write_snapshot_id = ""
+        self.write_requested_count = 0
+        self.write_success_count = 0
+        self.write_skipped_count = 0
+        self.write_failed_count = 0
+        self.write_created_note_ids = ()
+        self.completed_write_snapshot_ids = ()
         self.closed = True
 
     def to_safe_dict(self) -> dict:
@@ -1229,6 +1337,16 @@ class BeginnerFlowSession:
             "duplicate_check_result_count": self.duplicate_check_result_count,
             "possible_duplicate_count": self.possible_duplicate_count,
             "duplicate_check_error_code": self.duplicate_check_error_code,
+            "write_state": self.write_state.value,
+            "write_snapshot_id_present": bool(self.write_snapshot_id),
+            "write_requested_count": self.write_requested_count,
+            "write_success_count": self.write_success_count,
+            "write_skipped_count": self.write_skipped_count,
+            "write_failed_count": self.write_failed_count,
+            "write_created_note_ids": self.write_created_note_ids,
+            "completed_write_snapshot_count": len(
+                self.completed_write_snapshot_ids
+            ),
         }
 
     @classmethod
@@ -1288,7 +1406,17 @@ class BeginnerFlowSession:
         self.final_confirmation_preview_state = BeginnerArtifactState.CLEARED
         self.final_confirmation_card_count = 0
         self.final_confirmation_missing_condition_count = 0
+        self._clear_write_result()
         self.last_clearing_reason = reason
+
+    def _clear_write_result(self) -> None:
+        self.write_state = BeginnerWriteState.CLEARED
+        self.write_snapshot_id = ""
+        self.write_requested_count = 0
+        self.write_success_count = 0
+        self.write_skipped_count = 0
+        self.write_failed_count = 0
+        self.write_created_note_ids = ()
 
     def _ensure_open(self) -> None:
         if self.closed:
