@@ -19,21 +19,21 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
     def test_beginner_entry_and_advanced_entry_copy_exist(self):
         source = self.main_dialog_source()
 
-        self.assertIn("新手模式（推荐）", source)
-        self.assertIn("开始新手模式", source)
-        self.assertIn("旧版工作台（高级）", source)
-        self.assertIn("打开旧版工作台", source)
-        self.assertIn("可能包含真实 Provider 设置", source)
+        self.assertIn("CardMakerPanel", source)
+        self.assertIn("把学习材料变成 Anki 卡片", source)
+        self.assertIn("高级 / 调试工具", source)
+        self.assertIn("打开旧流程工具", source)
+        self.assertIn("打开旧调试面板", source)
         self.assertIn("可能包含真实 Anki 写入入口", ADVANCED_WORKBENCH_WARNING)
 
     def test_beginner_copy_states_network_is_explicit_click_only(self):
         entry_source = self.function_source("_build_ui")
         safety_copy = "\n".join(BEGINNER_GUIDE_SAFETY_COPY)
+        product_source = self.card_maker_panel_source()
 
-        self.assertIn("只读演练", entry_source)
-        self.assertIn("打开窗口不会联网", entry_source)
-        self.assertIn("主动点击 AI 生成按钮", entry_source)
-        self.assertIn("不会写入 Anki", entry_source)
+        self.assertNotIn("只读演练", entry_source)
+        self.assertIn("generate_btn.clicked.connect", product_source)
+        self.assertIn("BeginnerAICardDraftGenerator().generate", product_source)
         self.assertIn("打开窗口不会联网", safety_copy)
         self.assertIn("主动点击 AI 生成按钮", safety_copy)
         self.assertIn("二次确认才会创建 Anki note", safety_copy)
@@ -67,38 +67,24 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
             self.main_dialog_source(),
             "beginner_entry_btn",
         )
-        dialog_buttons = self.literal_button_labels(self.beginner_dialog_source())
-
-        self.assertEqual(main_button, "开始新手模式")
-        self.assertEqual(
-            dialog_buttons,
-            {
-                "上一步",
-                "继续",
-                "使用示例材料",
-                "用 AI 生成候选卡",
-                "重新生成",
-                "读取 Anki 结构",
-                "重新读取",
-                "检查是否可能重复",
-                "重新检查",
-                "查看汇总预览",
-                "确认写入选中的卡片",
-                "清空材料",
-                "关闭",
-                "查看技术详情",
-            },
+        product_buttons = self.literal_button_labels(
+            self.card_maker_panel_source()
         )
-        for label in (main_button, *dialog_buttons - {"确认写入选中的卡片"}):
-            for forbidden in (
-                "写入",
-                "添加到 Anki",
-                "保存",
-                "应用",
-                "执行",
-                "运行",
-            ):
-                self.assertNotIn(forbidden, label)
+
+        self.assertEqual(main_button, "打开旧流程工具")
+        self.assertTrue(
+            {
+                "选择 Markdown 文件",
+                "使用示例",
+                "生成卡片",
+                "编辑",
+                "检查重复",
+                "写入 Anki",
+            }.issubset(product_buttons)
+        )
+        product_source = self.card_maker_panel_source()
+        self.assertIn('QRadioButton("保留")', product_source)
+        self.assertIn('QRadioButton("丢弃")', product_source)
 
     def test_legacy_workbench_is_lazy_and_hidden_by_default(self):
         init_source = self.function_source("__init__")
@@ -242,6 +228,11 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
     def beginner_dialog_source(self):
         return (
             self.repo_root() / "ankiforge_ai" / "ui" / "beginner_mode_dialog.py"
+        ).read_text(encoding="utf-8")
+
+    def card_maker_panel_source(self):
+        return (
+            self.repo_root() / "ankiforge_ai" / "ui" / "card_maker_panel.py"
         ).read_text(encoding="utf-8")
 
     @staticmethod
