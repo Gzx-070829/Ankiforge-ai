@@ -9,17 +9,18 @@ QDialog#AnkiForgeMainDialog {
 
 QDialog#AnkiForgeMainDialog QLabel {
     color: #F4F4F5;
+    font-size: 14px;
 }
 
 QLabel#ProductTitle {
     color: #F8FAFC;
-    font-size: 26px;
+    font-size: 30px;
     font-weight: 700;
 }
 
 QLabel#ProductSubtitle {
     color: #9CA3AF;
-    font-size: 14px;
+    font-size: 16px;
 }
 
 QWidget#CardMakerPanel {
@@ -28,45 +29,46 @@ QWidget#CardMakerPanel {
 
 QWidget#CardMakerPanel QLabel[role="secondary"] {
     color: #9CA3AF;
+    font-size: 13px;
     font-weight: 400;
 }
 
 QWidget#CardMakerPanel QLabel[role="muted"] {
     color: #6B7280;
+    font-size: 12px;
     font-weight: 400;
+}
+
+QWidget#CardMakerPanel QLabel[role="sectionTitle"] {
+    color: #F8FAFC;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 0;
+}
+
+QWidget#CardMakerPanel QLabel[role="fieldLabel"] {
+    color: #D1D5DB;
+    font-size: 13px;
+    font-weight: 500;
 }
 
 QLabel#EmptyStateTitle {
     color: #E5E7EB;
-    font-size: 15px;
+    font-size: 19px;
     font-weight: 600;
 }
 
 QLabel#EmptyStateHelp {
     color: #6B7280;
+    font-size: 13px;
     font-weight: 400;
 }
 
-QWidget#CardMakerPanel QGroupBox[productPanel="true"] {
+QWidget#CardMakerPanel QFrame[sectionCard="true"] {
     background-color: #2B2D30;
     border: 1px solid #3F4248;
-    border-radius: 8px;
-    margin-top: 15px;
-    padding: 13px 12px 11px 12px;
+    border-radius: 10px;
     color: #F4F4F5;
-    font-weight: 600;
-}
-
-QWidget#CardMakerPanel QGroupBox[productPanel="true"]::title {
-    subcontrol-origin: margin;
-    subcontrol-position: top left;
-    left: 12px;
-    top: 3px;
-    padding: 0 6px;
-    color: #F4F4F5;
-    background: transparent;
-    font-size: 14px;
-    font-weight: 600;
 }
 
 QWidget#CardMakerPanel QGroupBox[cardItem="true"] {
@@ -107,7 +109,7 @@ QWidget#CardMakerPanel QSpinBox {
     border-radius: 6px;
     padding: 6px 8px;
     selection-background-color: #2563EB;
-    min-height: 28px;
+    min-height: 30px;
 }
 
 QWidget#CardMakerPanel QTextEdit:focus,
@@ -185,8 +187,8 @@ QPushButton#LanguageToggle {
     color: #D1D5DB;
     border: 1px solid #4B4F57;
     border-radius: 6px;
-    padding: 4px 10px;
-    font-size: 12px;
+    padding: 5px 12px;
+    font-size: 13px;
 }
 
 QPushButton#LanguageToggle:hover {

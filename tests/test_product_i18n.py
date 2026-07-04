@@ -32,7 +32,7 @@ class ProductI18nTests(unittest.TestCase):
     def test_language_toggle_has_stable_non_truncated_size(self):
         build_ui = self.function_source(self.main_source(), "_build_ui")
 
-        self.assertIn("self.language_toggle_btn.setFixedSize(88, 30)", build_ui)
+        self.assertIn("self.language_toggle_btn.setFixedSize(96, 35)", build_ui)
         self.assertIn("Qt.AlignmentFlag.AlignVCenter", build_ui)
 
     def test_chinese_surface_has_no_english_field_labels(self):

@@ -8,8 +8,8 @@ from aqt.qt import (
     QComboBox,
     QDialog,
     QFileDialog,
+    QFrame,
     QFormLayout,
-    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -85,7 +85,7 @@ class CardMakerPanel(QWidget):
         self.card_button_groups = {}
 
         self.setObjectName("CardMakerPanel")
-        self.setMaximumWidth(920)
+        self.setMaximumWidth(1080)
         self._build_ui()
         self._read_anki_targets()
         self._render_cards()
@@ -102,13 +102,13 @@ class CardMakerPanel(QWidget):
         self._retranslate_ui()
 
     def _retranslate_ui(self):
-        self.material_group.setTitle(self.t("material_section"))
+        self.material_title_label.setText(self.t("material_section"))
         self.material_help_label.setText(self.t("material_help"))
         self.material_input.setPlaceholderText(self.t("material_placeholder"))
         self.choose_markdown_btn.setText(self.t("choose_markdown"))
         self.example_btn.setText(self.t("use_example"))
 
-        self.ai_group.setTitle(self.t("ai_section"))
+        self.ai_title_label.setText(self.t("ai_section"))
         self.provider_label.setText(self.t("provider"))
         self.model_label.setText(self.t("model"))
         self.model_input.setPlaceholderText(self.t("model_placeholder"))
@@ -119,11 +119,11 @@ class CardMakerPanel(QWidget):
         self.timeout_label.setText(self.t("timeout"))
         self._toggle_ai_advanced(self.ai_advanced_btn.isChecked())
 
-        self.cards_group.setTitle(self.t("cards_section"))
+        self.cards_title_label.setText(self.t("cards_section"))
         self.empty_cards_title.setText(self.t("no_cards"))
         self.empty_cards_help.setText(self.t("no_cards_help"))
 
-        self.write_group.setTitle(self.t("write_section"))
+        self.write_title_label.setText(self.t("write_section"))
         self.deck_label.setText(self.t("deck"))
         self.note_type_label.setText(self.t("note_type"))
         self.front_mapping_label.setText(self.t("front_mapping"))
@@ -211,7 +211,7 @@ class CardMakerPanel(QWidget):
         columns = QHBoxLayout()
         columns.setSpacing(20)
         left = QWidget()
-        left.setMinimumWidth(410)
+        left.setMinimumWidth(500)
         left_layout = QVBoxLayout(left)
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(14)
@@ -219,7 +219,7 @@ class CardMakerPanel(QWidget):
         left_layout.addWidget(self._build_ai_section())
 
         right = QWidget()
-        right.setMinimumWidth(410)
+        right.setMinimumWidth(460)
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(14)
@@ -230,12 +230,32 @@ class CardMakerPanel(QWidget):
         columns.addWidget(right, 1)
         root.addLayout(columns)
 
+    def _make_section(self, title_key):
+        section = QWidget()
+        section.setProperty("productSection", True)
+        section_layout = QVBoxLayout(section)
+        section_layout.setContentsMargins(0, 0, 0, 0)
+        section_layout.setSpacing(7)
+
+        title = QLabel(self.t(title_key))
+        title.setProperty("role", "sectionTitle")
+        section_layout.addWidget(title)
+
+        card = QFrame()
+        card.setProperty("sectionCard", True)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(17, 17, 17, 17)
+        card_layout.setSpacing(10)
+        section_layout.addWidget(card, 1)
+        return section, title, card, card_layout
+
     def _build_material_section(self):
-        self.material_group = QGroupBox(self.t("material_section"))
-        self.material_group.setProperty("productPanel", True)
-        layout = QVBoxLayout(self.material_group)
-        layout.setContentsMargins(14, 16, 14, 14)
-        layout.setSpacing(10)
+        (
+            self.material_group,
+            self.material_title_label,
+            self.material_card,
+            layout,
+        ) = self._make_section("material_section")
         self.material_help_label = QLabel(self.t("material_help"))
         self.material_help_label.setProperty("role", "secondary")
         layout.addWidget(self.material_help_label)
@@ -264,14 +284,15 @@ class CardMakerPanel(QWidget):
         return self.material_group
 
     def _build_ai_section(self):
-        self.ai_group = QGroupBox(self.t("ai_section"))
-        self.ai_group.setProperty("productPanel", True)
-        layout = QVBoxLayout(self.ai_group)
-        layout.setContentsMargins(14, 16, 14, 14)
+        (
+            self.ai_group,
+            self.ai_title_label,
+            self.ai_card,
+            layout,
+        ) = self._make_section("ai_section")
         layout.setSpacing(8)
-        compact = QGridLayout()
-        compact.setHorizontalSpacing(8)
-        compact.setVerticalSpacing(8)
+        provider_model_row = QHBoxLayout()
+        provider_model_row.setSpacing(18)
 
         self.provider_combo = QComboBox()
         self.provider_combo.addItem(
@@ -290,14 +311,25 @@ class CardMakerPanel(QWidget):
             self._on_provider_changed
         )
         self.provider_label = QLabel(self.t("provider"))
-        compact.addWidget(self.provider_label, 0, 0)
-        compact.addWidget(self.provider_combo, 0, 1)
+        self.provider_label.setProperty("role", "fieldLabel")
+        self.provider_combo.setMinimumWidth(220)
+        provider_field = QVBoxLayout()
+        provider_field.setSpacing(6)
+        provider_field.addWidget(self.provider_label)
+        provider_field.addWidget(self.provider_combo)
+        provider_model_row.addLayout(provider_field, 1)
 
         self.model_input = QLineEdit("deepseek-v4-flash")
         self.model_input.setPlaceholderText(self.t("model_placeholder"))
         self.model_label = QLabel(self.t("model"))
-        compact.addWidget(self.model_label, 0, 2)
-        compact.addWidget(self.model_input, 0, 3)
+        self.model_label.setProperty("role", "fieldLabel")
+        self.model_input.setMinimumWidth(240)
+        model_field = QVBoxLayout()
+        model_field.setSpacing(6)
+        model_field.addWidget(self.model_label)
+        model_field.addWidget(self.model_input)
+        provider_model_row.addLayout(model_field, 1)
+        layout.addLayout(provider_model_row)
 
         self.api_key_input = QLineEdit()
         password_mode = (
@@ -308,11 +340,12 @@ class CardMakerPanel(QWidget):
         self.api_key_input.setEchoMode(password_mode)
         self.api_key_input.setPlaceholderText(self.t("api_key_placeholder"))
         self.api_key_label = QLabel(self.t("api_key"))
-        compact.addWidget(self.api_key_label, 1, 0)
-        compact.addWidget(self.api_key_input, 1, 1, 1, 3)
-        compact.setColumnStretch(1, 1)
-        compact.setColumnStretch(3, 1)
-        layout.addLayout(compact)
+        self.api_key_label.setProperty("role", "fieldLabel")
+        api_key_field = QVBoxLayout()
+        api_key_field.setSpacing(6)
+        api_key_field.addWidget(self.api_key_label)
+        api_key_field.addWidget(self.api_key_input)
+        layout.addLayout(api_key_field)
 
         self.api_key_help_label = QLabel(self.t("api_key_help"))
         self.api_key_help_label.setProperty("role", "secondary")
@@ -343,7 +376,7 @@ class CardMakerPanel(QWidget):
         self.generate_btn = QPushButton(self.t("generate_cards"))
         self.generate_btn.setProperty("role", "primary")
         self.generate_btn.setDefault(True)
-        self.generate_btn.setMinimumSize(150, 40)
+        self.generate_btn.setFixedSize(178, 44)
         self.generate_btn.clicked.connect(self._generate_cards)
         self.generation_status_label = QLabel()
         self.generation_status_label.setWordWrap(True)
@@ -361,10 +394,12 @@ class CardMakerPanel(QWidget):
         return self.ai_group
 
     def _build_cards_section(self):
-        self.cards_group = QGroupBox(self.t("cards_section"))
-        self.cards_group.setProperty("productPanel", True)
-        layout = QVBoxLayout(self.cards_group)
-        layout.setContentsMargins(14, 16, 14, 14)
+        (
+            self.cards_group,
+            self.cards_title_label,
+            self.cards_card,
+            layout,
+        ) = self._make_section("cards_section")
         self.cards_empty_widget = QWidget()
         self.cards_empty_widget.setObjectName("CardsEmptyState")
         empty_layout = QVBoxLayout(self.cards_empty_widget)
@@ -394,10 +429,12 @@ class CardMakerPanel(QWidget):
         return self.cards_group
 
     def _build_write_section(self):
-        self.write_group = QGroupBox(self.t("write_section"))
-        self.write_group.setProperty("productPanel", True)
-        layout = QVBoxLayout(self.write_group)
-        layout.setContentsMargins(14, 16, 14, 14)
+        (
+            self.write_group,
+            self.write_title_label,
+            self.write_card,
+            layout,
+        ) = self._make_section("write_section")
         layout.setSpacing(9)
         form = QFormLayout()
 
@@ -421,13 +458,21 @@ class CardMakerPanel(QWidget):
             self.back_field_combo,
             self.source_field_combo,
         ):
-            combo.setMinimumWidth(220)
+            combo.setMinimumWidth(240)
             combo.currentIndexChanged.connect(self._on_mapping_changed)
-        self.deck_combo.setMinimumWidth(220)
-        self.note_type_combo.setMinimumWidth(220)
+        self.deck_combo.setMinimumWidth(240)
+        self.note_type_combo.setMinimumWidth(240)
         self.front_mapping_label = QLabel(self.t("front_mapping"))
         self.back_mapping_label = QLabel(self.t("back_mapping"))
         self.source_mapping_label = QLabel(self.t("source_mapping"))
+        for label in (
+            self.deck_label,
+            self.note_type_label,
+            self.front_mapping_label,
+            self.back_mapping_label,
+            self.source_mapping_label,
+        ):
+            label.setMinimumWidth(92)
         for label in (
             self.deck_label,
             self.note_type_label,

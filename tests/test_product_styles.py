@@ -23,7 +23,8 @@ class ProductStyleTests(unittest.TestCase):
             self.assertIn(color, PRODUCT_DARK_STYLESHEET)
         self.assertIn("QDialog#AnkiForgeMainDialog", PRODUCT_DARK_STYLESHEET)
         self.assertIn("QWidget#CardMakerPanel", PRODUCT_DARK_STYLESHEET)
-        self.assertIn('QGroupBox[productPanel="true"]', PRODUCT_DARK_STYLESHEET)
+        self.assertIn('QFrame[sectionCard="true"]', PRODUCT_DARK_STYLESHEET)
+        self.assertNotIn('QGroupBox[productPanel="true"]', PRODUCT_DARK_STYLESHEET)
 
     def test_inputs_share_one_focus_and_shape_language(self):
         for selector in ("QTextEdit", "QLineEdit", "QComboBox", "QSpinBox"):
@@ -59,6 +60,37 @@ class ProductStyleTests(unittest.TestCase):
         self.assertEqual(cards.count("Qt.AlignmentFlag.AlignCenter"), 2)
         self.assertIn("columns = QHBoxLayout()", builder)
         self.assertIn("columns.setSpacing(20)", builder)
+
+    def test_sections_use_external_titles_and_frame_cards(self):
+        source = self.panel_source()
+        factory = self.function_source(source, "_make_section")
+
+        self.assertIn("title = QLabel", factory)
+        self.assertIn('title.setProperty("role", "sectionTitle")', factory)
+        self.assertIn("card = QFrame()", factory)
+        self.assertIn('card.setProperty("sectionCard", True)', factory)
+        self.assertIn("section_layout.setSpacing(7)", factory)
+        self.assertNotIn("QGroupBox", factory)
+        for builder_name in (
+            "_build_material_section",
+            "_build_ai_section",
+            "_build_cards_section",
+            "_build_write_section",
+        ):
+            builder = self.function_source(source, builder_name)
+            self.assertIn("self._make_section", builder)
+
+    def test_ai_fields_use_labels_above_inputs(self):
+        builder = self.function_source(self.panel_source(), "_build_ai_section")
+
+        self.assertIn("provider_model_row = QHBoxLayout()", builder)
+        self.assertIn("provider_model_row.setSpacing(18)", builder)
+        self.assertIn("provider_field = QVBoxLayout()", builder)
+        self.assertIn("model_field = QVBoxLayout()", builder)
+        self.assertIn("api_key_field = QVBoxLayout()", builder)
+        self.assertIn("self.provider_combo.setMinimumWidth(220)", builder)
+        self.assertIn("self.model_input.setMinimumWidth(240)", builder)
+        self.assertNotIn("QGridLayout", builder)
 
     def test_styles_module_has_no_business_runtime_dependencies(self):
         source = self.style_source()

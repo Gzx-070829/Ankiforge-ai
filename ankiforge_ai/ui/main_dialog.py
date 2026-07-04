@@ -85,7 +85,7 @@ class MainDialog(QDialog):
                 "provider_preview must be ReadOnlyProviderPreview or None."
             )
         self.setWindowTitle(self.t("title"))
-        self.resize(960, 820)
+        self.resize(1120, 820)
 
         self._provider_preview = provider_preview
         self.cards = []
@@ -109,7 +109,7 @@ class MainDialog(QDialog):
         self.title_label.setObjectName("ProductTitle")
         self.language_toggle_btn = QPushButton(self.t("language_toggle"))
         self.language_toggle_btn.setObjectName("LanguageToggle")
-        self.language_toggle_btn.setFixedSize(88, 30)
+        self.language_toggle_btn.setFixedSize(96, 35)
         self.language_toggle_btn.setFlat(True)
         self.language_toggle_btn.clicked.connect(self.toggle_language)
         header_row.addWidget(self.title_label)
