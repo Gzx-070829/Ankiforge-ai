@@ -194,12 +194,12 @@ class BeginnerKnowledgePointContextTests(unittest.TestCase):
             if isinstance(node, ast.Constant) and isinstance(node.value, str)
         )
         rendered = "\n".join(string_literals)
+        self.assertIn("确认写入选中的卡片", rendered)
 
         for forbidden in (
             "保存",
             "应用",
             "执行",
-            "确认写入",
             "添加到 Anki",
             "写入成功",
             "已写入",

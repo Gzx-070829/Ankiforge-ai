@@ -93,11 +93,11 @@ class BeginnerMaterialGuideContractTests(unittest.TestCase):
             for alias in node.names
         )
 
+        self.assertIn("anki_writer.minimal_write", imported_modules)
         for forbidden in (
             "config",
             "provider",
             "pipeline",
-            "writer",
             "collection",
             "requests",
             "httpx",
@@ -137,12 +137,13 @@ class BeginnerMaterialGuideContractTests(unittest.TestCase):
                 "检查是否可能重复",
                 "重新检查",
                 "查看汇总预览",
+                "确认写入选中的卡片",
                 "清空材料",
                 "关闭",
                 "查看技术详情",
             },
         )
-        for label in labels:
+        for label in labels - {"确认写入选中的卡片"}:
             for forbidden in ("保存", "应用", "执行", "确认", "写入"):
                 self.assertNotIn(forbidden, label)
 
@@ -151,14 +152,14 @@ class BeginnerMaterialGuideContractTests(unittest.TestCase):
         self.assertEqual(
             BEGINNER_GUIDE_SAFETY_COPY,
             (
-                "当前是只读演练",
+                "默认从只读流程开始",
                 "打开窗口不会联网",
                 "只有主动点击 AI 生成按钮才会联网",
                 "API key 只用于当前窗口",
                 "只有点击读取按钮才会只读访问 Anki collection",
                 "只有点击检查按钮才会执行只读 duplicate check",
-                "不会修改 Anki collection",
-                "不会写入 Anki",
+                "打开窗口不会修改 Anki collection",
+                "只有最终确认并通过二次确认才会创建 Anki note",
                 "关闭后丢弃本次内容",
             ),
         )

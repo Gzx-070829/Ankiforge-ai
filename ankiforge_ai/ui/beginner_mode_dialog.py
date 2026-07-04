@@ -11,12 +11,15 @@ from aqt.qt import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QRadioButton,
     QSpinBox,
     QTextEdit,
     QVBoxLayout,
 )
+
+from ..anki_writer.minimal_write import MinimalAnkiWriter
 
 from .beginner_ai_card_drafts import (
     BEGINNER_AI_GENERATING_COPY,
@@ -48,12 +51,20 @@ from .beginner_flow_models import (
     BeginnerFlowSession,
     BeginnerFlowStep,
     BeginnerReviewDecision,
+    BeginnerWriteState,
 )
 from .beginner_final_confirmation import (
     FINAL_CONFIRMATION_EMPTY_COPY,
     FINAL_CONFIRMATION_FUTURE_COPY,
     FINAL_CONFIRMATION_SAFETY_COPY,
     build_beginner_final_confirmation_preview,
+)
+from .beginner_real_write import (
+    WRITE_COMPLETION_TITLE,
+    WRITE_CONFIRMATION_DISCLOSURE_COPY,
+    WRITE_IDLE_COPY,
+    execute_beginner_write_if_confirmed,
+    prepare_beginner_write,
 )
 from .read_only_anki_targets import (
     ANKI_MAPPING_PREVIEW_SAFETY_COPY,
@@ -77,12 +88,16 @@ class BeginnerModeDialog(QDialog):
         self.session = BeginnerFlowSession()
         self.anki_target_adapter = ReadOnlyAnkiTargetAdapter(collection)
         self.duplicate_check_adapter = ReadOnlyDuplicateCheckAdapter(collection)
+        self.writer = MinimalAnkiWriter(collection)
         self.anki_target_snapshot = None
         self.anki_field_snapshot = None
         self.anki_mapping_preview = None
         self.duplicate_check_preview = None
         self.final_confirmation_preview = None
-        self.setWindowTitle("新手模式（只读演练）")
+        self.write_preparation = None
+        self.write_command = None
+        self.write_result = None
+        self.setWindowTitle("新手模式（默认只读，确认后可写入）")
         self.resize(760, 680)
 
         layout = QVBoxLayout(self)
@@ -337,6 +352,16 @@ class BeginnerModeDialog(QDialog):
         final_confirmation_future = QLabel(FINAL_CONFIRMATION_FUTURE_COPY)
         final_confirmation_future.setWordWrap(True)
         final_confirmation_layout.addWidget(final_confirmation_future)
+        self.write_conditions_label = QLabel(WRITE_IDLE_COPY)
+        self.write_conditions_label.setWordWrap(True)
+        final_confirmation_layout.addWidget(self.write_conditions_label)
+        self.real_write_btn = QPushButton("确认写入选中的卡片")
+        self.real_write_btn.setEnabled(False)
+        self.real_write_btn.clicked.connect(self._confirm_and_write)
+        final_confirmation_layout.addWidget(self.real_write_btn)
+        self.write_result_label = QLabel()
+        self.write_result_label.setWordWrap(True)
+        final_confirmation_layout.addWidget(self.write_result_label)
         anki_target_layout.addWidget(final_confirmation_group)
         prewrite_layout.addWidget(self.anki_target_group)
         layout.addWidget(self.prewrite_group)
@@ -356,10 +381,10 @@ class BeginnerModeDialog(QDialog):
 
         self.completion_group = QGroupBox("本次演练终点")
         completion_layout = QVBoxLayout(self.completion_group)
-        completion_label = QLabel(COMPLETION_TITLE)
-        completion_label.setWordWrap(True)
-        completion_label.setStyleSheet("font-weight: bold;")
-        completion_layout.addWidget(completion_label)
+        self.completion_label = QLabel(COMPLETION_TITLE)
+        self.completion_label.setWordWrap(True)
+        self.completion_label.setStyleSheet("font-weight: bold;")
+        completion_layout.addWidget(self.completion_label)
         layout.addWidget(self.completion_group)
 
         button_row = QHBoxLayout()
@@ -681,11 +706,137 @@ class BeginnerModeDialog(QDialog):
             )
         lines.append(FINAL_CONFIRMATION_FUTURE_COPY)
         self.final_confirmation_result_label.setText("\n".join(lines))
+        preparation = prepare_beginner_write(
+            self.session,
+            preview,
+            self.anki_mapping_preview,
+            self.duplicate_check_preview,
+        )
+        self.write_preparation = preparation
+        self.write_command = preparation.command
+        self._render_write_preparation(preparation)
 
     def _clear_final_confirmation_display(self):
         self.final_confirmation_preview = None
+        self.write_preparation = None
+        self.write_command = None
+        self.write_result = None
         self.final_confirmation_result_label.setText(
             FINAL_CONFIRMATION_EMPTY_COPY
+        )
+        self.write_conditions_label.setText(WRITE_IDLE_COPY)
+        self.write_result_label.clear()
+        self.real_write_btn.setText("确认写入选中的卡片")
+        self.real_write_btn.setEnabled(False)
+        self.completion_label.setText(COMPLETION_TITLE)
+
+    def _render_write_preparation(self, preparation):
+        if preparation.can_write:
+            self.write_conditions_label.setText(
+                f"本次将写入 {preparation.writable_count} 张；"
+                f"默认跳过 {preparation.skipped_count} 张。"
+                "点击后仍会出现二次确认。"
+            )
+        else:
+            lines = ["当前不能进行真实写入，还缺少："]
+            lines.extend(f"- {item}" for item in preparation.missing_conditions)
+            self.write_conditions_label.setText("\n".join(lines))
+        self._update_write_action_state()
+
+    def _confirm_and_write(self):
+        preparation = prepare_beginner_write(
+            self.session,
+            self.final_confirmation_preview,
+            self.anki_mapping_preview,
+            self.duplicate_check_preview,
+        )
+        self.write_preparation = preparation
+        self.write_command = preparation.command
+        self._render_write_preparation(preparation)
+        command = preparation.command
+        if command is None:
+            return
+
+        confirmation_text = (
+            f"将写入 {command.requested_count} 张卡。\n"
+            f"目标牌组：{command.deck_name}\n"
+            f"笔记类型：{command.note_type_name}\n"
+            f"字段映射：正面 → {command.front_field}；"
+            f"背面 → {command.back_field}；"
+            f"来源 → {command.source_field or '不映射'}\n\n"
+            f"{WRITE_CONFIRMATION_DISCLOSURE_COPY}"
+        )
+        standard_buttons = getattr(QMessageBox, "StandardButton", QMessageBox)
+        yes_button = standard_buttons.Yes
+        no_button = standard_buttons.No
+        answer = QMessageBox.question(
+            self,
+            "确认真实写入",
+            confirmation_text,
+            yes_button | no_button,
+            no_button,
+        )
+        confirmed = answer == yes_button
+        if not confirmed:
+            self.write_result_label.setText("已取消；没有写入 Anki。")
+            return
+
+        self.session.begin_write(
+            command.snapshot_id,
+            command.requested_count,
+            command.skipped_count,
+        )
+        self.real_write_btn.setText("正在写入")
+        self.real_write_btn.setEnabled(False)
+        result = execute_beginner_write_if_confirmed(
+            True,
+            self.writer,
+            command,
+        )
+        self.session.record_write_result(
+            result.snapshot_id,
+            result.created_note_ids,
+            result.skipped_count,
+            result.failed_count,
+        )
+        self.write_result = result
+        self._render_write_result(result)
+
+    def _render_write_result(self, result):
+        created_ids = ", ".join(str(item) for item in result.created_note_ids)
+        lines = [
+            result.user_message,
+            f"成功写入：{result.success_count}",
+            f"created note ids：{created_ids or '无'}",
+            f"跳过：{result.skipped_count}",
+            f"失败：{result.failed_count}",
+        ]
+        for card_result in result.card_results:
+            if card_result.user_message:
+                lines.append(
+                    f"候选卡 {card_result.candidate_id}："
+                    f"{card_result.user_message}"
+                )
+        self.write_result_label.setText("\n".join(lines))
+        if result.success_count:
+            self.completion_label.setText(WRITE_COMPLETION_TITLE)
+        self._update_write_action_state()
+
+    def _update_write_action_state(self):
+        command = self.write_command
+        if self.session.write_state is BeginnerWriteState.WRITING:
+            self.real_write_btn.setText("正在写入")
+            self.real_write_btn.setEnabled(False)
+            return
+        if command is not None and self.session.has_completed_write_snapshot(
+            command.snapshot_id
+        ):
+            self.real_write_btn.setText("已完成，请检查 Anki")
+            self.real_write_btn.setEnabled(False)
+            return
+        self.real_write_btn.setText("确认写入选中的卡片")
+        self.real_write_btn.setEnabled(
+            bool(self.write_preparation and self.write_preparation.can_write)
         )
 
     def _update_duplicate_action_state(self):
@@ -1032,6 +1183,9 @@ class BeginnerModeDialog(QDialog):
         self.anki_mapping_preview = None
         self.duplicate_check_preview = None
         self.final_confirmation_preview = None
+        self.write_preparation = None
+        self.write_command = None
+        self.write_result = None
         self.session.close()
 
     def reject(self):

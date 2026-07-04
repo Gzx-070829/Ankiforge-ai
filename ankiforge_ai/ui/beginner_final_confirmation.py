@@ -21,7 +21,9 @@ from .read_only_duplicate_check import (
 FINAL_CONFIRMATION_SAFETY_COPY = (
     "当前只是最终确认预览，尚未写入 Anki。"
 )
-FINAL_CONFIRMATION_FUTURE_COPY = "真实写入将在下一步版本开放"
+FINAL_CONFIRMATION_FUTURE_COPY = (
+    "只有点击下方真实写入按钮并通过二次确认，才会创建 Anki note。"
+)
 FINAL_CONFIRMATION_EMPTY_COPY = (
     "可以先查看缺少哪些条件；当前不会创建 note，也不会修改 Anki。"
 )
@@ -232,11 +234,11 @@ def _build_card_preview(candidate, review_decision, duplicate_result):
     if review_decision is None:
         attention.append("需要注意：尚未审核")
     elif review_decision is BeginnerReviewDecision.SKIP_FOR_NOW:
-        attention.append("未来若开放真实写入，应跳过")
+        attention.append("本次写入应跳过：暂时不要")
     elif review_decision is BeginnerReviewDecision.NEEDS_CHANGES:
-        attention.append("需要注意：建议先修改")
+        attention.append("本次写入应跳过：需要修改")
     if duplicate_status is BeginnerDuplicateStatus.POSSIBLE_DUPLICATE:
-        attention.append("需要注意：可能重复")
+        attention.append("本次写入默认跳过：可能重复")
     elif duplicate_status is BeginnerDuplicateStatus.UNABLE_TO_CHECK:
         attention.append("需要注意：无法检查重复")
     if not attention:
