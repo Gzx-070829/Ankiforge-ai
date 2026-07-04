@@ -1,18 +1,4 @@
-"""
-Main dialog for AnkiForge AI (v0.2.2).
-
-Flow:
-    pick a .md file
-        -> split into chunks by heading (importers/md_importer.py)
-        -> generate cards with the local mock provider
-        -> show an editable preview table, each row has an "include" checkbox
-        -> on "Add to Anki", re-read any user edits from the table, then
-           write only the checked rows (anki_writer/add_cards.py)
-
-Nothing is written to the collection until the user clicks "Add to Anki",
-and unchecked rows are never written. No row is added without the user
-having had a chance to see and edit it first.
-"""
+"""Main product window with a single-screen card maker and hidden debug tools."""
 
 from aqt import mw
 from aqt.qt import (
@@ -65,6 +51,7 @@ from .provider_preview_dialog import ReadOnlyProviderPreviewDialog
 from .human_review_draft_dialog import HumanReviewDecisionDraftDialog
 from .beginner_flow_models import ADVANCED_WORKBENCH_WARNING
 from .beginner_mode_dialog import BeginnerModeDialog
+from .card_maker_panel import CardMakerPanel
 from .review_helpers import (
     ALL_CHUNKS_LABEL,
     cap_cards,
@@ -93,7 +80,7 @@ class MainDialog(QDialog):
                 "provider_preview must be ReadOnlyProviderPreview or None."
             )
         self.setWindowTitle("AnkiForge AI")
-        self.resize(780, 520)
+        self.resize(960, 820)
 
         self._provider_preview = provider_preview
         self.cards = []
@@ -109,42 +96,68 @@ class MainDialog(QDialog):
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(18, 14, 18, 10)
+        layout.setSpacing(6)
+        title = QLabel("AnkiForge AI")
+        title.setStyleSheet("font-size: 24px; font-weight: bold;")
+        subtitle = QLabel("把学习材料变成 Anki 卡片")
+        subtitle.setStyleSheet("font-size: 14px; color: #666;")
+        layout.addWidget(title)
+        layout.addWidget(subtitle)
 
-        beginner_group = QGroupBox("新手模式（推荐）")
-        beginner_group.setStyleSheet("QGroupBox { font-weight: bold; }")
-        beginner_layout = QVBoxLayout(beginner_group)
-        beginner_description = QLabel(
-            "默认从只读演练开始，带你完成从学习材料到候选卡审核的流程。"
-            "打开窗口不会联网；只有你主动点击 AI 生成按钮后才会按提示联网。"
-            "打开窗口不会写入 Anki。"
-            "读取结构和重复检查均需主动点击；只有在最终确认页再次明确确认，"
-            "才会创建你选中的 Anki note。"
+        collection = getattr(mw, "col", None)
+        self.card_maker_panel = CardMakerPanel(
+            parent=self,
+            collection=collection,
         )
-        beginner_description.setWordWrap(True)
-        beginner_layout.addWidget(beginner_description)
-        self.beginner_entry_btn = QPushButton("开始新手模式")
+        panel_row = QHBoxLayout()
+        panel_row.addStretch()
+        panel_row.addWidget(self.card_maker_panel, 1)
+        panel_row.addStretch()
+        layout.addLayout(panel_row, 1)
+
+        self.advanced_toggle_btn = QPushButton("高级 / 调试工具")
+        self.advanced_toggle_btn.setCheckable(True)
+        self.advanced_toggle_btn.setFlat(True)
+        self.advanced_toggle_btn.setMaximumWidth(150)
+        self.advanced_toggle_btn.setStyleSheet(
+            "QPushButton { color: #777; font-size: 12px; padding: 3px; }"
+        )
+        self.advanced_toggle_btn.toggled.connect(self.toggle_advanced_tools)
+        advanced_link_row = QHBoxLayout()
+        advanced_link_row.addStretch()
+        advanced_link_row.addWidget(self.advanced_toggle_btn)
+        layout.addLayout(advanced_link_row)
+
+        self.advanced_tools_panel = QWidget()
+        self.advanced_tools_panel.setVisible(False)
+        advanced_layout = QVBoxLayout(self.advanced_tools_panel)
+        advanced_layout.setContentsMargins(0, 0, 0, 0)
+        advanced_description = QLabel(
+            "旧流程与开发调试入口。普通制卡不需要使用这里。"
+        )
+        advanced_description.setStyleSheet("color: gray;")
+        advanced_layout.addWidget(advanced_description)
+        advanced_buttons = QHBoxLayout()
+        self.beginner_entry_btn = QPushButton("打开旧流程工具")
         self.beginner_entry_btn.clicked.connect(self.show_beginner_mode)
-        beginner_layout.addWidget(self.beginner_entry_btn)
-        layout.addWidget(beginner_group)
-
-        legacy_group = QGroupBox("旧版工作台（高级）")
-        legacy_group.setToolTip(ADVANCED_WORKBENCH_WARNING)
-        legacy_layout = QVBoxLayout(legacy_group)
-        legacy_description = QLabel(
-            "这里保留开发/调试功能，可能包含真实 Provider 设置或旧版添加到 Anki "
-            "入口。请确认你理解风险后再进入。"
-        )
-        legacy_description.setWordWrap(True)
-        legacy_description.setStyleSheet("color: gray;")
-        legacy_layout.addWidget(legacy_description)
-        self.legacy_entry_btn = QPushButton("打开旧版工作台")
+        self.legacy_entry_btn = QPushButton("打开旧调试面板")
+        self.legacy_entry_btn.setToolTip(ADVANCED_WORKBENCH_WARNING)
         self.legacy_entry_btn.clicked.connect(self.show_legacy_workbench)
-        legacy_layout.addWidget(self.legacy_entry_btn)
-        layout.addWidget(legacy_group)
-
+        advanced_buttons.addWidget(self.beginner_entry_btn)
+        advanced_buttons.addWidget(self.legacy_entry_btn)
+        advanced_buttons.addStretch()
+        advanced_layout.addLayout(advanced_buttons)
         self.legacy_workbench_container = QWidget()
         self.legacy_workbench_container.setVisible(False)
-        layout.addWidget(self.legacy_workbench_container, 1)
+        advanced_layout.addWidget(self.legacy_workbench_container)
+        layout.addWidget(self.advanced_tools_panel)
+
+    def toggle_advanced_tools(self, expanded):
+        self.advanced_tools_panel.setVisible(expanded)
+        self.advanced_toggle_btn.setText(
+            "收起高级 / 调试工具" if expanded else "高级 / 调试工具"
+        )
 
     def show_beginner_mode(self):
         main_window = self.parent()
@@ -156,6 +169,10 @@ class MainDialog(QDialog):
             self._build_legacy_workbench()
         self.legacy_workbench_container.setVisible(True)
         self.legacy_entry_btn.setEnabled(False)
+
+    def closeEvent(self, event):
+        self.card_maker_panel.discard_session()
+        super().closeEvent(event)
 
     def _build_legacy_workbench(self):
         self.config = load_config()
