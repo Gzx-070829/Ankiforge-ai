@@ -9,7 +9,7 @@ PRODUCT_COPY = {
     "zh": {
         "title": "AnkiForge AI",
         "subtitle": "把学习材料变成 Anki 卡片",
-        "language_toggle": "中文 / EN",
+        "language_toggle": "English",
         "advanced_debug": "高级 / 调试工具",
         "advanced_debug_collapse": "收起高级 / 调试工具",
         "advanced_debug_help": "旧流程与开发调试入口。普通制卡不需要使用这里。",
@@ -55,8 +55,8 @@ PRODUCT_COPY = {
         "edit": "编辑",
         "discard": "丢弃",
         "write_section": "写入 Anki",
-        "deck": "目标牌组 Deck",
-        "note_type": "笔记类型 Note type",
+        "deck": "目标牌组",
+        "note_type": "笔记类型",
         "front_mapping": "正面 →",
         "back_mapping": "背面 →",
         "source_mapping": "来源 →",
@@ -85,7 +85,7 @@ PRODUCT_COPY = {
     "en": {
         "title": "AnkiForge AI",
         "subtitle": "Turn study materials into Anki cards",
-        "language_toggle": "中文 / EN",
+        "language_toggle": "中文",
         "advanced_debug": "Advanced / Debug Tools",
         "advanced_debug_collapse": "Hide Advanced / Debug Tools",
         "advanced_debug_help": (

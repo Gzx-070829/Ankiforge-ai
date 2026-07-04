@@ -101,18 +101,28 @@ class MainDialog(QDialog):
         layout.setContentsMargins(18, 14, 18, 10)
         layout.setSpacing(6)
         header_row = QHBoxLayout()
+        header_row.setContentsMargins(0, 0, 0, 0)
         self.title_label = QLabel(self.t("title"))
         self.title_label.setStyleSheet("font-size: 24px; font-weight: bold;")
         self.language_toggle_btn = QPushButton(self.t("language_toggle"))
-        self.language_toggle_btn.setMaximumWidth(82)
+        self.language_toggle_btn.setFixedSize(88, 30)
         self.language_toggle_btn.setFlat(True)
+        self.language_toggle_btn.setStyleSheet(
+            "QPushButton { padding: 3px 10px; font-size: 12px; "
+            "border: 1px solid #888; border-radius: 5px; }"
+        )
         self.language_toggle_btn.clicked.connect(self.toggle_language)
         header_row.addWidget(self.title_label)
         header_row.addStretch()
         header_row.addWidget(self.language_toggle_btn)
+        header_row.setAlignment(
+            self.language_toggle_btn,
+            Qt.AlignmentFlag.AlignVCenter,
+        )
         layout.addLayout(header_row)
         self.subtitle_label = QLabel(self.t("subtitle"))
         self.subtitle_label.setStyleSheet("font-size: 14px; color: #666;")
+        self.subtitle_label.setContentsMargins(2, 0, 0, 6)
         layout.addWidget(self.subtitle_label)
 
         collection = getattr(mw, "col", None)
@@ -130,7 +140,7 @@ class MainDialog(QDialog):
         self.advanced_toggle_btn = QPushButton(self.t("advanced_debug"))
         self.advanced_toggle_btn.setCheckable(True)
         self.advanced_toggle_btn.setFlat(True)
-        self.advanced_toggle_btn.setMaximumWidth(150)
+        self.advanced_toggle_btn.setMaximumWidth(175)
         self.advanced_toggle_btn.setStyleSheet(
             "QPushButton { color: #777; font-size: 12px; padding: 3px; }"
         )

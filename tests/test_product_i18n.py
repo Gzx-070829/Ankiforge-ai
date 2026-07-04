@@ -17,6 +17,7 @@ class ProductI18nTests(unittest.TestCase):
         self.assertEqual(product_text("zh", "material_section"), "学习材料")
         self.assertEqual(product_text("zh", "generate_cards"), "生成卡片")
         self.assertEqual(product_text("zh", "write_to_anki"), "写入 Anki")
+        self.assertEqual(product_text("zh", "language_toggle"), "English")
 
     def test_english_catalog_contains_complete_product_path(self):
         self.assertEqual(
@@ -26,6 +27,38 @@ class ProductI18nTests(unittest.TestCase):
         self.assertEqual(product_text("en", "material_section"), "Study Material")
         self.assertEqual(product_text("en", "generate_cards"), "Generate Cards")
         self.assertEqual(product_text("en", "write_to_anki"), "Write to Anki")
+        self.assertEqual(product_text("en", "language_toggle"), "中文")
+
+    def test_language_toggle_has_stable_non_truncated_size(self):
+        build_ui = self.function_source(self.main_source(), "_build_ui")
+
+        self.assertIn("self.language_toggle_btn.setFixedSize(88, 30)", build_ui)
+        self.assertIn("Qt.AlignmentFlag.AlignVCenter", build_ui)
+
+    def test_chinese_surface_has_no_english_field_labels(self):
+        zh = PRODUCT_COPY["zh"]
+        labels = "\n".join(
+            zh[key]
+            for key in (
+                "deck",
+                "note_type",
+                "front_mapping",
+                "back_mapping",
+                "source_mapping",
+            )
+        )
+
+        for forbidden in ("Deck", "Note type", "Front", "Back", "Source"):
+            self.assertNotIn(forbidden, labels)
+
+    def test_english_surface_has_plain_english_field_labels(self):
+        en = PRODUCT_COPY["en"]
+
+        self.assertEqual(en["deck"], "Deck")
+        self.assertEqual(en["note_type"], "Note type")
+        self.assertEqual(en["front_mapping"], "Front →")
+        self.assertEqual(en["back_mapping"], "Back →")
+        self.assertEqual(en["source_mapping"], "Source →")
 
     def test_main_window_toggle_is_memory_only_and_updates_panel(self):
         source = self.main_source()

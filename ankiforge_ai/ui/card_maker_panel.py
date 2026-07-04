@@ -334,8 +334,11 @@ class CardMakerPanel(QWidget):
         self.generate_btn.setDefault(True)
         self.generate_btn.setMinimumSize(150, 40)
         self.generate_btn.setStyleSheet(
-            "QPushButton { font-size: 15px; font-weight: bold; "
-            "padding: 8px 22px; }"
+            "QPushButton { background: #2563eb; color: white; border: none; "
+            "border-radius: 6px; font-size: 15px; font-weight: bold; "
+            "padding: 8px 22px; } "
+            "QPushButton:hover { background: #1d4ed8; } "
+            "QPushButton:disabled { background: #9ca3af; color: #f3f4f6; }"
         )
         self.generate_btn.clicked.connect(self._generate_cards)
         self.generation_status_label = QLabel()

@@ -62,7 +62,7 @@ class SingleScreenCardMakerTests(unittest.TestCase):
 
         self.assertIn('self.t("advanced_debug")', build_ui)
         self.assertIn("self.advanced_tools_panel.setVisible(False)", build_ui)
-        self.assertIn("self.advanced_toggle_btn.setMaximumWidth(150)", build_ui)
+        self.assertIn("self.advanced_toggle_btn.setMaximumWidth(175)", build_ui)
         self.assertNotIn("Mock Pipeline", build_ui)
         self.assertNotIn("Human Review", build_ui)
         self.assertNotIn("添加到 Anki", build_ui)
