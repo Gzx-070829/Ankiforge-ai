@@ -20,6 +20,7 @@ from aqt.qt import (
     QScrollArea,
     QSpinBox,
     QTextEdit,
+    Qt,
     QVBoxLayout,
     QWidget,
 )
@@ -83,6 +84,7 @@ class CardMakerPanel(QWidget):
         self.write_result = None
         self.card_button_groups = {}
 
+        self.setObjectName("CardMakerPanel")
         self.setMaximumWidth(920)
         self._build_ui()
         self._read_anki_targets()
@@ -203,11 +205,11 @@ class CardMakerPanel(QWidget):
 
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(6, 6, 6, 6)
-        root.setSpacing(16)
+        root.setContentsMargins(0, 6, 0, 4)
+        root.setSpacing(20)
 
         columns = QHBoxLayout()
-        columns.setSpacing(16)
+        columns.setSpacing(20)
         left = QWidget()
         left.setMinimumWidth(410)
         left_layout = QVBoxLayout(left)
@@ -230,9 +232,12 @@ class CardMakerPanel(QWidget):
 
     def _build_material_section(self):
         self.material_group = QGroupBox(self.t("material_section"))
+        self.material_group.setProperty("productPanel", True)
         layout = QVBoxLayout(self.material_group)
+        layout.setContentsMargins(14, 16, 14, 14)
+        layout.setSpacing(10)
         self.material_help_label = QLabel(self.t("material_help"))
-        self.material_help_label.setStyleSheet("color: #666;")
+        self.material_help_label.setProperty("role", "secondary")
         layout.addWidget(self.material_help_label)
 
         self.material_input = QTextEdit()
@@ -244,11 +249,13 @@ class CardMakerPanel(QWidget):
 
         actions = QHBoxLayout()
         self.choose_markdown_btn = QPushButton(self.t("choose_markdown"))
+        self.choose_markdown_btn.setProperty("role", "secondary")
         self.choose_markdown_btn.clicked.connect(self._choose_markdown_file)
         self.example_btn = QPushButton(self.t("use_example"))
+        self.example_btn.setProperty("role", "secondary")
         self.example_btn.clicked.connect(self._use_example_material)
         self.material_count_label = QLabel(self.t("character_count", count=0))
-        self.material_count_label.setStyleSheet("color: #777;")
+        self.material_count_label.setProperty("role", "muted")
         actions.addWidget(self.choose_markdown_btn)
         actions.addWidget(self.example_btn)
         actions.addStretch()
@@ -258,7 +265,9 @@ class CardMakerPanel(QWidget):
 
     def _build_ai_section(self):
         self.ai_group = QGroupBox(self.t("ai_section"))
+        self.ai_group.setProperty("productPanel", True)
         layout = QVBoxLayout(self.ai_group)
+        layout.setContentsMargins(14, 16, 14, 14)
         layout.setSpacing(8)
         compact = QGridLayout()
         compact.setHorizontalSpacing(8)
@@ -306,10 +315,11 @@ class CardMakerPanel(QWidget):
         layout.addLayout(compact)
 
         self.api_key_help_label = QLabel(self.t("api_key_help"))
-        self.api_key_help_label.setStyleSheet("color: #666;")
+        self.api_key_help_label.setProperty("role", "secondary")
         layout.addWidget(self.api_key_help_label)
 
         self.ai_advanced_btn = QPushButton(self.t("advanced_settings"))
+        self.ai_advanced_btn.setProperty("role", "subtle")
         self.ai_advanced_btn.setCheckable(True)
         self.ai_advanced_btn.setFlat(True)
         self.ai_advanced_btn.toggled.connect(self._toggle_ai_advanced)
@@ -331,15 +341,9 @@ class CardMakerPanel(QWidget):
 
         action_row = QHBoxLayout()
         self.generate_btn = QPushButton(self.t("generate_cards"))
+        self.generate_btn.setProperty("role", "primary")
         self.generate_btn.setDefault(True)
         self.generate_btn.setMinimumSize(150, 40)
-        self.generate_btn.setStyleSheet(
-            "QPushButton { background: #2563eb; color: white; border: none; "
-            "border-radius: 6px; font-size: 15px; font-weight: bold; "
-            "padding: 8px 22px; } "
-            "QPushButton:hover { background: #1d4ed8; } "
-            "QPushButton:disabled { background: #9ca3af; color: #f3f4f6; }"
-        )
         self.generate_btn.clicked.connect(self._generate_cards)
         self.generation_status_label = QLabel()
         self.generation_status_label.setWordWrap(True)
@@ -358,16 +362,20 @@ class CardMakerPanel(QWidget):
 
     def _build_cards_section(self):
         self.cards_group = QGroupBox(self.t("cards_section"))
+        self.cards_group.setProperty("productPanel", True)
         layout = QVBoxLayout(self.cards_group)
+        layout.setContentsMargins(14, 16, 14, 14)
         self.cards_empty_widget = QWidget()
+        self.cards_empty_widget.setObjectName("CardsEmptyState")
         empty_layout = QVBoxLayout(self.cards_empty_widget)
         empty_layout.setContentsMargins(12, 16, 12, 16)
         self.empty_cards_title = QLabel(self.t("no_cards"))
-        self.empty_cards_title.setStyleSheet(
-            "font-size: 15px; font-weight: bold;"
-        )
+        self.empty_cards_title.setObjectName("EmptyStateTitle")
+        self.empty_cards_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty_cards_help = QLabel(self.t("no_cards_help"))
-        self.empty_cards_help.setStyleSheet("color: #777;")
+        self.empty_cards_help.setObjectName("EmptyStateHelp")
+        self.empty_cards_help.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_layout.addStretch()
         empty_layout.addWidget(self.empty_cards_title)
         empty_layout.addWidget(self.empty_cards_help)
         empty_layout.addStretch()
@@ -378,6 +386,7 @@ class CardMakerPanel(QWidget):
         self.cards_scroll.setMinimumHeight(190)
         self.cards_scroll.setMaximumHeight(280)
         self.cards_container = QWidget()
+        self.cards_container.setObjectName("CardsList")
         self.cards_layout = QVBoxLayout(self.cards_container)
         self.cards_scroll.setWidget(self.cards_container)
         self.cards_scroll.setVisible(False)
@@ -386,7 +395,10 @@ class CardMakerPanel(QWidget):
 
     def _build_write_section(self):
         self.write_group = QGroupBox(self.t("write_section"))
+        self.write_group.setProperty("productPanel", True)
         layout = QVBoxLayout(self.write_group)
+        layout.setContentsMargins(14, 16, 14, 14)
+        layout.setSpacing(9)
         form = QFormLayout()
 
         self.deck_combo = QComboBox()
@@ -409,10 +421,21 @@ class CardMakerPanel(QWidget):
             self.back_field_combo,
             self.source_field_combo,
         ):
+            combo.setMinimumWidth(220)
             combo.currentIndexChanged.connect(self._on_mapping_changed)
+        self.deck_combo.setMinimumWidth(220)
+        self.note_type_combo.setMinimumWidth(220)
         self.front_mapping_label = QLabel(self.t("front_mapping"))
         self.back_mapping_label = QLabel(self.t("back_mapping"))
         self.source_mapping_label = QLabel(self.t("source_mapping"))
+        for label in (
+            self.deck_label,
+            self.note_type_label,
+            self.front_mapping_label,
+            self.back_mapping_label,
+            self.source_mapping_label,
+        ):
+            label.setMinimumWidth(92)
         form.addRow(self.front_mapping_label, self.front_field_combo)
         form.addRow(self.back_mapping_label, self.back_field_combo)
         form.addRow(self.source_mapping_label, self.source_field_combo)
@@ -420,11 +443,12 @@ class CardMakerPanel(QWidget):
 
         self.target_status_label = QLabel()
         self.target_status_label.setWordWrap(True)
-        self.target_status_label.setStyleSheet("color: #777;")
+        self.target_status_label.setProperty("role", "secondary")
         layout.addWidget(self.target_status_label)
 
         duplicate_row = QHBoxLayout()
         self.duplicate_btn = QPushButton(self.t("check_duplicates"))
+        self.duplicate_btn.setProperty("role", "secondary")
         self.duplicate_btn.clicked.connect(self._check_duplicates)
         self.duplicate_status_label = QLabel(self.t("duplicates_unchecked"))
         duplicate_row.addWidget(self.duplicate_btn)
@@ -434,11 +458,8 @@ class CardMakerPanel(QWidget):
 
         write_row = QHBoxLayout()
         self.write_btn = QPushButton(self.t("write_to_anki"))
+        self.write_btn.setProperty("role", "primary")
         self.write_btn.setMinimumSize(140, 38)
-        self.write_btn.setStyleSheet(
-            "QPushButton { font-size: 14px; font-weight: bold; "
-            "padding: 7px 18px; }"
-        )
         self.write_btn.clicked.connect(self._confirm_and_write)
         self.write_status_label = QLabel()
         self.write_status_label.setWordWrap(True)
@@ -582,6 +603,7 @@ class CardMakerPanel(QWidget):
 
         for index, card in enumerate(cards, start=1):
             card_group = QGroupBox(self.t("card_number", number=index))
+            card_group.setProperty("cardItem", True)
             card_layout = QVBoxLayout(card_group)
             front = QLabel(f"{self.t('front')}:\n{card.front_preview}")
             back = QLabel(f"{self.t('back')}:\n{card.back_preview}")
@@ -591,6 +613,7 @@ class CardMakerPanel(QWidget):
             card_layout.addWidget(back)
 
             source_btn = QPushButton(self.t("source"))
+            source_btn.setProperty("role", "subtle")
             source_btn.setCheckable(True)
             source_btn.setFlat(True)
             source_label = QLabel(card.source_excerpt)
@@ -605,6 +628,7 @@ class CardMakerPanel(QWidget):
             keep_btn = QRadioButton(self.t("keep"))
             discard_btn = QRadioButton(self.t("discard"))
             edit_btn = QPushButton(self.t("edit"))
+            edit_btn.setProperty("role", "secondary")
             current = self.session.candidate_review_decisions.get(card.id)
             keep_btn.setChecked(current is BeginnerReviewDecision.LOOKS_GOOD)
             discard_btn.setChecked(

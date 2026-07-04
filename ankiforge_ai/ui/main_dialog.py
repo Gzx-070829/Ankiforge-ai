@@ -53,6 +53,7 @@ from .beginner_flow_models import ADVANCED_WORKBENCH_WARNING
 from .beginner_mode_dialog import BeginnerModeDialog
 from .card_maker_panel import CardMakerPanel
 from .product_i18n import DEFAULT_PRODUCT_LANGUAGE, product_text
+from .product_styles import PRODUCT_DARK_STYLESHEET
 from .review_helpers import (
     ALL_CHUNKS_LABEL,
     cap_cards,
@@ -74,6 +75,8 @@ class MainDialog(QDialog):
     def __init__(self, parent=None, provider_preview=None):
         super().__init__(parent)
         self.ui_language = DEFAULT_PRODUCT_LANGUAGE
+        self.setObjectName("AnkiForgeMainDialog")
+        self.setStyleSheet(PRODUCT_DARK_STYLESHEET)
         if provider_preview is not None and not isinstance(
             provider_preview,
             ReadOnlyProviderPreview,
@@ -98,19 +101,16 @@ class MainDialog(QDialog):
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 14, 18, 10)
+        layout.setContentsMargins(22, 16, 22, 12)
         layout.setSpacing(6)
         header_row = QHBoxLayout()
         header_row.setContentsMargins(0, 0, 0, 0)
         self.title_label = QLabel(self.t("title"))
-        self.title_label.setStyleSheet("font-size: 24px; font-weight: bold;")
+        self.title_label.setObjectName("ProductTitle")
         self.language_toggle_btn = QPushButton(self.t("language_toggle"))
+        self.language_toggle_btn.setObjectName("LanguageToggle")
         self.language_toggle_btn.setFixedSize(88, 30)
         self.language_toggle_btn.setFlat(True)
-        self.language_toggle_btn.setStyleSheet(
-            "QPushButton { padding: 3px 10px; font-size: 12px; "
-            "border: 1px solid #888; border-radius: 5px; }"
-        )
         self.language_toggle_btn.clicked.connect(self.toggle_language)
         header_row.addWidget(self.title_label)
         header_row.addStretch()
@@ -121,7 +121,7 @@ class MainDialog(QDialog):
         )
         layout.addLayout(header_row)
         self.subtitle_label = QLabel(self.t("subtitle"))
-        self.subtitle_label.setStyleSheet("font-size: 14px; color: #666;")
+        self.subtitle_label.setObjectName("ProductSubtitle")
         self.subtitle_label.setContentsMargins(2, 0, 0, 6)
         layout.addWidget(self.subtitle_label)
 
@@ -138,12 +138,10 @@ class MainDialog(QDialog):
         layout.addLayout(panel_row, 1)
 
         self.advanced_toggle_btn = QPushButton(self.t("advanced_debug"))
+        self.advanced_toggle_btn.setObjectName("AdvancedDebugLink")
         self.advanced_toggle_btn.setCheckable(True)
         self.advanced_toggle_btn.setFlat(True)
         self.advanced_toggle_btn.setMaximumWidth(175)
-        self.advanced_toggle_btn.setStyleSheet(
-            "QPushButton { color: #777; font-size: 12px; padding: 3px; }"
-        )
         self.advanced_toggle_btn.toggled.connect(self.toggle_advanced_tools)
         advanced_link_row = QHBoxLayout()
         advanced_link_row.addStretch()
