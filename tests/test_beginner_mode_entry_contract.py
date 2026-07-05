@@ -9,6 +9,7 @@ from ankiforge_ai.ui.beginner_flow_models import (
     COMPLETION_TITLE,
     REVIEW_STATE_EXPLANATIONS,
 )
+from ankiforge_ai.ui.product_i18n import PRODUCT_COPY
 
 
 class BeginnerModeEntryContractTests(unittest.TestCase):
@@ -20,10 +21,11 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
         source = self.main_dialog_source()
 
         self.assertIn("CardMakerPanel", source)
-        self.assertIn("把学习材料变成 Anki 卡片", source)
-        self.assertIn("高级 / 调试工具", source)
-        self.assertIn("打开旧流程工具", source)
-        self.assertIn("打开旧调试面板", source)
+        self.assertIn("product_i18n", source)
+        self.assertEqual(PRODUCT_COPY["zh"]["subtitle"], "把学习材料变成 Anki 卡片")
+        self.assertEqual(PRODUCT_COPY["zh"]["advanced_debug"], "高级 / 调试工具")
+        self.assertEqual(PRODUCT_COPY["zh"]["open_legacy_flow"], "打开旧流程工具")
+        self.assertEqual(PRODUCT_COPY["zh"]["open_debug_panel"], "打开旧调试面板")
         self.assertIn("可能包含真实 Anki 写入入口", ADVANCED_WORKBENCH_WARNING)
 
     def test_beginner_copy_states_network_is_explicit_click_only(self):
@@ -63,28 +65,17 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
         self.assertIn("新手模式（默认只读，确认后可写入）", source)
 
     def test_beginner_buttons_do_not_imply_execution(self):
-        main_button = self.assigned_button_label(
-            self.main_dialog_source(),
-            "beginner_entry_btn",
-        )
-        product_buttons = self.literal_button_labels(
-            self.card_maker_panel_source()
-        )
+        zh = PRODUCT_COPY["zh"]
 
-        self.assertEqual(main_button, "打开旧流程工具")
-        self.assertTrue(
-            {
-                "选择 Markdown 文件",
-                "使用示例",
-                "生成卡片",
-                "编辑",
-                "检查重复",
-                "写入 Anki",
-            }.issubset(product_buttons)
-        )
-        product_source = self.card_maker_panel_source()
-        self.assertIn('QRadioButton("保留")', product_source)
-        self.assertIn('QRadioButton("丢弃")', product_source)
+        self.assertEqual(zh["open_legacy_flow"], "打开旧流程工具")
+        self.assertEqual(zh["choose_markdown"], "选择 Markdown 文件")
+        self.assertEqual(zh["use_example"], "使用示例")
+        self.assertEqual(zh["generate_cards"], "生成卡片")
+        self.assertEqual(zh["edit"], "编辑")
+        self.assertEqual(zh["keep"], "保留")
+        self.assertEqual(zh["discard"], "丢弃")
+        self.assertEqual(zh["check_duplicates"], "检查重复")
+        self.assertEqual(zh["write_to_anki"], "写入 Anki")
 
     def test_legacy_workbench_is_lazy_and_hidden_by_default(self):
         init_source = self.function_source("__init__")

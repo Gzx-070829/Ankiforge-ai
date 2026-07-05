@@ -8,8 +8,8 @@ from aqt.qt import (
     QComboBox,
     QDialog,
     QFileDialog,
+    QFrame,
     QFormLayout,
-    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -20,6 +20,7 @@ from aqt.qt import (
     QScrollArea,
     QSpinBox,
     QTextEdit,
+    Qt,
     QVBoxLayout,
     QWidget,
 )
@@ -52,17 +53,23 @@ from .read_only_duplicate_check import (
     BeginnerDuplicateStatus,
     ReadOnlyDuplicateCheckAdapter,
 )
-
-
-GENERATION_FAILURE_COPY = "生成失败，请检查 API key、模型或网络后重试。"
-WRITE_FAILURE_COPY = "写入失败，请检查牌组、笔记类型或字段映射后重试。"
+from .product_i18n import DEFAULT_PRODUCT_LANGUAGE, product_text
 
 
 class CardMakerPanel(QWidget):
     """One disposable, single-screen card-making session."""
 
-    def __init__(self, parent=None, collection=None):
+    def __init__(
+        self,
+        parent=None,
+        collection=None,
+        language=DEFAULT_PRODUCT_LANGUAGE,
+    ):
         super().__init__(parent)
+        self.language = language
+        self._generation_message = None
+        self._target_message = None
+        self._write_message = None
         self.session = BeginnerFlowSession()
         self.anki_target_adapter = ReadOnlyAnkiTargetAdapter(collection)
         self.duplicate_check_adapter = ReadOnlyDuplicateCheckAdapter(collection)
@@ -77,21 +84,134 @@ class CardMakerPanel(QWidget):
         self.write_result = None
         self.card_button_groups = {}
 
-        self.setMaximumWidth(920)
+        self.setObjectName("CardMakerPanel")
+        self.setMaximumWidth(1080)
         self._build_ui()
         self._read_anki_targets()
         self._render_cards()
         self._refresh_product_state()
 
+    def t(self, key, **values):
+        return product_text(self.language, key, **values)
+
+    def set_language(self, language):
+        if language == self.language:
+            return
+        product_text(language, "title")
+        self.language = language
+        self._retranslate_ui()
+
+    def _retranslate_ui(self):
+        self.material_title_label.setText(self.t("material_section"))
+        self.material_help_label.setText(self.t("material_help"))
+        self.material_input.setPlaceholderText(self.t("material_placeholder"))
+        self.choose_markdown_btn.setText(self.t("choose_markdown"))
+        self.example_btn.setText(self.t("use_example"))
+
+        self.ai_title_label.setText(self.t("ai_section"))
+        self.provider_label.setText(self.t("provider"))
+        self.model_label.setText(self.t("model"))
+        self.model_input.setPlaceholderText(self.t("model_placeholder"))
+        self.api_key_label.setText(self.t("api_key"))
+        self.api_key_input.setPlaceholderText(self.t("api_key_placeholder"))
+        self.api_key_help_label.setText(self.t("api_key_help"))
+        self.base_url_label.setText(self.t("base_url"))
+        self.timeout_label.setText(self.t("timeout"))
+        self._toggle_ai_advanced(self.ai_advanced_btn.isChecked())
+
+        self.cards_title_label.setText(self.t("cards_section"))
+        self.empty_cards_title.setText(self.t("no_cards"))
+        self.empty_cards_help.setText(self.t("no_cards_help"))
+
+        self.write_title_label.setText(self.t("write_section"))
+        self.deck_label.setText(self.t("deck"))
+        self.note_type_label.setText(self.t("note_type"))
+        self.front_mapping_label.setText(self.t("front_mapping"))
+        self.back_mapping_label.setText(self.t("back_mapping"))
+        self.source_mapping_label.setText(self.t("source_mapping"))
+        self.duplicate_btn.setText(self.t("check_duplicates"))
+        self._retranslate_combo_placeholders()
+        self._render_cards()
+        self._render_status_messages()
+        self._refresh_product_state()
+
+    def _retranslate_combo_placeholders(self):
+        for combo in (self.deck_combo, self.note_type_combo):
+            if combo.count():
+                combo.setItemText(0, self.t("select"))
+        for combo in (self.front_field_combo, self.back_field_combo):
+            if combo.count():
+                combo.setItemText(0, self.t("select"))
+        if self.source_field_combo.count():
+            self.source_field_combo.setItemText(0, self.t("no_source"))
+
+    def _set_generation_message(self, key=None, **values):
+        self._generation_message = (key, values) if key else None
+        self._render_generation_message()
+
+    def _render_generation_message(self):
+        if self._generation_message is None:
+            self.generation_status_label.clear()
+            return
+        key, values = self._generation_message
+        message = self.t(key, **values)
+        if key == "generation_failed":
+            message += "\n" + self.t("model_failure_help")
+        self.generation_status_label.setText(message)
+
+    def _set_target_message(self, key=None, **values):
+        self._target_message = (key, values) if key else None
+        if self._target_message is None:
+            self.target_status_label.clear()
+            return
+        self.target_status_label.setText(self.t(key, **values))
+
+    def _set_write_message(self, key=None, **values):
+        self._write_message = (key, values) if key else None
+        if self._write_message is None:
+            self.write_status_label.clear()
+            return
+        self.write_status_label.setText(self.t(key, **values))
+
+    def _render_status_messages(self):
+        self._render_generation_message()
+        if self._target_message is None:
+            self.target_status_label.clear()
+        else:
+            key, values = self._target_message
+            self.target_status_label.setText(self.t(key, **values))
+        if self._write_message is None:
+            self.write_status_label.clear()
+        else:
+            key, values = self._write_message
+            self.write_status_label.setText(self.t(key, **values))
+        self._refresh_duplicate_copy()
+
+    def _refresh_duplicate_copy(self):
+        if (
+            self.duplicate_results is None
+            or self.duplicate_results.state
+            is not BeginnerDuplicatePreviewState.SUCCESS
+        ):
+            key = "duplicates_unchecked"
+        elif any(
+            item.status is BeginnerDuplicateStatus.POSSIBLE_DUPLICATE
+            for item in self.duplicate_results.results
+        ):
+            key = "duplicates_skipped"
+        else:
+            key = "duplicates_clear"
+        self.duplicate_status_label.setText(self.t(key))
+
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(6, 6, 6, 6)
-        root.setSpacing(16)
+        root.setContentsMargins(0, 6, 0, 4)
+        root.setSpacing(20)
 
         columns = QHBoxLayout()
-        columns.setSpacing(16)
+        columns.setSpacing(20)
         left = QWidget()
-        left.setMinimumWidth(410)
+        left.setMinimumWidth(500)
         left_layout = QVBoxLayout(left)
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(14)
@@ -99,7 +219,7 @@ class CardMakerPanel(QWidget):
         left_layout.addWidget(self._build_ai_section())
 
         right = QWidget()
-        right.setMinimumWidth(410)
+        right.setMinimumWidth(460)
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(14)
@@ -110,65 +230,106 @@ class CardMakerPanel(QWidget):
         columns.addWidget(right, 1)
         root.addLayout(columns)
 
+    def _make_section(self, title_key):
+        section = QWidget()
+        section.setProperty("productSection", True)
+        section_layout = QVBoxLayout(section)
+        section_layout.setContentsMargins(0, 0, 0, 0)
+        section_layout.setSpacing(7)
+
+        title = QLabel(self.t(title_key))
+        title.setProperty("role", "sectionTitle")
+        section_layout.addWidget(title)
+
+        card = QFrame()
+        card.setProperty("sectionCard", True)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(17, 17, 17, 17)
+        card_layout.setSpacing(10)
+        section_layout.addWidget(card, 1)
+        return section, title, card, card_layout
+
     def _build_material_section(self):
-        group = QGroupBox("学习材料")
-        layout = QVBoxLayout(group)
-        hint = QLabel("粘贴笔记、教材段落或复习资料。")
-        hint.setStyleSheet("color: #666;")
-        layout.addWidget(hint)
+        (
+            self.material_group,
+            self.material_title_label,
+            self.material_card,
+            layout,
+        ) = self._make_section("material_section")
+        self.material_help_label = QLabel(self.t("material_help"))
+        self.material_help_label.setProperty("role", "secondary")
+        layout.addWidget(self.material_help_label)
 
         self.material_input = QTextEdit()
-        self.material_input.setPlaceholderText("在这里粘贴学习材料")
+        self.material_input.setPlaceholderText(self.t("material_placeholder"))
         self.material_input.setMinimumHeight(150)
         self.material_input.setMaximumHeight(230)
         self.material_input.textChanged.connect(self._on_material_changed)
         layout.addWidget(self.material_input)
 
         actions = QHBoxLayout()
-        self.choose_markdown_btn = QPushButton("选择 Markdown 文件")
+        self.choose_markdown_btn = QPushButton(self.t("choose_markdown"))
+        self.choose_markdown_btn.setProperty("role", "secondary")
         self.choose_markdown_btn.clicked.connect(self._choose_markdown_file)
-        self.example_btn = QPushButton("使用示例")
+        self.example_btn = QPushButton(self.t("use_example"))
+        self.example_btn.setProperty("role", "secondary")
         self.example_btn.clicked.connect(self._use_example_material)
-        self.material_count_label = QLabel("0 字符")
-        self.material_count_label.setStyleSheet("color: #777;")
+        self.material_count_label = QLabel(self.t("character_count", count=0))
+        self.material_count_label.setProperty("role", "muted")
         actions.addWidget(self.choose_markdown_btn)
         actions.addWidget(self.example_btn)
         actions.addStretch()
         actions.addWidget(self.material_count_label)
         layout.addLayout(actions)
-        return group
+        return self.material_group
 
     def _build_ai_section(self):
-        group = QGroupBox("AI")
-        layout = QVBoxLayout(group)
+        (
+            self.ai_group,
+            self.ai_title_label,
+            self.ai_card,
+            layout,
+        ) = self._make_section("ai_section")
         layout.setSpacing(8)
-        compact = QGridLayout()
-        compact.setHorizontalSpacing(8)
-        compact.setVerticalSpacing(8)
+        provider_model_row = QHBoxLayout()
+        provider_model_row.setSpacing(18)
 
         self.provider_combo = QComboBox()
         self.provider_combo.addItem(
-            "OpenAI-compatible",
-            ("OpenAI-compatible", "https://api.deepseek.com/v1"),
+            "DeepSeek",
+            ("DeepSeek", "https://api.deepseek.com", "deepseek-v4-flash"),
         )
         self.provider_combo.addItem(
             "OpenAI",
-            ("OpenAI", "https://api.openai.com/v1"),
+            ("OpenAI", "https://api.openai.com/v1", "gpt-4o-mini"),
         )
         self.provider_combo.addItem(
-            "DeepSeek",
-            ("DeepSeek", "https://api.deepseek.com/v1"),
+            "OpenAI-compatible",
+            ("OpenAI-compatible", "", ""),
         )
         self.provider_combo.currentIndexChanged.connect(
             self._on_provider_changed
         )
-        compact.addWidget(QLabel("Provider"), 0, 0)
-        compact.addWidget(self.provider_combo, 0, 1)
+        self.provider_label = QLabel(self.t("provider"))
+        self.provider_label.setProperty("role", "fieldLabel")
+        self.provider_combo.setMinimumWidth(220)
+        provider_field = QVBoxLayout()
+        provider_field.setSpacing(6)
+        provider_field.addWidget(self.provider_label)
+        provider_field.addWidget(self.provider_combo)
+        provider_model_row.addLayout(provider_field, 1)
 
-        self.model_input = QLineEdit()
-        self.model_input.setPlaceholderText("例如 deepseek-chat")
-        compact.addWidget(QLabel("Model"), 0, 2)
-        compact.addWidget(self.model_input, 0, 3)
+        self.model_input = QLineEdit("deepseek-v4-flash")
+        self.model_input.setPlaceholderText(self.t("model_placeholder"))
+        self.model_label = QLabel(self.t("model"))
+        self.model_label.setProperty("role", "fieldLabel")
+        self.model_input.setMinimumWidth(240)
+        model_field = QVBoxLayout()
+        model_field.setSpacing(6)
+        model_field.addWidget(self.model_label)
+        model_field.addWidget(self.model_input)
+        provider_model_row.addLayout(model_field, 1)
+        layout.addLayout(provider_model_row)
 
         self.api_key_input = QLineEdit()
         password_mode = (
@@ -177,18 +338,21 @@ class CardMakerPanel(QWidget):
             else QLineEdit.Password
         )
         self.api_key_input.setEchoMode(password_mode)
-        self.api_key_input.setPlaceholderText("本次使用，不会保存")
-        compact.addWidget(QLabel("API key"), 1, 0)
-        compact.addWidget(self.api_key_input, 1, 1, 1, 3)
-        compact.setColumnStretch(1, 1)
-        compact.setColumnStretch(3, 1)
-        layout.addLayout(compact)
+        self.api_key_input.setPlaceholderText(self.t("api_key_placeholder"))
+        self.api_key_label = QLabel(self.t("api_key"))
+        self.api_key_label.setProperty("role", "fieldLabel")
+        api_key_field = QVBoxLayout()
+        api_key_field.setSpacing(6)
+        api_key_field.addWidget(self.api_key_label)
+        api_key_field.addWidget(self.api_key_input)
+        layout.addLayout(api_key_field)
 
-        key_hint = QLabel("API key 仅本次使用，不会保存。")
-        key_hint.setStyleSheet("color: #666;")
-        layout.addWidget(key_hint)
+        self.api_key_help_label = QLabel(self.t("api_key_help"))
+        self.api_key_help_label.setProperty("role", "secondary")
+        layout.addWidget(self.api_key_help_label)
 
-        self.ai_advanced_btn = QPushButton("高级设置")
+        self.ai_advanced_btn = QPushButton(self.t("advanced_settings"))
+        self.ai_advanced_btn.setProperty("role", "subtle")
         self.ai_advanced_btn.setCheckable(True)
         self.ai_advanced_btn.setFlat(True)
         self.ai_advanced_btn.toggled.connect(self._toggle_ai_advanced)
@@ -197,23 +361,22 @@ class CardMakerPanel(QWidget):
         self.ai_advanced_container = QWidget()
         advanced_form = QFormLayout(self.ai_advanced_container)
         advanced_form.setContentsMargins(18, 0, 0, 0)
-        self.base_url_input = QLineEdit("https://api.deepseek.com/v1")
-        advanced_form.addRow("Base URL", self.base_url_input)
+        self.base_url_input = QLineEdit("https://api.deepseek.com")
+        self.base_url_label = QLabel(self.t("base_url"))
+        advanced_form.addRow(self.base_url_label, self.base_url_input)
         self.timeout_input = QSpinBox()
         self.timeout_input.setRange(1, 300)
         self.timeout_input.setValue(60)
-        advanced_form.addRow("Timeout", self.timeout_input)
+        self.timeout_label = QLabel(self.t("timeout"))
+        advanced_form.addRow(self.timeout_label, self.timeout_input)
         self.ai_advanced_container.setVisible(False)
         layout.addWidget(self.ai_advanced_container)
 
         action_row = QHBoxLayout()
-        self.generate_btn = QPushButton("生成卡片")
+        self.generate_btn = QPushButton(self.t("generate_cards"))
+        self.generate_btn.setProperty("role", "primary")
         self.generate_btn.setDefault(True)
-        self.generate_btn.setMinimumSize(150, 40)
-        self.generate_btn.setStyleSheet(
-            "QPushButton { font-size: 15px; font-weight: bold; "
-            "padding: 8px 22px; }"
-        )
+        self.generate_btn.setFixedSize(178, 44)
         self.generate_btn.clicked.connect(self._generate_cards)
         self.generation_status_label = QLabel()
         self.generation_status_label.setWordWrap(True)
@@ -228,20 +391,28 @@ class CardMakerPanel(QWidget):
         ):
             widget.textChanged.connect(self._on_ai_settings_changed)
         self.timeout_input.valueChanged.connect(self._on_ai_settings_changed)
-        return group
+        return self.ai_group
 
     def _build_cards_section(self):
-        group = QGroupBox("生成的卡片")
-        layout = QVBoxLayout(group)
+        (
+            self.cards_group,
+            self.cards_title_label,
+            self.cards_card,
+            layout,
+        ) = self._make_section("cards_section")
         self.cards_empty_widget = QWidget()
+        self.cards_empty_widget.setObjectName("CardsEmptyState")
         empty_layout = QVBoxLayout(self.cards_empty_widget)
         empty_layout.setContentsMargins(12, 16, 12, 16)
-        empty_title = QLabel("还没有卡片")
-        empty_title.setStyleSheet("font-size: 15px; font-weight: bold;")
-        empty_hint = QLabel("放入材料后点击“生成卡片”")
-        empty_hint.setStyleSheet("color: #777;")
-        empty_layout.addWidget(empty_title)
-        empty_layout.addWidget(empty_hint)
+        self.empty_cards_title = QLabel(self.t("no_cards"))
+        self.empty_cards_title.setObjectName("EmptyStateTitle")
+        self.empty_cards_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_cards_help = QLabel(self.t("no_cards_help"))
+        self.empty_cards_help.setObjectName("EmptyStateHelp")
+        self.empty_cards_help.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_layout.addStretch()
+        empty_layout.addWidget(self.empty_cards_title)
+        empty_layout.addWidget(self.empty_cards_help)
         empty_layout.addStretch()
         layout.addWidget(self.cards_empty_widget)
 
@@ -250,26 +421,34 @@ class CardMakerPanel(QWidget):
         self.cards_scroll.setMinimumHeight(190)
         self.cards_scroll.setMaximumHeight(280)
         self.cards_container = QWidget()
+        self.cards_container.setObjectName("CardsList")
         self.cards_layout = QVBoxLayout(self.cards_container)
         self.cards_scroll.setWidget(self.cards_container)
         self.cards_scroll.setVisible(False)
         layout.addWidget(self.cards_scroll)
-        return group
+        return self.cards_group
 
     def _build_write_section(self):
-        group = QGroupBox("写入 Anki")
-        layout = QVBoxLayout(group)
+        (
+            self.write_group,
+            self.write_title_label,
+            self.write_card,
+            layout,
+        ) = self._make_section("write_section")
+        layout.setSpacing(9)
         form = QFormLayout()
 
         self.deck_combo = QComboBox()
         self.deck_combo.currentIndexChanged.connect(self._on_deck_changed)
-        form.addRow("目标牌组 Deck", self.deck_combo)
+        self.deck_label = QLabel(self.t("deck"))
+        form.addRow(self.deck_label, self.deck_combo)
 
         self.note_type_combo = QComboBox()
         self.note_type_combo.currentIndexChanged.connect(
             self._on_note_type_changed
         )
-        form.addRow("笔记类型 Note type", self.note_type_combo)
+        self.note_type_label = QLabel(self.t("note_type"))
+        form.addRow(self.note_type_label, self.note_type_combo)
 
         self.front_field_combo = QComboBox()
         self.back_field_combo = QComboBox()
@@ -279,54 +458,74 @@ class CardMakerPanel(QWidget):
             self.back_field_combo,
             self.source_field_combo,
         ):
+            combo.setMinimumWidth(240)
             combo.currentIndexChanged.connect(self._on_mapping_changed)
-        form.addRow("正面 →", self.front_field_combo)
-        form.addRow("背面 →", self.back_field_combo)
-        form.addRow("来源 →", self.source_field_combo)
+        self.deck_combo.setMinimumWidth(240)
+        self.note_type_combo.setMinimumWidth(240)
+        self.front_mapping_label = QLabel(self.t("front_mapping"))
+        self.back_mapping_label = QLabel(self.t("back_mapping"))
+        self.source_mapping_label = QLabel(self.t("source_mapping"))
+        for label in (
+            self.deck_label,
+            self.note_type_label,
+            self.front_mapping_label,
+            self.back_mapping_label,
+            self.source_mapping_label,
+        ):
+            label.setMinimumWidth(92)
+        for label in (
+            self.deck_label,
+            self.note_type_label,
+            self.front_mapping_label,
+            self.back_mapping_label,
+            self.source_mapping_label,
+        ):
+            label.setMinimumWidth(92)
+        form.addRow(self.front_mapping_label, self.front_field_combo)
+        form.addRow(self.back_mapping_label, self.back_field_combo)
+        form.addRow(self.source_mapping_label, self.source_field_combo)
         layout.addLayout(form)
 
         self.target_status_label = QLabel()
         self.target_status_label.setWordWrap(True)
-        self.target_status_label.setStyleSheet("color: #777;")
+        self.target_status_label.setProperty("role", "secondary")
         layout.addWidget(self.target_status_label)
 
         duplicate_row = QHBoxLayout()
-        self.duplicate_btn = QPushButton("检查重复")
+        self.duplicate_btn = QPushButton(self.t("check_duplicates"))
+        self.duplicate_btn.setProperty("role", "secondary")
         self.duplicate_btn.clicked.connect(self._check_duplicates)
-        self.duplicate_status_label = QLabel("未检查")
+        self.duplicate_status_label = QLabel(self.t("duplicates_unchecked"))
         duplicate_row.addWidget(self.duplicate_btn)
         duplicate_row.addWidget(self.duplicate_status_label)
         duplicate_row.addStretch()
         layout.addLayout(duplicate_row)
 
         write_row = QHBoxLayout()
-        self.write_btn = QPushButton("写入 Anki")
+        self.write_btn = QPushButton(self.t("write_to_anki"))
+        self.write_btn.setProperty("role", "primary")
         self.write_btn.setMinimumSize(140, 38)
-        self.write_btn.setStyleSheet(
-            "QPushButton { font-size: 14px; font-weight: bold; "
-            "padding: 7px 18px; }"
-        )
         self.write_btn.clicked.connect(self._confirm_and_write)
         self.write_status_label = QLabel()
         self.write_status_label.setWordWrap(True)
         write_row.addWidget(self.write_btn)
         write_row.addWidget(self.write_status_label, 1)
         layout.addLayout(write_row)
-        return group
+        return self.write_group
 
     def _choose_markdown_file(self):
         path, _selected_filter = QFileDialog.getOpenFileName(
             self,
-            "选择 Markdown 文件",
+            self.t("choose_markdown"),
             "",
-            "Markdown Files (*.md)",
+            self.t("markdown_filter"),
         )
         if not path:
             return
         try:
             text = Path(path).read_text(encoding="utf-8-sig")
         except (OSError, UnicodeError):
-            self.generation_status_label.setText("无法读取该 Markdown 文件。")
+            self._set_generation_message("markdown_read_failed")
             return
         self.material_input.setPlainText(text)
 
@@ -335,28 +534,43 @@ class CardMakerPanel(QWidget):
         self.material_input.blockSignals(True)
         self.material_input.setPlainText(self.session.material_text)
         self.material_input.blockSignals(False)
+        self._set_generation_message()
         self._after_upstream_change()
 
     def _on_material_changed(self):
         self.session.update_material(self.material_input.toPlainText())
+        self._set_generation_message()
         self._after_upstream_change()
 
     def _on_provider_changed(self, _index):
-        provider_name, base_url = self.provider_combo.currentData()
+        _provider_name, base_url, suggested_model = (
+            self.provider_combo.currentData()
+        )
+        previous_model = self.model_input.text().strip()
         self.base_url_input.blockSignals(True)
         self.base_url_input.setText(base_url)
         self.base_url_input.blockSignals(False)
+        if previous_model in {
+            "",
+            "deepseek-v4-flash",
+            "gpt-4o-mini",
+        }:
+            self.model_input.blockSignals(True)
+            self.model_input.setText(suggested_model)
+            self.model_input.blockSignals(False)
         self._on_ai_settings_changed()
 
     def _toggle_ai_advanced(self, expanded):
         self.ai_advanced_container.setVisible(expanded)
         self.ai_advanced_btn.setText(
-            "收起高级设置" if expanded else "高级设置"
+            self.t("advanced_settings_collapse")
+            if expanded
+            else self.t("advanced_settings")
         )
 
     def _on_ai_settings_changed(self, *unused):
         self.session.mark_ai_runtime_settings_changed()
-        self.generation_status_label.clear()
+        self._set_generation_message()
         self._after_upstream_change(render_material_count=False)
 
     def _ai_settings_are_ready(self):
@@ -371,11 +585,11 @@ class CardMakerPanel(QWidget):
 
     def _generate_cards(self):
         if not self._ai_settings_are_ready():
-            self.generation_status_label.setText(
-                "请先填写学习材料、Model 和 API key。"
-            )
+            self._set_generation_message("generation_requirements")
             return
-        provider_name, _preset_url = self.provider_combo.currentData()
+        provider_name, _preset_url, _suggested_model = (
+            self.provider_combo.currentData()
+        )
         try:
             settings = BeginnerAIProviderRuntimeSettings(
                 provider_name=provider_name,
@@ -385,15 +599,15 @@ class CardMakerPanel(QWidget):
                 timeout_seconds=self.timeout_input.value(),
             )
         except ValueError:
-            self.generation_status_label.setText(GENERATION_FAILURE_COPY)
+            self._set_generation_message("generation_failed")
             return
 
         self.session.begin_ai_candidate_generation()
         self._clear_generated_state()
         self._render_cards()
-        self.generate_btn.setText("正在生成…")
+        self.generate_btn.setText(self.t("generation_running"))
         self.generate_btn.setEnabled(False)
-        self.generation_status_label.setText("正在生成…")
+        self._set_generation_message("generation_running")
         QApplication.processEvents()
         result = BeginnerAICardDraftGenerator().generate(
             settings=settings,
@@ -404,7 +618,7 @@ class CardMakerPanel(QWidget):
                 result.state,
                 result.error_code.value,
             )
-            self.generation_status_label.setText(GENERATION_FAILURE_COPY)
+            self._set_generation_message("generation_failed")
             self._refresh_product_state()
             return
 
@@ -414,8 +628,9 @@ class CardMakerPanel(QWidget):
                 card.id,
                 BeginnerReviewDecision.LOOKS_GOOD,
             )
-        self.generation_status_label.setText(
-            f"已生成 {len(self.session.candidate_card_previews)} 张卡片。"
+        self._set_generation_message(
+            "generation_success",
+            count=len(self.session.candidate_card_previews),
         )
         self._render_cards()
         self._refresh_product_state()
@@ -432,16 +647,18 @@ class CardMakerPanel(QWidget):
         self.cards_scroll.setVisible(True)
 
         for index, card in enumerate(cards, start=1):
-            card_group = QGroupBox(f"卡片 {index}")
+            card_group = QGroupBox(self.t("card_number", number=index))
+            card_group.setProperty("cardItem", True)
             card_layout = QVBoxLayout(card_group)
-            front = QLabel(f"正面：\n{card.front_preview}")
-            back = QLabel(f"背面：\n{card.back_preview}")
+            front = QLabel(f"{self.t('front')}:\n{card.front_preview}")
+            back = QLabel(f"{self.t('back')}:\n{card.back_preview}")
             front.setWordWrap(True)
             back.setWordWrap(True)
             card_layout.addWidget(front)
             card_layout.addWidget(back)
 
-            source_btn = QPushButton("来源")
+            source_btn = QPushButton(self.t("source"))
+            source_btn.setProperty("role", "subtle")
             source_btn.setCheckable(True)
             source_btn.setFlat(True)
             source_label = QLabel(card.source_excerpt)
@@ -453,9 +670,10 @@ class CardMakerPanel(QWidget):
 
             actions = QHBoxLayout()
             group = QButtonGroup(card_group)
-            keep_btn = QRadioButton("保留")
-            discard_btn = QRadioButton("丢弃")
-            edit_btn = QPushButton("编辑")
+            keep_btn = QRadioButton(self.t("keep"))
+            discard_btn = QRadioButton(self.t("discard"))
+            edit_btn = QPushButton(self.t("edit"))
+            edit_btn.setProperty("role", "secondary")
             current = self.session.candidate_review_decisions.get(card.id)
             keep_btn.setChecked(current is BeginnerReviewDecision.LOOKS_GOOD)
             discard_btn.setChecked(
@@ -502,7 +720,12 @@ class CardMakerPanel(QWidget):
             for item in self.session.candidate_card_previews
             if item.id == card_id
         )
-        dialog = CardEditDialog(card.front_preview, card.back_preview, self)
+        dialog = CardEditDialog(
+            card.front_preview,
+            card.back_preview,
+            self.language,
+            self,
+        )
         if not dialog.exec():
             return
         front, back = dialog.values()
@@ -536,9 +759,10 @@ class CardMakerPanel(QWidget):
         self.anki_field_snapshot = None
         snapshot = self.anki_target_adapter.read_targets()
         self.anki_target_snapshot = snapshot
-        self.target_status_label.setText(
-            "" if snapshot.state is BeginnerAnkiReadState.SUCCESS
-            else "无法读取 Anki 牌组或笔记类型。"
+        self._set_target_message(
+            None
+            if snapshot.state is BeginnerAnkiReadState.SUCCESS
+            else "target_read_failed"
         )
         self._populate_target_options(snapshot)
 
@@ -546,7 +770,7 @@ class CardMakerPanel(QWidget):
         for combo in (self.deck_combo, self.note_type_combo):
             combo.blockSignals(True)
             combo.clear()
-            combo.addItem("请选择", None)
+            combo.addItem(self.t("select"), None)
         for deck in snapshot.decks:
             self.deck_combo.addItem(deck.name, deck.id)
         for note_type in snapshot.note_types:
@@ -575,11 +799,11 @@ class CardMakerPanel(QWidget):
         snapshot = self.anki_target_adapter.read_fields(note_type.id)
         self.anki_field_snapshot = snapshot
         if snapshot.state is not BeginnerAnkiReadState.SUCCESS:
-            self.target_status_label.setText("无法读取笔记类型字段。")
+            self._set_target_message("field_read_failed")
             self._clear_field_options()
             self._update_mapping()
             return
-        self.target_status_label.clear()
+        self._set_target_message()
         self.session.select_anki_note_type(
             note_type.id,
             note_type.name,
@@ -596,9 +820,9 @@ class CardMakerPanel(QWidget):
         ):
             combo.blockSignals(True)
             combo.clear()
-        self.front_field_combo.addItem("请选择", None)
-        self.back_field_combo.addItem("请选择", None)
-        self.source_field_combo.addItem("不使用", None)
+        self.front_field_combo.addItem(self.t("select"), None)
+        self.back_field_combo.addItem(self.t("select"), None)
+        self.source_field_combo.addItem(self.t("no_source"), None)
         for field_name in fields:
             self.front_field_combo.addItem(field_name, field_name)
             self.back_field_combo.addItem(field_name, field_name)
@@ -621,7 +845,7 @@ class CardMakerPanel(QWidget):
         ):
             combo.blockSignals(True)
             combo.clear()
-            combo.addItem("请选择", None)
+            combo.addItem(self.t("select"), None)
             combo.blockSignals(False)
 
     @staticmethod
@@ -670,7 +894,7 @@ class CardMakerPanel(QWidget):
 
     def _check_duplicates(self):
         if not self.session.candidate_card_previews or self.anki_mapping is None:
-            self.duplicate_status_label.setText("未检查")
+            self._refresh_duplicate_copy()
             return
         self.session.begin_duplicate_check()
         results = self.duplicate_check_adapter.check(
@@ -680,7 +904,7 @@ class CardMakerPanel(QWidget):
         self.duplicate_results = results
         if results.state is not BeginnerDuplicatePreviewState.SUCCESS:
             self.session.record_duplicate_check_error("collection_read_failed")
-            self.duplicate_status_label.setText("未检查")
+            self._refresh_duplicate_copy()
             self._refresh_product_state()
             return
         duplicate_count = sum(
@@ -691,9 +915,7 @@ class CardMakerPanel(QWidget):
             len(results.results),
             duplicate_count,
         )
-        self.duplicate_status_label.setText(
-            "未发现重复" if duplicate_count == 0 else "可能重复，已跳过"
-        )
+        self._refresh_duplicate_copy()
         self._prepare_current_write()
         self._refresh_product_state()
 
@@ -722,22 +944,29 @@ class CardMakerPanel(QWidget):
         preparation = self._prepare_current_write()
         command = preparation.command
         if command is None:
-            self.write_status_label.setText(WRITE_FAILURE_COPY)
+            self._set_write_message("write_failed")
             self._refresh_product_state()
             return
 
         message_box = QMessageBox(self)
-        message_box.setWindowTitle("确认写入 Anki？")
+        message_box.setWindowTitle(self.t("confirm_write_title"))
         message_box.setText(
-            f"将写入 {command.requested_count} 张卡片到「{command.deck_name}」。"
+            self.t(
+                "confirm_write_body",
+                count=command.requested_count,
+                deck=command.deck_name,
+            )
         )
         roles = getattr(QMessageBox, "ButtonRole", QMessageBox)
-        message_box.addButton("取消", roles.RejectRole)
-        confirm_button = message_box.addButton("确认写入", roles.AcceptRole)
+        message_box.addButton(self.t("cancel"), roles.RejectRole)
+        confirm_button = message_box.addButton(
+            self.t("confirm_write"),
+            roles.AcceptRole,
+        )
         message_box.exec()
         confirmed = message_box.clickedButton() is confirm_button
         if not confirmed:
-            self.write_status_label.setText("已取消。")
+            self._set_write_message("write_cancelled")
             return
 
         self.session.begin_write(
@@ -745,7 +974,7 @@ class CardMakerPanel(QWidget):
             command.requested_count,
             command.skipped_count,
         )
-        self.write_btn.setText("正在写入…")
+        self.write_btn.setText(self.t("write_running"))
         self.write_btn.setEnabled(False)
         QApplication.processEvents()
         result = execute_beginner_write_if_confirmed(
@@ -761,23 +990,27 @@ class CardMakerPanel(QWidget):
         )
         self.write_result = result
         if result.success_count and not result.failed_count:
-            message = (
-                f"已写入 {result.success_count} 张卡片，可以到 Anki 中查看。"
+            self._set_write_message(
+                "write_success",
+                count=result.success_count,
             )
         elif result.success_count:
-            message = (
-                f"已写入 {result.success_count} 张，{result.failed_count} 张失败。"
-                "请检查失败项后重试。"
+            self._set_write_message(
+                "write_partial",
+                success=result.success_count,
+                failed=result.failed_count,
             )
         else:
-            message = WRITE_FAILURE_COPY
-        self.write_status_label.setText(message)
+            self._set_write_message("write_failed")
         self._refresh_product_state()
 
     def _after_upstream_change(self, render_material_count=True):
         if render_material_count:
             self.material_count_label.setText(
-                f"{self.session.material_char_count} 字符"
+                self.t(
+                    "character_count",
+                    count=self.session.material_char_count,
+                )
             )
         self._clear_generated_state()
         self._render_cards()
@@ -785,7 +1018,7 @@ class CardMakerPanel(QWidget):
 
     def _clear_generated_state(self):
         self._clear_duplicate_state()
-        self.write_status_label.clear()
+        self._set_write_message()
 
     def _clear_duplicate_state(self):
         self.duplicate_results = None
@@ -793,13 +1026,20 @@ class CardMakerPanel(QWidget):
         self.write_preparation = None
         self.write_command = None
         self.write_result = None
-        self.duplicate_status_label.setText("未检查")
+        self._refresh_duplicate_copy()
 
     def _refresh_product_state(self):
         self.material_count_label.setText(
-            f"{self.session.material_char_count} 字符"
+            self.t(
+                "character_count",
+                count=self.session.material_char_count,
+            )
         )
-        self.generate_btn.setText("生成卡片")
+        self.generate_btn.setText(
+            self.t("regenerate_cards")
+            if self.session.candidate_card_previews
+            else self.t("generate_cards")
+        )
         self.generate_btn.setEnabled(self._ai_settings_are_ready())
         has_cards = bool(self.session.candidate_card_previews)
         self.duplicate_btn.setEnabled(
@@ -807,15 +1047,15 @@ class CardMakerPanel(QWidget):
         )
         command = self.write_command
         if self.session.write_state is BeginnerWriteState.WRITING:
-            self.write_btn.setText("正在写入…")
+            self.write_btn.setText(self.t("write_running"))
             self.write_btn.setEnabled(False)
         elif command is not None and self.session.has_completed_write_snapshot(
             command.snapshot_id
         ):
-            self.write_btn.setText("已写入，请在 Anki 中查看")
+            self.write_btn.setText(self.t("write_completed_button"))
             self.write_btn.setEnabled(False)
         else:
-            self.write_btn.setText("写入 Anki")
+            self.write_btn.setText(self.t("write_to_anki"))
             self.write_btn.setEnabled(
                 bool(
                     self.write_preparation
@@ -877,22 +1117,23 @@ class CardMakerPanel(QWidget):
 
 
 class CardEditDialog(QDialog):
-    def __init__(self, front, back, parent=None):
+    def __init__(self, front, back, language, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("编辑卡片")
+        self.language = language
+        self.setWindowTitle(product_text(language, "edit_card"))
         self.resize(560, 420)
         layout = QVBoxLayout(self)
         form = QFormLayout()
         self.front_input = QTextEdit(front)
         self.back_input = QTextEdit(back)
-        form.addRow("正面", self.front_input)
-        form.addRow("背面", self.back_input)
+        form.addRow(product_text(language, "front"), self.front_input)
+        form.addRow(product_text(language, "back"), self.back_input)
         layout.addLayout(form)
         buttons = QHBoxLayout()
         buttons.addStretch()
-        cancel_btn = QPushButton("取消")
+        cancel_btn = QPushButton(product_text(language, "cancel"))
         cancel_btn.clicked.connect(self.reject)
-        done_btn = QPushButton("完成修改")
+        done_btn = QPushButton(product_text(language, "finish_edit"))
         done_btn.clicked.connect(self.accept)
         buttons.addWidget(cancel_btn)
         buttons.addWidget(done_btn)

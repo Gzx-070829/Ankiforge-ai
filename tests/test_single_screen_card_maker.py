@@ -5,6 +5,7 @@ from pathlib import Path
 from ankiforge_ai.ui.beginner_ai_card_drafts import (
     BeginnerAIProviderRuntimeSettings,
 )
+from ankiforge_ai.ui.product_i18n import PRODUCT_COPY
 
 
 class SingleScreenCardMakerTests(unittest.TestCase):
@@ -13,9 +14,9 @@ class SingleScreenCardMakerTests(unittest.TestCase):
         panel = self.panel_source()
 
         self.assertIn("CardMakerPanel", self.function_source(main, "_build_ui"))
-        self.assertIn("把学习材料变成 Anki 卡片", main)
-        for section in ("学习材料", "AI", "生成的卡片", "写入 Anki"):
-            self.assertIn(f'QGroupBox("{section}")', panel)
+        self.assertIn('self.t("subtitle")', main)
+        for key in ("material_section", "ai_section", "cards_section", "write_section"):
+            self.assertIn(f'self.t("{key}")', panel)
         self.assertNotIn("五步流程导航", panel)
         self.assertNotIn("四步流程", panel)
 
@@ -29,8 +30,8 @@ class SingleScreenCardMakerTests(unittest.TestCase):
         self.assertIn("columns = QHBoxLayout()", builder)
         self.assertIn("left_layout.addWidget", builder)
         self.assertIn("right_layout.addWidget", builder)
-        self.assertIn("还没有卡片", cards)
-        self.assertIn("放入材料后点击“生成卡片”", cards)
+        self.assertIn('self.t("no_cards")', cards)
+        self.assertIn('self.t("no_cards_help")', cards)
         self.assertIn("self.cards_scroll.setVisible(False)", cards)
 
     def test_default_product_surface_avoids_developer_vocabulary(self):
@@ -59,9 +60,9 @@ class SingleScreenCardMakerTests(unittest.TestCase):
     def test_advanced_debug_tools_are_hidden_by_default(self):
         build_ui = self.function_source(self.main_source(), "_build_ui")
 
-        self.assertIn("高级 / 调试工具", build_ui)
+        self.assertIn('self.t("advanced_debug")', build_ui)
         self.assertIn("self.advanced_tools_panel.setVisible(False)", build_ui)
-        self.assertIn("self.advanced_toggle_btn.setMaximumWidth(150)", build_ui)
+        self.assertIn("self.advanced_toggle_btn.setMaximumWidth(175)", build_ui)
         self.assertNotIn("Mock Pipeline", build_ui)
         self.assertNotIn("Human Review", build_ui)
         self.assertNotIn("添加到 Anki", build_ui)
@@ -69,11 +70,8 @@ class SingleScreenCardMakerTests(unittest.TestCase):
     def test_ai_advanced_settings_are_collapsed(self):
         builder = self.function_source(self.panel_source(), "_build_ai_section")
 
-        self.assertIn("Provider", builder)
-        self.assertIn("Model", builder)
-        self.assertIn("API key", builder)
-        self.assertIn("Base URL", builder)
-        self.assertIn("Timeout", builder)
+        for key in ("provider", "model", "api_key", "base_url", "timeout"):
+            self.assertIn(f'self.t("{key}")', builder)
         self.assertIn("self.ai_advanced_container.setVisible(False)", builder)
 
     def test_api_key_is_session_only_and_redacted(self):
@@ -96,10 +94,10 @@ class SingleScreenCardMakerTests(unittest.TestCase):
     def test_write_requires_custom_secondary_confirmation(self):
         handler = self.function_source(self.panel_source(), "_confirm_and_write")
 
-        self.assertIn("确认写入 Anki？", handler)
-        self.assertIn("将写入", handler)
-        self.assertIn("取消", handler)
-        self.assertIn("确认写入", handler)
+        self.assertIn('self.t("confirm_write_title")', handler)
+        self.assertIn('"confirm_write_body"', handler)
+        self.assertIn('self.t("cancel")', handler)
+        self.assertIn('self.t("confirm_write")', handler)
         self.assertIn("if not confirmed", handler)
         self.assertLess(
             handler.index("if not confirmed"),
@@ -111,10 +109,10 @@ class SingleScreenCardMakerTests(unittest.TestCase):
         panel = self.panel_source()
         refresh = self.function_source(panel, "_refresh_product_state")
 
-        self.assertIn("检查重复", panel)
-        self.assertIn("未发现重复", panel)
-        self.assertIn("可能重复，已跳过", panel)
-        self.assertIn("未检查", panel)
+        self.assertIn('self.t("check_duplicates")', panel)
+        self.assertEqual(PRODUCT_COPY["zh"]["duplicates_clear"], "未发现重复")
+        self.assertEqual(PRODUCT_COPY["zh"]["duplicates_skipped"], "可能重复，已跳过")
+        self.assertEqual(PRODUCT_COPY["zh"]["duplicates_unchecked"], "未检查")
         self.assertIn("self.write_preparation.can_write", refresh)
         self.assertIn("prepare_beginner_write", panel)
 
@@ -125,7 +123,7 @@ class SingleScreenCardMakerTests(unittest.TestCase):
         )
 
         self.assertIn("has_completed_write_snapshot", refresh)
-        self.assertIn("已写入，请在 Anki 中查看", refresh)
+        self.assertIn('self.t("write_completed_button")', refresh)
         self.assertIn("self.write_btn.setEnabled(False)", refresh)
 
     @staticmethod

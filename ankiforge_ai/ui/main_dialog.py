@@ -52,6 +52,8 @@ from .human_review_draft_dialog import HumanReviewDecisionDraftDialog
 from .beginner_flow_models import ADVANCED_WORKBENCH_WARNING
 from .beginner_mode_dialog import BeginnerModeDialog
 from .card_maker_panel import CardMakerPanel
+from .product_i18n import DEFAULT_PRODUCT_LANGUAGE, product_text
+from .product_styles import PRODUCT_DARK_STYLESHEET
 from .review_helpers import (
     ALL_CHUNKS_LABEL,
     cap_cards,
@@ -72,6 +74,9 @@ PROVIDER_OPTIONS = ["mock", "deepseek", "openai_compatible"]
 class MainDialog(QDialog):
     def __init__(self, parent=None, provider_preview=None):
         super().__init__(parent)
+        self.ui_language = DEFAULT_PRODUCT_LANGUAGE
+        self.setObjectName("AnkiForgeMainDialog")
+        self.setStyleSheet(PRODUCT_DARK_STYLESHEET)
         if provider_preview is not None and not isinstance(
             provider_preview,
             ReadOnlyProviderPreview,
@@ -79,8 +84,8 @@ class MainDialog(QDialog):
             raise ValueError(
                 "provider_preview must be ReadOnlyProviderPreview or None."
             )
-        self.setWindowTitle("AnkiForge AI")
-        self.resize(960, 820)
+        self.setWindowTitle(self.t("title"))
+        self.resize(1120, 820)
 
         self._provider_preview = provider_preview
         self.cards = []
@@ -96,19 +101,35 @@ class MainDialog(QDialog):
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 14, 18, 10)
+        layout.setContentsMargins(22, 16, 22, 12)
         layout.setSpacing(6)
-        title = QLabel("AnkiForge AI")
-        title.setStyleSheet("font-size: 24px; font-weight: bold;")
-        subtitle = QLabel("把学习材料变成 Anki 卡片")
-        subtitle.setStyleSheet("font-size: 14px; color: #666;")
-        layout.addWidget(title)
-        layout.addWidget(subtitle)
+        header_row = QHBoxLayout()
+        header_row.setContentsMargins(0, 0, 0, 0)
+        self.title_label = QLabel(self.t("title"))
+        self.title_label.setObjectName("ProductTitle")
+        self.language_toggle_btn = QPushButton(self.t("language_toggle"))
+        self.language_toggle_btn.setObjectName("LanguageToggle")
+        self.language_toggle_btn.setFixedSize(96, 35)
+        self.language_toggle_btn.setFlat(True)
+        self.language_toggle_btn.clicked.connect(self.toggle_language)
+        header_row.addWidget(self.title_label)
+        header_row.addStretch()
+        header_row.addWidget(self.language_toggle_btn)
+        header_row.setAlignment(
+            self.language_toggle_btn,
+            Qt.AlignmentFlag.AlignVCenter,
+        )
+        layout.addLayout(header_row)
+        self.subtitle_label = QLabel(self.t("subtitle"))
+        self.subtitle_label.setObjectName("ProductSubtitle")
+        self.subtitle_label.setContentsMargins(2, 0, 0, 6)
+        layout.addWidget(self.subtitle_label)
 
         collection = getattr(mw, "col", None)
         self.card_maker_panel = CardMakerPanel(
             parent=self,
             collection=collection,
+            language=self.ui_language,
         )
         panel_row = QHBoxLayout()
         panel_row.addStretch()
@@ -116,13 +137,11 @@ class MainDialog(QDialog):
         panel_row.addStretch()
         layout.addLayout(panel_row, 1)
 
-        self.advanced_toggle_btn = QPushButton("高级 / 调试工具")
+        self.advanced_toggle_btn = QPushButton(self.t("advanced_debug"))
+        self.advanced_toggle_btn.setObjectName("AdvancedDebugLink")
         self.advanced_toggle_btn.setCheckable(True)
         self.advanced_toggle_btn.setFlat(True)
-        self.advanced_toggle_btn.setMaximumWidth(150)
-        self.advanced_toggle_btn.setStyleSheet(
-            "QPushButton { color: #777; font-size: 12px; padding: 3px; }"
-        )
+        self.advanced_toggle_btn.setMaximumWidth(175)
         self.advanced_toggle_btn.toggled.connect(self.toggle_advanced_tools)
         advanced_link_row = QHBoxLayout()
         advanced_link_row.addStretch()
@@ -133,15 +152,13 @@ class MainDialog(QDialog):
         self.advanced_tools_panel.setVisible(False)
         advanced_layout = QVBoxLayout(self.advanced_tools_panel)
         advanced_layout.setContentsMargins(0, 0, 0, 0)
-        advanced_description = QLabel(
-            "旧流程与开发调试入口。普通制卡不需要使用这里。"
-        )
-        advanced_description.setStyleSheet("color: gray;")
-        advanced_layout.addWidget(advanced_description)
+        self.advanced_description_label = QLabel(self.t("advanced_debug_help"))
+        self.advanced_description_label.setStyleSheet("color: gray;")
+        advanced_layout.addWidget(self.advanced_description_label)
         advanced_buttons = QHBoxLayout()
-        self.beginner_entry_btn = QPushButton("打开旧流程工具")
+        self.beginner_entry_btn = QPushButton(self.t("open_legacy_flow"))
         self.beginner_entry_btn.clicked.connect(self.show_beginner_mode)
-        self.legacy_entry_btn = QPushButton("打开旧调试面板")
+        self.legacy_entry_btn = QPushButton(self.t("open_debug_panel"))
         self.legacy_entry_btn.setToolTip(ADVANCED_WORKBENCH_WARNING)
         self.legacy_entry_btn.clicked.connect(self.show_legacy_workbench)
         advanced_buttons.addWidget(self.beginner_entry_btn)
@@ -153,10 +170,27 @@ class MainDialog(QDialog):
         advanced_layout.addWidget(self.legacy_workbench_container)
         layout.addWidget(self.advanced_tools_panel)
 
+    def t(self, key, **values):
+        return product_text(self.ui_language, key, **values)
+
+    def toggle_language(self):
+        self.ui_language = "en" if self.ui_language == "zh" else "zh"
+        self.setWindowTitle(self.t("title"))
+        self.title_label.setText(self.t("title"))
+        self.subtitle_label.setText(self.t("subtitle"))
+        self.language_toggle_btn.setText(self.t("language_toggle"))
+        self.advanced_description_label.setText(self.t("advanced_debug_help"))
+        self.beginner_entry_btn.setText(self.t("open_legacy_flow"))
+        self.legacy_entry_btn.setText(self.t("open_debug_panel"))
+        self.toggle_advanced_tools(self.advanced_tools_panel.isVisible())
+        self.card_maker_panel.set_language(self.ui_language)
+
     def toggle_advanced_tools(self, expanded):
         self.advanced_tools_panel.setVisible(expanded)
         self.advanced_toggle_btn.setText(
-            "收起高级 / 调试工具" if expanded else "高级 / 调试工具"
+            self.t("advanced_debug_collapse")
+            if expanded
+            else self.t("advanced_debug")
         )
 
     def show_beginner_mode(self):
