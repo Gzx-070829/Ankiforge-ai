@@ -68,7 +68,7 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
         zh = PRODUCT_COPY["zh"]
 
         self.assertEqual(zh["open_legacy_flow"], "打开旧流程工具")
-        self.assertEqual(zh["choose_markdown"], "选择 Markdown 文件")
+        self.assertEqual(zh["choose_file"], "选择文件")
         self.assertEqual(zh["use_example"], "使用示例")
         self.assertEqual(zh["generate_cards"], "生成卡片")
         self.assertEqual(zh["edit"], "编辑")

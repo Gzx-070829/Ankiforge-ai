@@ -26,6 +26,12 @@ from aqt.qt import (
 )
 
 from ..anki_writer.minimal_write import MinimalAnkiWriter
+from ..importers.source_import import (
+    ImportedSource,
+    SourceImportError,
+    import_source_file,
+    merge_imported_source_text,
+)
 from .beginner_ai_card_drafts import (
     BeginnerAICardDraftGenerator,
     BeginnerAIProviderRuntimeSettings,
@@ -43,6 +49,7 @@ from .beginner_real_write import (
     execute_beginner_write_if_confirmed,
     prepare_beginner_write,
 )
+from .file_drop_text_edit import FileDropTextEdit
 from .read_only_anki_targets import (
     BeginnerAnkiReadState,
     ReadOnlyAnkiTargetAdapter,
@@ -70,6 +77,9 @@ class CardMakerPanel(QWidget):
         self._generation_message = None
         self._target_message = None
         self._write_message = None
+        self._source_import_message = None
+        self._source_import_warning_keys = ()
+        self._applying_source_import = False
         self.session = BeginnerFlowSession()
         self.anki_target_adapter = ReadOnlyAnkiTargetAdapter(collection)
         self.duplicate_check_adapter = ReadOnlyDuplicateCheckAdapter(collection)
@@ -105,8 +115,9 @@ class CardMakerPanel(QWidget):
         self.material_title_label.setText(self.t("material_section"))
         self.material_help_label.setText(self.t("material_help"))
         self.material_input.setPlaceholderText(self.t("material_placeholder"))
-        self.choose_markdown_btn.setText(self.t("choose_markdown"))
+        self.choose_file_btn.setText(self.t("choose_file"))
         self.example_btn.setText(self.t("use_example"))
+        self._render_source_import_feedback()
 
         self.ai_title_label.setText(self.t("ai_section"))
         self.provider_label.setText(self.t("provider"))
@@ -149,42 +160,87 @@ class CardMakerPanel(QWidget):
         self._generation_message = (key, values) if key else None
         self._render_generation_message()
 
+    @staticmethod
+    def _set_status_role(label, role):
+        """Refresh a label after changing its lightweight visual role."""
+
+        if label.property("role") == role:
+            return
+        label.setProperty("role", role)
+        label.style().unpolish(label)
+        label.style().polish(label)
+        label.update()
+
     def _render_generation_message(self):
         if self._generation_message is None:
             self.generation_status_label.clear()
+            self.generation_status_label.setVisible(False)
             return
         key, values = self._generation_message
         message = self.t(key, **values)
         if key == "generation_failed":
             message += "\n" + self.t("model_failure_help")
+        role = {
+            "generation_failed": "error",
+            "generation_requirements": "warning",
+            "generation_success": "success",
+        }.get(key, "status")
+        self._set_status_role(self.generation_status_label, role)
         self.generation_status_label.setText(message)
+        self.generation_status_label.setVisible(True)
 
     def _set_target_message(self, key=None, **values):
         self._target_message = (key, values) if key else None
         if self._target_message is None:
             self.target_status_label.clear()
+            self.target_status_label.setVisible(False)
             return
+        key, values = self._target_message
+        role = "error" if key.endswith("_failed") else "status"
+        self._set_status_role(self.target_status_label, role)
         self.target_status_label.setText(self.t(key, **values))
+        self.target_status_label.setVisible(True)
 
     def _set_write_message(self, key=None, **values):
         self._write_message = (key, values) if key else None
         if self._write_message is None:
             self.write_status_label.clear()
+            self.write_status_label.setVisible(False)
             return
+        key, values = self._write_message
+        role = {
+            "write_failed": "error",
+            "write_partial": "warning",
+            "write_success": "success",
+        }.get(key, "status")
+        self._set_status_role(self.write_status_label, role)
         self.write_status_label.setText(self.t(key, **values))
+        self.write_status_label.setVisible(True)
 
     def _render_status_messages(self):
         self._render_generation_message()
         if self._target_message is None:
             self.target_status_label.clear()
+            self.target_status_label.setVisible(False)
         else:
             key, values = self._target_message
+            role = "error" if key.endswith("_failed") else "status"
+            self._set_status_role(self.target_status_label, role)
             self.target_status_label.setText(self.t(key, **values))
+            self.target_status_label.setVisible(True)
         if self._write_message is None:
             self.write_status_label.clear()
+            self.write_status_label.setVisible(False)
         else:
             key, values = self._write_message
+            role = {
+                "write_failed": "error",
+                "write_partial": "warning",
+                "write_success": "success",
+            }.get(key, "status")
+            self._set_status_role(self.write_status_label, role)
             self.write_status_label.setText(self.t(key, **values))
+            self.write_status_label.setVisible(True)
         self._refresh_duplicate_copy()
 
     def _refresh_duplicate_copy(self):
@@ -201,20 +257,25 @@ class CardMakerPanel(QWidget):
             key = "duplicates_skipped"
         else:
             key = "duplicates_clear"
+        role = {
+            "duplicates_clear": "success",
+            "duplicates_skipped": "warning",
+        }.get(key, "muted")
+        self._set_status_role(self.duplicate_status_label, role)
         self.duplicate_status_label.setText(self.t(key))
 
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(0, 6, 0, 4)
-        root.setSpacing(20)
+        root.setContentsMargins(0, 8, 0, 6)
+        root.setSpacing(22)
 
         columns = QHBoxLayout()
-        columns.setSpacing(20)
+        columns.setSpacing(22)
         left = QWidget()
         left.setMinimumWidth(500)
         left_layout = QVBoxLayout(left)
         left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.setSpacing(14)
+        left_layout.setSpacing(16)
         left_layout.addWidget(self._build_material_section(), 1)
         left_layout.addWidget(self._build_ai_section())
 
@@ -222,7 +283,7 @@ class CardMakerPanel(QWidget):
         right.setMinimumWidth(460)
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(14)
+        right_layout.setSpacing(16)
         right_layout.addWidget(self._build_cards_section(), 1)
         right_layout.addWidget(self._build_write_section())
 
@@ -235,7 +296,7 @@ class CardMakerPanel(QWidget):
         section.setProperty("productSection", True)
         section_layout = QVBoxLayout(section)
         section_layout.setContentsMargins(0, 0, 0, 0)
-        section_layout.setSpacing(7)
+        section_layout.setSpacing(8)
 
         title = QLabel(self.t(title_key))
         title.setProperty("role", "sectionTitle")
@@ -244,8 +305,8 @@ class CardMakerPanel(QWidget):
         card = QFrame()
         card.setProperty("sectionCard", True)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(17, 17, 17, 17)
-        card_layout.setSpacing(10)
+        card_layout.setContentsMargins(18, 18, 18, 18)
+        card_layout.setSpacing(11)
         section_layout.addWidget(card, 1)
         return section, title, card, card_layout
 
@@ -260,23 +321,37 @@ class CardMakerPanel(QWidget):
         self.material_help_label.setProperty("role", "secondary")
         layout.addWidget(self.material_help_label)
 
-        self.material_input = QTextEdit()
+        self.material_input = FileDropTextEdit(
+            files_dropped=self._handle_dropped_files,
+        )
+        self.material_input.setObjectName("MaterialDropArea")
         self.material_input.setPlaceholderText(self.t("material_placeholder"))
         self.material_input.setMinimumHeight(150)
         self.material_input.setMaximumHeight(230)
         self.material_input.textChanged.connect(self._on_material_changed)
         layout.addWidget(self.material_input)
 
+        self.material_import_status_label = QLabel()
+        self.material_import_status_label.setProperty("role", "status")
+        self.material_import_status_label.setWordWrap(True)
+        self.material_import_status_label.setVisible(False)
+        layout.addWidget(self.material_import_status_label)
+        self.material_import_warning_label = QLabel()
+        self.material_import_warning_label.setProperty("role", "warning")
+        self.material_import_warning_label.setWordWrap(True)
+        self.material_import_warning_label.setVisible(False)
+        layout.addWidget(self.material_import_warning_label)
+
         actions = QHBoxLayout()
-        self.choose_markdown_btn = QPushButton(self.t("choose_markdown"))
-        self.choose_markdown_btn.setProperty("role", "secondary")
-        self.choose_markdown_btn.clicked.connect(self._choose_markdown_file)
+        self.choose_file_btn = QPushButton(self.t("choose_file"))
+        self.choose_file_btn.setProperty("role", "secondary")
+        self.choose_file_btn.clicked.connect(self._choose_source_file)
         self.example_btn = QPushButton(self.t("use_example"))
         self.example_btn.setProperty("role", "secondary")
         self.example_btn.clicked.connect(self._use_example_material)
         self.material_count_label = QLabel(self.t("character_count", count=0))
         self.material_count_label.setProperty("role", "muted")
-        actions.addWidget(self.choose_markdown_btn)
+        actions.addWidget(self.choose_file_btn)
         actions.addWidget(self.example_btn)
         actions.addStretch()
         actions.addWidget(self.material_count_label)
@@ -290,9 +365,9 @@ class CardMakerPanel(QWidget):
             self.ai_card,
             layout,
         ) = self._make_section("ai_section")
-        layout.setSpacing(8)
+        layout.setSpacing(10)
         provider_model_row = QHBoxLayout()
-        provider_model_row.setSpacing(18)
+        provider_model_row.setSpacing(20)
 
         self.provider_combo = QComboBox()
         self.provider_combo.addItem(
@@ -314,7 +389,7 @@ class CardMakerPanel(QWidget):
         self.provider_label.setProperty("role", "fieldLabel")
         self.provider_combo.setMinimumWidth(220)
         provider_field = QVBoxLayout()
-        provider_field.setSpacing(6)
+        provider_field.setSpacing(7)
         provider_field.addWidget(self.provider_label)
         provider_field.addWidget(self.provider_combo)
         provider_model_row.addLayout(provider_field, 1)
@@ -325,7 +400,7 @@ class CardMakerPanel(QWidget):
         self.model_label.setProperty("role", "fieldLabel")
         self.model_input.setMinimumWidth(240)
         model_field = QVBoxLayout()
-        model_field.setSpacing(6)
+        model_field.setSpacing(7)
         model_field.addWidget(self.model_label)
         model_field.addWidget(self.model_input)
         provider_model_row.addLayout(model_field, 1)
@@ -342,7 +417,8 @@ class CardMakerPanel(QWidget):
         self.api_key_label = QLabel(self.t("api_key"))
         self.api_key_label.setProperty("role", "fieldLabel")
         api_key_field = QVBoxLayout()
-        api_key_field.setSpacing(6)
+        api_key_field.setContentsMargins(0, 3, 0, 0)
+        api_key_field.setSpacing(7)
         api_key_field.addWidget(self.api_key_label)
         api_key_field.addWidget(self.api_key_input)
         layout.addLayout(api_key_field)
@@ -379,7 +455,9 @@ class CardMakerPanel(QWidget):
         self.generate_btn.setFixedSize(178, 44)
         self.generate_btn.clicked.connect(self._generate_cards)
         self.generation_status_label = QLabel()
+        self.generation_status_label.setProperty("role", "status")
         self.generation_status_label.setWordWrap(True)
+        self.generation_status_label.setVisible(False)
         action_row.addWidget(self.generate_btn)
         action_row.addWidget(self.generation_status_label, 1)
         layout.addLayout(action_row)
@@ -435,8 +513,10 @@ class CardMakerPanel(QWidget):
             self.write_card,
             layout,
         ) = self._make_section("write_section")
-        layout.setSpacing(9)
+        layout.setSpacing(11)
         form = QFormLayout()
+        form.setHorizontalSpacing(14)
+        form.setVerticalSpacing(9)
 
         self.deck_combo = QComboBox()
         self.deck_combo.currentIndexChanged.connect(self._on_deck_changed)
@@ -473,14 +553,6 @@ class CardMakerPanel(QWidget):
             self.source_mapping_label,
         ):
             label.setMinimumWidth(92)
-        for label in (
-            self.deck_label,
-            self.note_type_label,
-            self.front_mapping_label,
-            self.back_mapping_label,
-            self.source_mapping_label,
-        ):
-            label.setMinimumWidth(92)
         form.addRow(self.front_mapping_label, self.front_field_combo)
         form.addRow(self.back_mapping_label, self.back_field_combo)
         form.addRow(self.source_mapping_label, self.source_field_combo)
@@ -488,7 +560,8 @@ class CardMakerPanel(QWidget):
 
         self.target_status_label = QLabel()
         self.target_status_label.setWordWrap(True)
-        self.target_status_label.setProperty("role", "secondary")
+        self.target_status_label.setProperty("role", "status")
+        self.target_status_label.setVisible(False)
         layout.addWidget(self.target_status_label)
 
         duplicate_row = QHBoxLayout()
@@ -496,6 +569,7 @@ class CardMakerPanel(QWidget):
         self.duplicate_btn.setProperty("role", "secondary")
         self.duplicate_btn.clicked.connect(self._check_duplicates)
         self.duplicate_status_label = QLabel(self.t("duplicates_unchecked"))
+        self.duplicate_status_label.setProperty("role", "muted")
         duplicate_row.addWidget(self.duplicate_btn)
         duplicate_row.addWidget(self.duplicate_status_label)
         duplicate_row.addStretch()
@@ -507,38 +581,112 @@ class CardMakerPanel(QWidget):
         self.write_btn.setMinimumSize(140, 38)
         self.write_btn.clicked.connect(self._confirm_and_write)
         self.write_status_label = QLabel()
+        self.write_status_label.setProperty("role", "status")
         self.write_status_label.setWordWrap(True)
+        self.write_status_label.setVisible(False)
         write_row.addWidget(self.write_btn)
         write_row.addWidget(self.write_status_label, 1)
         layout.addLayout(write_row)
         return self.write_group
 
-    def _choose_markdown_file(self):
+    def _choose_source_file(self):
         path, _selected_filter = QFileDialog.getOpenFileName(
             self,
-            self.t("choose_markdown"),
+            self.t("choose_file"),
             "",
-            self.t("markdown_filter"),
+            self.t("source_file_filter"),
         )
         if not path:
             return
-        try:
-            text = Path(path).read_text(encoding="utf-8-sig")
-        except (OSError, UnicodeError):
-            self._set_generation_message("markdown_read_failed")
+        self._import_source_path(Path(path))
+
+    def _handle_dropped_files(self, paths):
+        if not paths:
             return
-        self.material_input.setPlainText(text)
+        extra_warnings = ("source_import_first_only",) if len(paths) > 1 else ()
+        self._import_source_path(Path(paths[0]), extra_warnings=extra_warnings)
+
+    def _import_source_path(self, path, *, extra_warnings=()):
+        try:
+            imported = import_source_file(Path(path))
+        except SourceImportError as error:
+            self._set_source_import_error(
+                error.code,
+                warning_keys=extra_warnings,
+            )
+            return
+        self._apply_imported_source(imported, extra_warnings=extra_warnings)
+
+    def _apply_imported_source(self, imported: ImportedSource, *, extra_warnings=()):
+        existing_text = self.material_input.toPlainText()
+        warnings = list(imported.warnings) + list(extra_warnings)
+        combined_text, appended = merge_imported_source_text(
+            existing_text,
+            imported,
+        )
+        if appended:
+            warnings.append("source_import_appended")
+
+        self._applying_source_import = True
+        try:
+            self.material_input.setPlainText(combined_text)
+        finally:
+            self._applying_source_import = False
+        self._source_import_message = (
+            "source_imported",
+            {
+                "filename": imported.filename,
+                "kind": imported.suffix.lstrip(".").upper(),
+                "count": imported.char_count,
+            },
+        )
+        self._source_import_warning_keys = tuple(dict.fromkeys(warnings))
+        self._render_source_import_feedback()
+
+    def _set_source_import_error(self, error_code, *, warning_keys=()):
+        key = f"source_import_error_{error_code}"
+        try:
+            self.t(key)
+        except KeyError:
+            key = "source_import_error_generic"
+        self._source_import_message = (key, {})
+        self._source_import_warning_keys = tuple(warning_keys)
+        self._render_source_import_feedback()
+
+    def _clear_source_import_feedback(self):
+        self._source_import_message = None
+        self._source_import_warning_keys = ()
+        self._render_source_import_feedback()
+
+    def _render_source_import_feedback(self):
+        if self._source_import_message is None:
+            self._set_status_role(self.material_import_status_label, "status")
+            self.material_import_status_label.clear()
+            self.material_import_status_label.setVisible(False)
+        else:
+            key, values = self._source_import_message
+            role = "error" if "source_import_error_" in key else "success"
+            self._set_status_role(self.material_import_status_label, role)
+            self.material_import_status_label.setText(self.t(key, **values))
+            self.material_import_status_label.setVisible(True)
+        warnings = [self.t(key) for key in self._source_import_warning_keys]
+        self._set_status_role(self.material_import_warning_label, "warning")
+        self.material_import_warning_label.setText("\n".join(warnings))
+        self.material_import_warning_label.setVisible(bool(warnings))
 
     def _use_example_material(self):
         self.session.load_example_material()
         self.material_input.blockSignals(True)
         self.material_input.setPlainText(self.session.material_text)
         self.material_input.blockSignals(False)
+        self._clear_source_import_feedback()
         self._set_generation_message()
         self._after_upstream_change()
 
     def _on_material_changed(self):
         self.session.update_material(self.material_input.toPlainText())
+        if not self._applying_source_import:
+            self._clear_source_import_feedback()
         self._set_generation_message()
         self._after_upstream_change()
 
@@ -1093,6 +1241,7 @@ class CardMakerPanel(QWidget):
         self.material_input.blockSignals(True)
         self.material_input.clear()
         self.material_input.blockSignals(False)
+        self._clear_source_import_feedback()
         self.api_key_input.blockSignals(True)
         self.api_key_input.clear()
         self.api_key_input.blockSignals(False)

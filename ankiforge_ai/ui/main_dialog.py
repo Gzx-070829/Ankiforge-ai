@@ -101,8 +101,8 @@ class MainDialog(QDialog):
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(22, 16, 22, 12)
-        layout.setSpacing(6)
+        layout.setContentsMargins(24, 18, 24, 14)
+        layout.setSpacing(8)
         header_row = QHBoxLayout()
         header_row.setContentsMargins(0, 0, 0, 0)
         self.title_label = QLabel(self.t("title"))
@@ -122,7 +122,7 @@ class MainDialog(QDialog):
         layout.addLayout(header_row)
         self.subtitle_label = QLabel(self.t("subtitle"))
         self.subtitle_label.setObjectName("ProductSubtitle")
-        self.subtitle_label.setContentsMargins(2, 0, 0, 6)
+        self.subtitle_label.setContentsMargins(2, 0, 0, 8)
         layout.addWidget(self.subtitle_label)
 
         collection = getattr(mw, "col", None)

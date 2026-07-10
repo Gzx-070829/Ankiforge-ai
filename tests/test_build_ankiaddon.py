@@ -5,6 +5,7 @@ from pathlib import Path, PurePosixPath
 
 from scripts.build_ankiaddon import (
     BuildError,
+    REQUIRED_ARCHIVE_FILES,
     _blocked_reason,
     _is_non_runtime_file,
     _validate_archive,
@@ -33,8 +34,10 @@ class BuildAnkiAddonTests(unittest.TestCase):
     def test_runtime_paths_are_not_blocked(self):
         for path in (
             "__init__.py",
+            "importers/source_import.py",
             "manifest.json",
             "ui/card_maker_panel.py",
+            "ui/file_drop_text_edit.py",
             "theme/style.css",
         ):
             with self.subTest(path=path):
@@ -54,20 +57,16 @@ class BuildAnkiAddonTests(unittest.TestCase):
     def test_archive_round_trip_and_forbidden_member_rejection(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
-            init_file = root / "__init__.py"
-            manifest_file = root / "manifest.json"
-            init_file.write_text("", encoding="utf-8")
-            manifest_file.write_text("{}", encoding="utf-8")
-
             valid_archive = root / "valid.ankiaddon"
-            files = [
-                (init_file, "__init__.py"),
-                (manifest_file, "manifest.json"),
-            ]
+            files = []
+            for index, archive_name in enumerate(sorted(REQUIRED_ARCHIVE_FILES)):
+                source_file = root / f"runtime-{index}.txt"
+                source_file.write_text(archive_name, encoding="utf-8")
+                files.append((source_file, archive_name))
             _write_archive(valid_archive, files)
             self.assertEqual(
                 _validate_archive(valid_archive, {name for _, name in files}),
-                2,
+                len(files),
             )
 
             invalid_archive = root / "invalid.ankiaddon"
@@ -75,6 +74,24 @@ class BuildAnkiAddonTests(unittest.TestCase):
                 archive.writestr("config.json", "{}")
             with self.assertRaises(BuildError):
                 _validate_archive(invalid_archive, {"config.json"})
+
+    def test_pr16_runtime_modules_are_required(self):
+        self.assertIn("importers/source_import.py", REQUIRED_ARCHIVE_FILES)
+        self.assertIn("ui/file_drop_text_edit.py", REQUIRED_ARCHIVE_FILES)
+
+    def test_archive_writer_is_byte_for_byte_deterministic(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = root / "module.py"
+            source.write_text("value = 1\n", encoding="utf-8")
+            files = [(source, "module.py")]
+            first = root / "first.ankiaddon"
+            second = root / "second.ankiaddon"
+
+            _write_archive(first, files)
+            _write_archive(second, files)
+
+            self.assertEqual(first.read_bytes(), second.read_bytes())
 
 
 if __name__ == "__main__":

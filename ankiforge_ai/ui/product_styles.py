@@ -14,7 +14,7 @@ QDialog#AnkiForgeMainDialog QLabel {
 
 QLabel#ProductTitle {
     color: #F8FAFC;
-    font-size: 30px;
+    font-size: 31px;
     font-weight: 700;
 }
 
@@ -41,9 +41,43 @@ QWidget#CardMakerPanel QLabel[role="muted"] {
 
 QWidget#CardMakerPanel QLabel[role="sectionTitle"] {
     color: #F8FAFC;
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 600;
     padding: 0;
+}
+
+QWidget#CardMakerPanel QLabel[role="status"],
+QWidget#CardMakerPanel QLabel[role="success"],
+QWidget#CardMakerPanel QLabel[role="warning"],
+QWidget#CardMakerPanel QLabel[role="error"] {
+    border-radius: 5px;
+    padding: 5px 8px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+QWidget#CardMakerPanel QLabel[role="status"] {
+    color: #CBD5E1;
+    background-color: #24272B;
+    border: 1px solid #353A42;
+}
+
+QWidget#CardMakerPanel QLabel[role="success"] {
+    color: #86EFAC;
+    background-color: #163224;
+    border: 1px solid #245C3A;
+}
+
+QWidget#CardMakerPanel QLabel[role="warning"] {
+    color: #FCD34D;
+    background-color: #332B14;
+    border: 1px solid #5D4A1C;
+}
+
+QWidget#CardMakerPanel QLabel[role="error"] {
+    color: #FCA5A5;
+    background-color: #351C20;
+    border: 1px solid #6B2A32;
 }
 
 QWidget#CardMakerPanel QLabel[role="fieldLabel"] {
@@ -67,7 +101,7 @@ QLabel#EmptyStateHelp {
 QWidget#CardMakerPanel QFrame[sectionCard="true"] {
     background-color: #2B2D30;
     border: 1px solid #3F4248;
-    border-radius: 10px;
+    border-radius: 11px;
     color: #F4F4F5;
 }
 
@@ -119,6 +153,18 @@ QWidget#CardMakerPanel QSpinBox:focus {
     border: 1px solid #3B82F6;
 }
 
+QWidget#CardMakerPanel QTextEdit#MaterialDropArea {
+    background-color: #1C2025;
+    border: 1px dashed #596273;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+QWidget#CardMakerPanel QTextEdit#MaterialDropArea:focus {
+    border: 1px solid #3B82F6;
+    background-color: #1F2329;
+}
+
 QWidget#CardMakerPanel QComboBox::drop-down {
     border: none;
     width: 24px;
@@ -136,9 +182,9 @@ QPushButton[role="secondary"] {
     background-color: #32343A;
     color: #E5E7EB;
     border: 1px solid #4B4F57;
-    border-radius: 6px;
-    padding: 6px 12px;
-    min-height: 28px;
+    border-radius: 7px;
+    padding: 7px 13px;
+    min-height: 29px;
 }
 
 QWidget#CardMakerPanel QPushButton:hover,
@@ -183,10 +229,10 @@ QWidget#CardMakerPanel QPushButton[role="subtle"]:hover {
 }
 
 QPushButton#LanguageToggle {
-    background-color: #2B2D30;
+    background-color: #25292E;
     color: #D1D5DB;
     border: 1px solid #4B4F57;
-    border-radius: 6px;
+    border-radius: 17px;
     padding: 5px 12px;
     font-size: 13px;
 }
