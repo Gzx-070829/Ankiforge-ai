@@ -1,4 +1,4 @@
-# 从 `.ankiaddon` 文件手动安装 AnkiForge AI
+# 从 `.ankiaddon` 文件手动安装 AnkiForge AI v0.11
 
 ## 安装前
 
@@ -18,7 +18,7 @@
 
 ## 首次使用
 
-1. 粘贴 Markdown 或文本学习材料。
+1. 粘贴 Markdown / 文本学习材料，或选择、拖入 Markdown、TXT、DOCX 文件。
 2. 选择 Provider 并在当前窗口输入 API key。
 3. 主动点击生成后审核卡片。
 4. 检查牌组、笔记类型、字段映射和重复项。
@@ -27,6 +27,8 @@
 API key 仅在当前窗口使用，不会由 AnkiForge AI 保存。
 
 如需从本地文件导入学习材料，请参阅[文件导入说明](file_import.md)。
+
+PDF 在 v0.11 中是友好提示入口：安装包不包含 PDF 解析器或 OCR。遇到 PDF 时，请复制其中可选文本，或先转换为 TXT / Markdown。
 
 ## 更新或卸载
 

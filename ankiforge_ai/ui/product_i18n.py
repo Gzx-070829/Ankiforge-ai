@@ -16,7 +16,7 @@ PRODUCT_COPY = {
         "open_legacy_flow": "打开旧流程工具",
         "open_debug_panel": "打开旧调试面板",
         "material_section": "学习材料",
-        "material_help": "粘贴笔记、教材段落或复习资料，也可以导入本地文件。",
+        "material_help": "粘贴学习材料，或导入本地文件；导入后仍可继续编辑。",
         "material_placeholder": "粘贴材料，或拖入 .md / .txt / .docx / .pdf 文件",
         "choose_file": "选择文件",
         "source_file_filter": (
@@ -26,8 +26,8 @@ PRODUCT_COPY = {
         ),
         "use_example": "使用示例",
         "character_count": "{count} 字符",
-        "source_imported": "已导入：{filename} · {kind} · {count} 字符",
-        "source_import_first_only": "当前仅导入第一个文件。",
+        "source_imported": "已导入 {filename} · {kind} · {count} 字符",
+        "source_import_first_only": "一次仅支持一个文件，本次已导入第一个。",
         "source_import_appended": "原有材料已保留，新文件已追加到末尾。",
         "system_encoding_fallback": "文件不是 UTF-8，已使用本机默认编码读取。",
         "docx_text_only": "DOCX 仅提取文本，图片、公式和复杂排版不会保留。",
@@ -132,8 +132,8 @@ PRODUCT_COPY = {
         "open_debug_panel": "Open Debug Panel",
         "material_section": "Study Material",
         "material_help": (
-            "Paste notes, textbook passages, or review material, or import "
-            "a local file."
+            "Paste study material or import a local file, then edit it before "
+            "generating cards."
         ),
         "material_placeholder": (
             "Paste material, or drop a .md / .txt / .docx / .pdf file"
@@ -146,8 +146,10 @@ PRODUCT_COPY = {
         ),
         "use_example": "Use Example",
         "character_count": "{count} characters",
-        "source_imported": "Imported: {filename} · {kind} · {count} characters",
-        "source_import_first_only": "Only the first file was imported.",
+        "source_imported": "Imported {filename} · {kind} · {count} characters",
+        "source_import_first_only": (
+            "One file can be imported at a time; the first file was imported."
+        ),
         "source_import_appended": (
             "The existing material was kept and the file was appended."
         ),

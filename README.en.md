@@ -4,6 +4,8 @@ AI-powered Anki card maker. Turn study materials into review-ready Anki cards.
 
 [简体中文](README.md)
 
+> This is an Anki Desktop add-on, not a shared deck or a web app. It does not include pre-made cards; it helps turn your own study material into cards. Do not look for it under Shared Decks.
+
 ## Install
 
 ### Option 1: Install from AnkiWeb
@@ -21,8 +23,6 @@ In Anki, open:
 Paste the add-on code `1227582295`. After installation, restart Anki and open AnkiForge AI.
 
 AnkiWeb page: [https://ankiweb.net/shared/info/1227582295](https://ankiweb.net/shared/info/1227582295)
-
-> AnkiWeb currently provides the v0.10 public preview. The v0.11 file-import changes have not been uploaded to AnkiWeb.
 
 ### Option 2: Install from source
 

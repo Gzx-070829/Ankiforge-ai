@@ -105,8 +105,8 @@ class FileDropImportContractTests(unittest.TestCase):
         self.assertIn('"source_imported"', apply_import)
         self.assertIn("material_import_status_label", material_section)
         self.assertIn("material_import_warning_label", material_section)
-        self.assertIn('setProperty("role", "muted")', material_section)
-        self.assertIn('setProperty("role", "secondary")', material_section)
+        self.assertIn('setProperty("role", "status")', material_section)
+        self.assertIn('setProperty("role", "warning")', material_section)
 
     def test_friendly_errors_and_text_only_warnings_are_bilingual(self):
         zh = PRODUCT_COPY["zh"]
