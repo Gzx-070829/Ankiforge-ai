@@ -26,6 +26,12 @@ from aqt.qt import (
 )
 
 from ..anki_writer.minimal_write import MinimalAnkiWriter
+from ..importers.source_import import (
+    ImportedSource,
+    SourceImportError,
+    import_source_file,
+    merge_imported_source_text,
+)
 from .beginner_ai_card_drafts import (
     BeginnerAICardDraftGenerator,
     BeginnerAIProviderRuntimeSettings,
@@ -43,6 +49,7 @@ from .beginner_real_write import (
     execute_beginner_write_if_confirmed,
     prepare_beginner_write,
 )
+from .file_drop_text_edit import FileDropTextEdit
 from .read_only_anki_targets import (
     BeginnerAnkiReadState,
     ReadOnlyAnkiTargetAdapter,
@@ -70,6 +77,9 @@ class CardMakerPanel(QWidget):
         self._generation_message = None
         self._target_message = None
         self._write_message = None
+        self._source_import_message = None
+        self._source_import_warning_keys = ()
+        self._applying_source_import = False
         self.session = BeginnerFlowSession()
         self.anki_target_adapter = ReadOnlyAnkiTargetAdapter(collection)
         self.duplicate_check_adapter = ReadOnlyDuplicateCheckAdapter(collection)
@@ -105,8 +115,9 @@ class CardMakerPanel(QWidget):
         self.material_title_label.setText(self.t("material_section"))
         self.material_help_label.setText(self.t("material_help"))
         self.material_input.setPlaceholderText(self.t("material_placeholder"))
-        self.choose_markdown_btn.setText(self.t("choose_markdown"))
+        self.choose_file_btn.setText(self.t("choose_file"))
         self.example_btn.setText(self.t("use_example"))
+        self._render_source_import_feedback()
 
         self.ai_title_label.setText(self.t("ai_section"))
         self.provider_label.setText(self.t("provider"))
@@ -260,23 +271,34 @@ class CardMakerPanel(QWidget):
         self.material_help_label.setProperty("role", "secondary")
         layout.addWidget(self.material_help_label)
 
-        self.material_input = QTextEdit()
+        self.material_input = FileDropTextEdit(
+            files_dropped=self._handle_dropped_files,
+        )
         self.material_input.setPlaceholderText(self.t("material_placeholder"))
         self.material_input.setMinimumHeight(150)
         self.material_input.setMaximumHeight(230)
         self.material_input.textChanged.connect(self._on_material_changed)
         layout.addWidget(self.material_input)
 
+        self.material_import_status_label = QLabel()
+        self.material_import_status_label.setProperty("role", "muted")
+        self.material_import_status_label.setWordWrap(True)
+        layout.addWidget(self.material_import_status_label)
+        self.material_import_warning_label = QLabel()
+        self.material_import_warning_label.setProperty("role", "secondary")
+        self.material_import_warning_label.setWordWrap(True)
+        layout.addWidget(self.material_import_warning_label)
+
         actions = QHBoxLayout()
-        self.choose_markdown_btn = QPushButton(self.t("choose_markdown"))
-        self.choose_markdown_btn.setProperty("role", "secondary")
-        self.choose_markdown_btn.clicked.connect(self._choose_markdown_file)
+        self.choose_file_btn = QPushButton(self.t("choose_file"))
+        self.choose_file_btn.setProperty("role", "secondary")
+        self.choose_file_btn.clicked.connect(self._choose_source_file)
         self.example_btn = QPushButton(self.t("use_example"))
         self.example_btn.setProperty("role", "secondary")
         self.example_btn.clicked.connect(self._use_example_material)
         self.material_count_label = QLabel(self.t("character_count", count=0))
         self.material_count_label.setProperty("role", "muted")
-        actions.addWidget(self.choose_markdown_btn)
+        actions.addWidget(self.choose_file_btn)
         actions.addWidget(self.example_btn)
         actions.addStretch()
         actions.addWidget(self.material_count_label)
@@ -513,32 +535,97 @@ class CardMakerPanel(QWidget):
         layout.addLayout(write_row)
         return self.write_group
 
-    def _choose_markdown_file(self):
+    def _choose_source_file(self):
         path, _selected_filter = QFileDialog.getOpenFileName(
             self,
-            self.t("choose_markdown"),
+            self.t("choose_file"),
             "",
-            self.t("markdown_filter"),
+            self.t("source_file_filter"),
         )
         if not path:
             return
-        try:
-            text = Path(path).read_text(encoding="utf-8-sig")
-        except (OSError, UnicodeError):
-            self._set_generation_message("markdown_read_failed")
+        self._import_source_path(Path(path))
+
+    def _handle_dropped_files(self, paths):
+        if not paths:
             return
-        self.material_input.setPlainText(text)
+        extra_warnings = ("source_import_first_only",) if len(paths) > 1 else ()
+        self._import_source_path(Path(paths[0]), extra_warnings=extra_warnings)
+
+    def _import_source_path(self, path, *, extra_warnings=()):
+        try:
+            imported = import_source_file(Path(path))
+        except SourceImportError as error:
+            self._set_source_import_error(
+                error.code,
+                warning_keys=extra_warnings,
+            )
+            return
+        self._apply_imported_source(imported, extra_warnings=extra_warnings)
+
+    def _apply_imported_source(self, imported: ImportedSource, *, extra_warnings=()):
+        existing_text = self.material_input.toPlainText()
+        warnings = list(imported.warnings) + list(extra_warnings)
+        combined_text, appended = merge_imported_source_text(
+            existing_text,
+            imported,
+        )
+        if appended:
+            warnings.append("source_import_appended")
+
+        self._applying_source_import = True
+        try:
+            self.material_input.setPlainText(combined_text)
+        finally:
+            self._applying_source_import = False
+        self._source_import_message = (
+            "source_imported",
+            {
+                "filename": imported.filename,
+                "kind": imported.suffix.lstrip(".").upper(),
+                "count": imported.char_count,
+            },
+        )
+        self._source_import_warning_keys = tuple(dict.fromkeys(warnings))
+        self._render_source_import_feedback()
+
+    def _set_source_import_error(self, error_code, *, warning_keys=()):
+        key = f"source_import_error_{error_code}"
+        try:
+            self.t(key)
+        except KeyError:
+            key = "source_import_error_generic"
+        self._source_import_message = (key, {})
+        self._source_import_warning_keys = tuple(warning_keys)
+        self._render_source_import_feedback()
+
+    def _clear_source_import_feedback(self):
+        self._source_import_message = None
+        self._source_import_warning_keys = ()
+        self._render_source_import_feedback()
+
+    def _render_source_import_feedback(self):
+        if self._source_import_message is None:
+            self.material_import_status_label.clear()
+        else:
+            key, values = self._source_import_message
+            self.material_import_status_label.setText(self.t(key, **values))
+        warnings = [self.t(key) for key in self._source_import_warning_keys]
+        self.material_import_warning_label.setText("\n".join(warnings))
 
     def _use_example_material(self):
         self.session.load_example_material()
         self.material_input.blockSignals(True)
         self.material_input.setPlainText(self.session.material_text)
         self.material_input.blockSignals(False)
+        self._clear_source_import_feedback()
         self._set_generation_message()
         self._after_upstream_change()
 
     def _on_material_changed(self):
         self.session.update_material(self.material_input.toPlainText())
+        if not self._applying_source_import:
+            self._clear_source_import_feedback()
         self._set_generation_message()
         self._after_upstream_change()
 
@@ -1093,6 +1180,7 @@ class CardMakerPanel(QWidget):
         self.material_input.blockSignals(True)
         self.material_input.clear()
         self.material_input.blockSignals(False)
+        self._clear_source_import_feedback()
         self.api_key_input.blockSignals(True)
         self.api_key_input.clear()
         self.api_key_input.blockSignals(False)

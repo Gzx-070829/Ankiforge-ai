@@ -45,7 +45,7 @@ class ProductStyleTests(unittest.TestCase):
     def test_secondary_and_subtle_actions_do_not_compete(self):
         source = self.panel_source()
 
-        self.assertIn('self.choose_markdown_btn.setProperty("role", "secondary")', source)
+        self.assertIn('self.choose_file_btn.setProperty("role", "secondary")', source)
         self.assertIn('self.example_btn.setProperty("role", "secondary")', source)
         self.assertIn('self.duplicate_btn.setProperty("role", "secondary")', source)
         self.assertIn('self.ai_advanced_btn.setProperty("role", "subtle")', source)

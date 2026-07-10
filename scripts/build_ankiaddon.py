@@ -65,7 +65,9 @@ ALLOWED_RUNTIME_SUFFIXES = {
 }
 REQUIRED_ARCHIVE_FILES = {
     "__init__.py",
+    "importers/source_import.py",
     "manifest.json",
+    "ui/file_drop_text_edit.py",
 }
 SECRET_PATTERNS = {
     "OpenAI-style API key": re.compile(rb"sk-[A-Za-z0-9_-]{20,}"),
