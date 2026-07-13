@@ -204,6 +204,16 @@ class BeginnerMinimalRealWriteTests(unittest.TestCase):
             (command.front_field, command.back_field, command.source_field),
             ("Front", "Back", "Extra"),
         )
+        self.assertEqual(command.cards[0].source, "Pasted text")
+        self.assertEqual(
+            command.tags,
+            (
+                "ankiforge",
+                "ankiforge-ai",
+                "mode-concept",
+                "source-paste",
+            ),
+        )
 
     def test_possible_duplicate_is_skipped_by_default(self):
         session, mapping, duplicate_preview, final_preview = self.complete_context()

@@ -7,6 +7,17 @@ import re
 from types import MappingProxyType
 from typing import Mapping, Optional
 
+from ..pipeline.card_quality import CardQualityResult, evaluate_card_batch
+from ..pipeline.generation_settings import (
+    GenerationSettings,
+    coerce_generation_settings,
+)
+from ..pipeline.write_traceability import (
+    LastWriteBatchRecord,
+    SourceType,
+    coerce_source_type,
+)
+
 
 class BeginnerFlowStep(str, Enum):
     """Stable steps in the beginner walkthrough."""
@@ -362,14 +373,13 @@ class BeginnerAICardDraft:
     source_excerpt: str = field(repr=False)
 
     def __post_init__(self) -> None:
-        for value, name in (
-            (self.id, "id"),
-            (self.front, "front"),
-            (self.back, "back"),
-            (self.source_excerpt, "source_excerpt"),
-        ):
-            if not isinstance(value, str) or not value.strip():
-                raise ValueError(f"{name} must be a non-empty string.")
+        if not isinstance(self.id, str) or not self.id.strip():
+            raise ValueError("id must be a non-empty string.")
+        for value, name in ((self.front, "front"), (self.back, "back")):
+            if not isinstance(value, str):
+                raise ValueError(f"{name} must be a string.")
+        if not isinstance(self.source_excerpt, str) or not self.source_excerpt.strip():
+            raise ValueError("source_excerpt must be a non-empty string.")
 
     def __repr__(self) -> str:
         return (
@@ -440,6 +450,18 @@ class BeginnerFlowSession:
     )
     candidate_review_decisions: dict[str, BeginnerReviewDecision] = field(
         default_factory=dict,
+        repr=False,
+    )
+    generation_settings: GenerationSettings = field(
+        default_factory=GenerationSettings,
+    )
+    source_type: SourceType = SourceType.PASTE
+    candidate_quality_results: dict[str, CardQualityResult] = field(
+        default_factory=dict,
+        repr=False,
+    )
+    last_write_batch: Optional[LastWriteBatchRecord] = field(
+        default=None,
         repr=False,
     )
     recognition_state: BeginnerArtifactState = BeginnerArtifactState.EMPTY
@@ -733,6 +755,7 @@ class BeginnerFlowSession:
         )
         self.candidate_revision += 1
         self.candidate_count = len(self.candidate_card_previews)
+        self._refresh_candidate_quality()
         self.candidate_cards_state = BeginnerArtifactState.CURRENT
         self._clear_ai_draft_values(BeginnerArtifactState.CLEARED)
         self.candidate_origin = "offline_selection"
@@ -772,10 +795,142 @@ class BeginnerFlowSession:
             for draft in resolved
         )
         self.candidate_count = len(self.candidate_card_previews)
+        self._refresh_candidate_quality()
         self.candidate_cards_state = BeginnerArtifactState.CURRENT
         self.candidate_origin = "real_ai_draft"
         self._clear_from_review("ai_drafts_generated")
         self.current_step = BeginnerFlowStep.REVIEW_CANDIDATE_CARDS
+
+    def set_generation_settings(
+        self,
+        settings: GenerationSettings,
+    ) -> None:
+        """Store non-sensitive choices and invalidate output from older choices."""
+
+        self._ensure_open()
+        resolved = coerce_generation_settings(settings)
+        if resolved == self.generation_settings:
+            return
+        self.generation_settings = resolved
+        self.ai_draft_revision += 1
+        self._clear_from_candidates("generation_settings_changed")
+        self.ai_generation_state = BeginnerAIGenerationState.IDLE
+        self.current_step = BeginnerFlowStep.SELECT_MATERIAL
+
+    def set_source_type(self, source_type: SourceType | str) -> None:
+        """Store only a coarse source type; no filename or path is retained."""
+
+        self._ensure_open()
+        resolved = coerce_source_type(source_type)
+        if resolved == self.source_type:
+            return
+        self.source_type = resolved
+        self._clear_from_candidates("source_type_changed")
+        self.current_step = BeginnerFlowStep.SELECT_MATERIAL
+
+    def quality_for_candidate(self, candidate_id: str) -> CardQualityResult:
+        try:
+            return self.candidate_quality_results[candidate_id]
+        except KeyError:
+            raise ValueError("unknown candidate quality id.") from None
+
+    def replace_candidate_content(
+        self,
+        candidate_id: str,
+        front: str,
+        back: str,
+    ) -> None:
+        """Apply one local edit, re-evaluate quality, and invalidate write state."""
+
+        self._ensure_open()
+        if not isinstance(front, str) or not isinstance(back, str):
+            raise ValueError("front and back must be strings.")
+        candidate_ids = {item.id for item in self.candidate_card_previews}
+        if candidate_id not in candidate_ids or self.candidate_origin != "real_ai_draft":
+            raise ValueError("unknown editable AI candidate id.")
+        draft_id = candidate_id.removeprefix("candidate-")
+        self.ai_candidate_card_drafts = tuple(
+            BeginnerAICardDraft(
+                id=item.id,
+                front=front if item.id == draft_id else item.front,
+                back=back if item.id == draft_id else item.back,
+                source_excerpt=item.source_excerpt,
+            )
+            for item in self.ai_candidate_card_drafts
+        )
+        self.candidate_card_previews = tuple(
+            BeginnerCandidateCardPreview(
+                id=item.id,
+                knowledge_point_id=item.knowledge_point_id,
+                front_preview=front if item.id == candidate_id else item.front_preview,
+                back_preview=back if item.id == candidate_id else item.back_preview,
+                source_excerpt=item.source_excerpt,
+            )
+            for item in self.candidate_card_previews
+        )
+        self.candidate_revision += 1
+        self.review_revision += 1
+        self.candidate_review_decisions.pop(candidate_id, None)
+        self.reviewed_candidate_count = len(self.candidate_review_decisions)
+        self.review_state = (
+            BeginnerArtifactState.CURRENT
+            if self.candidate_review_decisions
+            else BeginnerArtifactState.CLEARED
+        )
+        self._refresh_candidate_quality()
+        self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
+        self._clear_prewrite_previews("candidate_content_changed")
+
+    def discard_blocking_candidates(self) -> int:
+        """Remove only currently blocking candidates from this in-memory session."""
+
+        self._ensure_open()
+        blocking_ids = {
+            candidate_id
+            for candidate_id, quality in self.candidate_quality_results.items()
+            if quality.is_blocking
+        }
+        if not blocking_ids:
+            return 0
+        removed_draft_ids = {
+            candidate_id.removeprefix("candidate-") for candidate_id in blocking_ids
+        }
+        self.candidate_card_previews = tuple(
+            item for item in self.candidate_card_previews if item.id not in blocking_ids
+        )
+        self.ai_candidate_card_drafts = tuple(
+            item for item in self.ai_candidate_card_drafts if item.id not in removed_draft_ids
+        )
+        for candidate_id in blocking_ids:
+            self.candidate_review_decisions.pop(candidate_id, None)
+        self.candidate_count = len(self.candidate_card_previews)
+        self.reviewed_candidate_count = len(self.candidate_review_decisions)
+        has_candidates = bool(self.candidate_card_previews)
+        self.candidate_cards_state = (
+            BeginnerArtifactState.CURRENT
+            if has_candidates
+            else BeginnerArtifactState.CLEARED
+        )
+        self.review_state = (
+            BeginnerArtifactState.CURRENT
+            if self.candidate_review_decisions
+            else BeginnerArtifactState.CLEARED
+        )
+        if not has_candidates:
+            self.ai_draft_state = BeginnerArtifactState.CLEARED
+            self.candidate_origin = "none"
+            self.current_step = BeginnerFlowStep.SELECT_MATERIAL
+        self.candidate_revision += 1
+        self.review_revision += 1
+        self._refresh_candidate_quality()
+        self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
+        self._clear_prewrite_previews("blocking_candidates_discarded")
+        return len(blocking_ids)
+
+    def record_last_write_batch(self, record: LastWriteBatchRecord) -> None:
+        if not isinstance(record, LastWriteBatchRecord):
+            raise ValueError("record must be LastWriteBatchRecord.")
+        self.last_write_batch = record
 
     def begin_ai_candidate_generation(self) -> None:
         """Clear every older result before one explicit provider request."""
@@ -1082,6 +1237,13 @@ class BeginnerFlowSession:
         if candidate_id not in candidate_ids:
             raise ValueError("unknown candidate preview id.")
         normalized_decision = self._normalize_review_decision(decision)
+        quality = self.candidate_quality_results.get(candidate_id)
+        if (
+            normalized_decision is BeginnerReviewDecision.LOOKS_GOOD
+            and quality is not None
+            and quality.is_blocking
+        ):
+            raise ValueError("blocking candidate cannot be kept for writing.")
         if decision is None:
             self.candidate_review_decisions.pop(candidate_id, None)
         else:
@@ -1228,6 +1390,10 @@ class BeginnerFlowSession:
         self.candidate_card_previews = ()
         self.ai_candidate_card_drafts = ()
         self.candidate_review_decisions.clear()
+        self.generation_settings = GenerationSettings()
+        self.source_type = SourceType.PASTE
+        self.candidate_quality_results.clear()
+        self.last_write_batch = None
         self.recognition_state = BeginnerArtifactState.EMPTY
         self.knowledge_selection_state = BeginnerArtifactState.EMPTY
         self.candidate_cards_state = BeginnerArtifactState.EMPTY
@@ -1299,6 +1465,16 @@ class BeginnerFlowSession:
             "candidate_review_decision_count": len(
                 self.candidate_review_decisions
             ),
+            "generation_settings": self.generation_settings.to_safe_dict(),
+            "source_type": self.source_type.value,
+            "quality_result_count": len(self.candidate_quality_results),
+            "quality_warning_count": sum(
+                item.warning_count for item in self.candidate_quality_results.values()
+            ),
+            "quality_blocking_count": sum(
+                item.blocking_count for item in self.candidate_quality_results.values()
+            ),
+            "last_write_batch_present": self.last_write_batch is not None,
             "ai_candidate_card_draft_count": len(
                 self.ai_candidate_card_drafts
             ),
@@ -1369,6 +1545,7 @@ class BeginnerFlowSession:
     def _clear_from_candidates(self, reason: str) -> None:
         self.candidate_cards_state = BeginnerArtifactState.CLEARED
         self.candidate_card_previews = ()
+        self.candidate_quality_results.clear()
         self.candidate_count = 0
         self._clear_ai_draft_values(BeginnerArtifactState.CLEARED)
         self.candidate_origin = "none"
@@ -1417,6 +1594,15 @@ class BeginnerFlowSession:
         self.write_skipped_count = 0
         self.write_failed_count = 0
         self.write_created_note_ids = ()
+
+    def _refresh_candidate_quality(self) -> None:
+        batch = evaluate_card_batch(
+            self.candidate_card_previews,
+            self.generation_settings,
+        )
+        self.candidate_quality_results = {
+            item.candidate_id: item.quality for item in batch.results
+        }
 
     def _ensure_open(self) -> None:
         if self.closed:

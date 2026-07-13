@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
+from ..pipeline.write_traceability import validate_tags
+
 
 WRITE_TARGET_ERROR_COPY = (
     "无法使用所选牌组、笔记类型或字段。没有创建新的 Anki note。"
@@ -69,6 +71,7 @@ class BeginnerWriteCommand:
     source_field: Optional[str]
     cards: tuple[BeginnerWriteCardCommand, ...] = field(repr=False)
     skipped_count: int = 0
+    tags: tuple[str, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         if not isinstance(self.snapshot_id, str) or not self.snapshot_id.strip():
@@ -108,6 +111,7 @@ class BeginnerWriteCommand:
         if len(set(candidate_ids)) != len(candidate_ids):
             raise ValueError("candidate ids must be unique.")
         _validate_count(self.skipped_count, "skipped_count")
+        validate_tags(self.tags, allow_empty=True)
 
     @property
     def requested_count(self) -> int:
@@ -119,7 +123,7 @@ class BeginnerWriteCommand:
             f"snapshot_id={self.snapshot_id!r}, deck_id={self.deck_id}, "
             f"note_type_id={self.note_type_id}, "
             f"requested_count={self.requested_count}, "
-            f"skipped_count={self.skipped_count})"
+            f"skipped_count={self.skipped_count}, tag_count={len(self.tags)})"
         )
 
     def to_safe_dict(self) -> dict:
@@ -134,6 +138,7 @@ class BeginnerWriteCommand:
             "source_field": self.source_field,
             "requested_count": self.requested_count,
             "skipped_count": self.skipped_count,
+            "tag_count": len(self.tags),
         }
 
 
@@ -235,6 +240,12 @@ class MinimalAnkiWriter:
                 note[command.back_field] = card.back
                 if command.source_field:
                     note[command.source_field] = card.source
+                if command.tags:
+                    add_tag = getattr(note, "add_tag", None)
+                    if not callable(add_tag):
+                        raise ValueError("Anki note does not support tag application.")
+                    for tag in command.tags:
+                        add_tag(tag)
                 operation_result = self._collection.add_note(note, command.deck_id)
                 note_id = _created_note_id(operation_result, note)
                 results.append(

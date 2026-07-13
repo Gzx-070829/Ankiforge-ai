@@ -8,6 +8,12 @@ from typing import Optional
 import urllib.error
 from urllib.parse import urlsplit
 
+from ..pipeline.generation_settings import (
+    GenerationSettings,
+    card_limit_for_settings,
+    coerce_generation_settings,
+)
+from ..pipeline.prompt_profile import build_prompt_profile
 from ..pipeline.openai_compatible_http_transport import (
     OpenAICompatibleHTTPTransport,
 )
@@ -200,18 +206,27 @@ class BeginnerAICardDraftGenerator:
         self,
         settings: BeginnerAIProviderRuntimeSettings,
         material_text: str,
-        max_cards: int = 5,
+        max_cards: Optional[int] = None,
+        generation_settings: Optional[GenerationSettings] = None,
     ) -> BeginnerAICardDraftGenerationResult:
         if not isinstance(settings, BeginnerAIProviderRuntimeSettings):
             raise ValueError("settings must be BeginnerAIProviderRuntimeSettings.")
         if not isinstance(material_text, str) or not material_text.strip():
             return _failure(BeginnerAIGenerationState.EMPTY_CARDS)
+        resolved_generation_settings = coerce_generation_settings(
+            generation_settings
+        )
+        resolved_max_cards = (
+            card_limit_for_settings(resolved_generation_settings)
+            if max_cards is None
+            else max_cards
+        )
         if (
-            isinstance(max_cards, bool)
-            or not isinstance(max_cards, int)
-            or not 1 <= max_cards <= 5
+            isinstance(resolved_max_cards, bool)
+            or not isinstance(resolved_max_cards, int)
+            or not 1 <= resolved_max_cards <= 10
         ):
-            raise ValueError("max_cards must be an integer from 1 to 5.")
+            raise ValueError("max_cards must be an integer from 1 to 10.")
 
         transport = self._transport or OpenAICompatibleHTTPTransport()
         try:
@@ -221,7 +236,12 @@ class BeginnerAICardDraftGenerator:
                     "Authorization": f"Bearer {settings.api_key}",
                     "Content-Type": "application/json",
                 },
-                payload=_build_payload(settings, material_text, max_cards),
+                payload=_build_payload(
+                    settings,
+                    material_text,
+                    resolved_max_cards,
+                    resolved_generation_settings,
+                ),
                 timeout_seconds=settings.timeout_seconds,
             )
         except Exception as error:
@@ -238,7 +258,10 @@ class BeginnerAICardDraftGenerator:
         content = _extract_assistant_content(response.json_body)
         if not content:
             return _failure(BeginnerAIGenerationState.EMPTY_OUTPUT)
-        return parse_beginner_ai_card_drafts(content, max_cards=max_cards)
+        return parse_beginner_ai_card_drafts(
+            content,
+            max_cards=resolved_max_cards,
+        )
 
 
 def parse_beginner_ai_card_drafts(
@@ -252,9 +275,9 @@ def parse_beginner_ai_card_drafts(
     if (
         isinstance(max_cards, bool)
         or not isinstance(max_cards, int)
-        or not 1 <= max_cards <= 5
+        or not 1 <= max_cards <= 10
     ):
-        raise ValueError("max_cards must be an integer from 1 to 5.")
+        raise ValueError("max_cards must be an integer from 1 to 10.")
     payload = _extract_first_json_value(_strip_markdown_fence(json_text.strip()))
     if payload is None:
         return _failure(BeginnerAIGenerationState.INVALID_JSON)
@@ -297,19 +320,31 @@ def parse_beginner_ai_card_drafts(
 
 
 def _build_payload(
-    settings: BeginnerAIProviderRuntimeSettings,
+    runtime_settings: BeginnerAIProviderRuntimeSettings,
     material_text: str,
-    max_cards: int,
+    max_cards: Optional[int] = None,
+    settings: Optional[GenerationSettings] = None,
 ) -> dict:
+    generation_settings = coerce_generation_settings(settings)
+    resolved_max_cards = (
+        card_limit_for_settings(generation_settings)
+        if max_cards is None
+        else max_cards
+    )
+    profile = build_prompt_profile(generation_settings)
     return {
-        "model": settings.model,
+        "model": runtime_settings.model,
         "messages": [
             {"role": "system", "content": _SYSTEM_PROMPT},
             {
                 "role": "user",
-                "content": _USER_PROMPT_TEMPLATE.format(
-                    max_cards=max_cards,
-                    material_text=material_text,
+                "content": (
+                    _USER_PROMPT_TEMPLATE.format(
+                        max_cards=resolved_max_cards,
+                        material_text=material_text,
+                    )
+                    + "\n\n"
+                    + profile.as_prompt_text()
                 ),
             },
         ],
