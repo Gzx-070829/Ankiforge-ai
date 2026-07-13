@@ -149,7 +149,7 @@ hidden by default and is not part of the normal task flow.
 
 ## Preview artifacts
 
-- Executable static preview: [`ui_preview_v0_12_2.html`](ui_preview_v0_12_2.html)
+- Latest executable static preview: [`ui_preview_v0_12_3.html`](ui_preview_v0_12_3.html)
 - Chinese default state: [`screenshots/v0_12_2_ui_rescue_zh_default.png`](screenshots/v0_12_2_ui_rescue_zh_default.png)
 - English default state: [`screenshots/v0_12_2_ui_rescue_en_default.png`](screenshots/v0_12_2_ui_rescue_en_default.png)
 

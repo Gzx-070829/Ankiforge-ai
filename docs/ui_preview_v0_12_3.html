@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AnkiForge AI v0.12.2 UI preview</title>
+  <title>AnkiForge AI v0.12.3 static UI preview</title>
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; width: 1280px; height: 1020px; overflow: hidden; }
@@ -34,7 +34,7 @@
     .actions { display: flex; align-items: center; gap: 8px; }
     .count { color: #6b7280; margin-left: auto; font-size: 12px; }
     .generation-card { min-height: 132px; }
-    .provider-card { min-height: 290px; }
+    .provider-card { min-height: 278px; }
     .form { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; align-items: center; }
     .label { color: #d1d5db; font-weight: 500; }
     .control {
@@ -45,10 +45,13 @@
     .span-control { grid-column: 2; }
     .mode-hint { margin: 9px 0 0 108px; }
     .more { display: flex; justify-content: space-between; color: #9ca3af; margin-top: 13px; font-size: 12px; }
-    .provider-hint { grid-column: 2; margin-top: -6px; }
-    .quiet { text-align: right; color: #6b7280; font-size: 11px; margin-top: 8px; }
+    .provider-form { display: flex; flex-direction: column; gap: 12px; }
+    .provider-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 16px; align-items: start; }
+    .provider-row > .label { min-height: 40px; display: flex; align-items: center; }
+    .provider-field { min-width: 0; }
+    .provider-stack { display: flex; flex-direction: column; gap: 4px; }
     .primary {
-      width: 100%; height: 44px; margin-top: 12px; border: 1px solid #475569;
+      width: 100%; height: 44px; margin-top: 16px; border: 1px solid #475569;
       border-radius: 8px; background: #334155; color: #94a3b8; font-weight: 700;
     }
     .cards-card { height: 294px; display: grid; place-items: center; text-align: center; }
@@ -60,6 +63,12 @@
       margin-top: 12px; padding: 12px; min-height: 48px; color: #9ca3af;
       background: #24272b; border: 1px solid #353a42; border-radius: 8px; font-size: 12px;
     }
+    body.focus-provider { width: 640px; height: 410px; padding: 20px; }
+    body.focus-provider header, body.focus-provider .column.right-column,
+    body.focus-provider .left-column > section:not(:last-child) { display: none; }
+    body.focus-provider main { display: block; }
+    body.focus-provider .left-column { display: block; }
+    body.focus-provider .provider-card { min-height: 320px; }
   </style>
 </head>
 <body>
@@ -68,7 +77,7 @@
     <button class="language" data-copy="language"></button>
   </header>
   <main>
-    <div class="column">
+    <div class="column left-column">
       <section>
         <h2 data-copy="materialTitle"></h2>
         <div class="card material-card">
@@ -88,18 +97,19 @@
       <section>
         <h2>AI Provider</h2>
         <div class="card provider-card">
-          <div class="form">
-            <div class="label">Provider</div><div class="control">DeepSeek&nbsp; ▾</div>
-            <div class="label">Model</div><div class="control">deepseek-v4-flash</div>
-            <div class="label">API key</div><div class="control muted-control" data-copy="apiPlaceholder"></div>
-            <div class="hint provider-hint" data-copy="apiHint"></div>
+          <div class="provider-form">
+            <div class="provider-row"><div class="label">Provider</div><div class="control provider-field">DeepSeek&nbsp; ▾</div></div>
+            <div class="provider-row"><div class="label">Model</div><div class="control provider-field">deepseek-v4-flash</div></div>
+            <div class="provider-row">
+              <div class="label">API key</div>
+              <div class="provider-field provider-stack"><div class="control muted-control" data-copy="apiPlaceholder"></div><div class="hint" data-copy="apiHint"></div></div>
+            </div>
           </div>
-          <div class="quiet" data-copy="providerMore"></div>
           <button class="primary" data-copy="generate"></button>
         </div>
       </section>
     </div>
-    <div class="column">
+    <div class="column right-column">
       <section>
         <h2 data-copy="cardsTitle"></h2>
         <div class="card cards-card"><div><div class="empty-title" data-copy="emptyTitle"></div><div class="hint" data-copy="emptyHelp"></div></div></div>
@@ -129,7 +139,7 @@
         choose: "选择文件", example: "使用示例", count: "0 字符", generationTitle: "生成设置",
         cardMode: "卡片模式", concept: "概念理解  ▾", modeHint: "理解概念、原因、区别和意义。",
         more: "更多选项", show: "展开  ▾", apiPlaceholder: "输入 API key", apiHint: "仅本次使用，不会保存。",
-        providerMore: "更多设置", generate: "生成卡片", cardsTitle: "生成的卡片", emptyTitle: "还没有卡片",
+        generate: "生成卡片", cardsTitle: "生成的卡片", emptyTitle: "还没有卡片",
         emptyHelp: "放入材料后点击“生成卡片”。", writeTitle: "写入 Anki", deck: "目标牌组", select: "请选择  ▾",
         noteType: "笔记类型", front: "正面", back: "背面", source: "来源", noSource: "不使用  ▾",
         duplicates: "检查重复", notChecked: "未检查", summary: "完成审核和重复检查后，将显示写入摘要。", write: "写入 Anki"
@@ -140,13 +150,14 @@
         choose: "Choose File", example: "Use Example", count: "0 characters", generationTitle: "Generation Settings",
         cardMode: "Card mode", concept: "Concept  ▾", modeHint: "Understand concepts, causes, differences, and significance.",
         more: "More options", show: "Show  ▾", apiPlaceholder: "Enter API key", apiHint: "Used only for this session. Not saved.",
-        providerMore: "More settings", generate: "Generate Cards", cardsTitle: "Generated Cards", emptyTitle: "No cards yet",
+        generate: "Generate Cards", cardsTitle: "Generated Cards", emptyTitle: "No cards yet",
         emptyHelp: "Add material, then click “Generate cards”.", writeTitle: "Write to Anki", deck: "Deck", select: "Select  ▾",
         noteType: "Note type", front: "Front", back: "Back", source: "Source", noSource: "Do not use  ▾",
         duplicates: "Check Duplicates", notChecked: "Not checked", summary: "Review cards and check duplicates to see the write summary.", write: "Write to Anki"
       }
     };
     const language = new URLSearchParams(location.search).get("lang") === "en" ? "en" : "zh";
+    if (new URLSearchParams(location.search).get("focus") === "provider") document.body.classList.add("focus-provider");
     document.documentElement.lang = language === "en" ? "en" : "zh-CN";
     for (const node of document.querySelectorAll("[data-copy]")) node.textContent = copy[language][node.dataset.copy];
   </script>

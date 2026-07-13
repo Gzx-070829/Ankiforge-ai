@@ -78,6 +78,9 @@ SPACING_MD = 12
 SPACING_LG = 16
 COLUMN_GAP = 24
 FORM_LABEL_WIDTH = 96
+FORM_HORIZONTAL_GAP = 16
+ROW_GAP = 12
+HINT_TOP_MARGIN = 4
 CONTROL_HEIGHT = 40
 BUTTON_HEIGHT = 36
 PRIMARY_BUTTON_HEIGHT = 44
@@ -154,7 +157,6 @@ class CardMakerPanel(QWidget):
         self._retranslate_generation_settings()
         self.base_url_label.setText(self.t("base_url"))
         self.timeout_label.setText(self.t("timeout"))
-        self._toggle_ai_advanced(self.ai_advanced_btn.isChecked())
 
         self.cards_title_label.setText(self.t("cards_section"))
         self.empty_cards_title.setText(self.t("no_cards"))
@@ -413,6 +415,18 @@ class CardMakerPanel(QWidget):
         )
         return label
 
+    def _make_provider_form_row(self, label, control):
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(FORM_HORIZONTAL_GAP)
+        label.setFixedWidth(FORM_LABEL_WIDTH)
+        label.setMinimumHeight(CONTROL_HEIGHT)
+        label.setWordWrap(False)
+        self._configure_form_control(control)
+        row.addWidget(label, 0, Qt.AlignmentFlag.AlignTop)
+        row.addWidget(control, 1, Qt.AlignmentFlag.AlignTop)
+        return row
+
     @staticmethod
     def _configure_form_control(widget):
         widget.setMinimumHeight(CONTROL_HEIGHT)
@@ -421,11 +435,6 @@ class CardMakerPanel(QWidget):
     def _add_form_row(self, form, label, control):
         self._configure_form_control(control)
         form.addRow(label, control)
-
-    def _add_form_hint(self, form, hint):
-        hint.setProperty("role", "secondary")
-        hint.setWordWrap(True)
-        form.addRow(self._make_form_label(""), hint)
 
     @staticmethod
     def _configure_secondary_button(button):
@@ -587,8 +596,9 @@ class CardMakerPanel(QWidget):
             layout,
         ) = self._make_section("ai_provider")
 
-        provider_form = QFormLayout()
-        self._configure_form_layout(provider_form)
+        provider_rows = QVBoxLayout()
+        provider_rows.setContentsMargins(0, 0, 0, 0)
+        provider_rows.setSpacing(ROW_GAP)
 
         self.provider_combo = QComboBox()
         self.provider_combo.addItem(
@@ -607,19 +617,21 @@ class CardMakerPanel(QWidget):
             self._on_provider_changed
         )
         self.provider_label = self._make_form_label(self.t("provider"))
-        self._add_form_row(
-            provider_form,
-            self.provider_label,
-            self.provider_combo,
+        provider_rows.addLayout(
+            self._make_provider_form_row(
+                self.provider_label,
+                self.provider_combo,
+            )
         )
 
         self.model_input = QLineEdit("deepseek-v4-flash")
         self.model_input.setPlaceholderText(self.t("model_placeholder"))
         self.model_label = self._make_form_label(self.t("model"))
-        self._add_form_row(
-            provider_form,
-            self.model_label,
-            self.model_input,
+        provider_rows.addLayout(
+            self._make_provider_form_row(
+                self.model_label,
+                self.model_input,
+            )
         )
 
         self.api_key_input = QLineEdit()
@@ -630,50 +642,55 @@ class CardMakerPanel(QWidget):
         )
         self.api_key_input.setEchoMode(password_mode)
         self.api_key_input.setPlaceholderText(self.t("api_key_placeholder"))
+        self._configure_form_control(self.api_key_input)
         self.api_key_label = self._make_form_label(self.t("api_key"))
-        self._add_form_row(
-            provider_form,
-            self.api_key_label,
-            self.api_key_input,
-        )
-
         self.api_key_help_label = QLabel(self.t("api_key_help"))
-        self._add_form_hint(provider_form, self.api_key_help_label)
-        layout.addLayout(provider_form)
+        self.api_key_help_label.setProperty("role", "muted")
+        self.api_key_help_label.setWordWrap(True)
+        self.api_key_field = QWidget()
+        api_key_field_layout = QVBoxLayout(self.api_key_field)
+        api_key_field_layout.setContentsMargins(0, 0, 0, 0)
+        api_key_field_layout.setSpacing(HINT_TOP_MARGIN)
+        api_key_field_layout.addWidget(self.api_key_input)
+        api_key_field_layout.addWidget(self.api_key_help_label)
+        provider_rows.addLayout(
+            self._make_provider_form_row(
+                self.api_key_label,
+                self.api_key_field,
+            )
+        )
+        layout.addLayout(provider_rows)
 
-        self.ai_advanced_btn = QPushButton(self.t("advanced_settings"))
-        self.ai_advanced_btn.setProperty("role", "subtle")
-        self.ai_advanced_btn.setCheckable(True)
-        self.ai_advanced_btn.setFlat(True)
-        self.ai_advanced_btn.toggled.connect(self._toggle_ai_advanced)
-        layout.addWidget(self.ai_advanced_btn, 0)
-
-        self.ai_advanced_container = QWidget()
-        advanced_form = QFormLayout(self.ai_advanced_container)
-        self._configure_form_layout(advanced_form)
+        self.provider_connection_container = QWidget()
+        connection_rows = QVBoxLayout(self.provider_connection_container)
+        connection_rows.setContentsMargins(0, 0, 0, 0)
+        connection_rows.setSpacing(ROW_GAP)
         self.base_url_input = QLineEdit("https://api.deepseek.com")
         self.base_url_label = self._make_form_label(self.t("base_url"))
-        self._add_form_row(
-            advanced_form,
-            self.base_url_label,
-            self.base_url_input,
+        connection_rows.addLayout(
+            self._make_provider_form_row(
+                self.base_url_label,
+                self.base_url_input,
+            )
         )
         self.timeout_input = QSpinBox()
         self.timeout_input.setRange(1, 300)
         self.timeout_input.setValue(60)
         self.timeout_label = self._make_form_label(self.t("timeout"))
-        self._add_form_row(
-            advanced_form,
-            self.timeout_label,
-            self.timeout_input,
+        connection_rows.addLayout(
+            self._make_provider_form_row(
+                self.timeout_label,
+                self.timeout_input,
+            )
         )
-        self.ai_advanced_container.setVisible(False)
-        layout.addWidget(self.ai_advanced_container)
+        self.provider_connection_container.setVisible(False)
+        layout.addWidget(self.provider_connection_container)
 
         self.generate_btn = QPushButton(self.t("generate_cards"))
         self._configure_primary_button(self.generate_btn)
         self.generate_btn.setDefault(True)
         self.generate_btn.clicked.connect(self._generate_cards)
+        layout.addSpacing(SPACING_LG)
         layout.addWidget(self.generate_btn)
         self.generation_status_label = QLabel()
         self.generation_status_label.setProperty("role", "status")
@@ -957,6 +974,9 @@ class CardMakerPanel(QWidget):
         _provider_name, base_url, suggested_model = (
             self.provider_combo.currentData()
         )
+        self.provider_connection_container.setVisible(
+            _provider_name == "OpenAI-compatible"
+        )
         previous_model = self.model_input.text().strip()
         self.base_url_input.blockSignals(True)
         self.base_url_input.setText(base_url)
@@ -970,14 +990,6 @@ class CardMakerPanel(QWidget):
             self.model_input.setText(suggested_model)
             self.model_input.blockSignals(False)
         self._on_ai_settings_changed()
-
-    def _toggle_ai_advanced(self, expanded):
-        self.ai_advanced_container.setVisible(expanded)
-        self.ai_advanced_btn.setText(
-            self.t("advanced_settings_collapse")
-            if expanded
-            else self.t("advanced_settings")
-        )
 
     def _toggle_generation_settings(self, expanded):
         self.generation_settings_container.setVisible(expanded)
