@@ -46,6 +46,13 @@ QWidget#CardMakerPanel QLabel[role="sectionTitle"] {
     padding: 0;
 }
 
+QWidget#CardMakerPanel QLabel[role="subsectionTitle"] {
+    color: #D1D5DB;
+    font-size: 13px;
+    font-weight: 600;
+    padding-top: 3px;
+}
+
 QWidget#CardMakerPanel QLabel[role="status"],
 QWidget#CardMakerPanel QLabel[role="success"],
 QWidget#CardMakerPanel QLabel[role="warning"],
@@ -210,9 +217,9 @@ QWidget#CardMakerPanel QPushButton[role="primary"]:hover {
 }
 
 QWidget#CardMakerPanel QPushButton[role="primary"]:disabled {
-    background-color: #3A3D42;
-    color: #7A7F87;
-    border-color: #3A3D42;
+    background-color: #334155;
+    color: #94A3B8;
+    border-color: #475569;
 }
 
 QWidget#CardMakerPanel QPushButton[role="subtle"] {

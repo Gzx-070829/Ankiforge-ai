@@ -110,7 +110,7 @@ class SingleScreenCardMakerTests(unittest.TestCase):
         refresh = self.function_source(panel, "_refresh_product_state")
 
         self.assertIn('self.t("check_duplicates")', panel)
-        self.assertEqual(PRODUCT_COPY["zh"]["duplicates_clear"], "未发现重复")
+        self.assertEqual(PRODUCT_COPY["zh"]["duplicates_clear"], "已检查")
         self.assertEqual(PRODUCT_COPY["zh"]["duplicates_skipped"], "可能重复，已跳过")
         self.assertEqual(PRODUCT_COPY["zh"]["duplicates_unchecked"], "未检查")
         self.assertIn("self.write_preparation.can_write", refresh)

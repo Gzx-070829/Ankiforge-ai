@@ -132,10 +132,14 @@ class CardMakerPanel(QWidget):
         self._render_source_import_feedback()
 
         self.ai_title_label.setText(self.t("ai_section"))
+        self.generation_preferences_label.setText(
+            self.t("generation_preferences")
+        )
+        self.provider_settings_label.setText(self.t("provider_settings"))
+        self.api_key_section_label.setText(self.t("api_key"))
         self.provider_label.setText(self.t("provider"))
         self.model_label.setText(self.t("model"))
         self.model_input.setPlaceholderText(self.t("model_placeholder"))
-        self.api_key_label.setText(self.t("api_key"))
         self.api_key_input.setPlaceholderText(self.t("api_key_placeholder"))
         self.api_key_help_label.setText(self.t("api_key_help"))
         self.card_mode_label.setText(self.t("card_mode"))
@@ -382,9 +386,10 @@ class CardMakerPanel(QWidget):
         ) = self._make_section("material_section")
         self.material_help_label = QLabel(self.t("material_help"))
         self.material_help_label.setProperty("role", "secondary")
+        self.material_help_label.setWordWrap(True)
         layout.addWidget(self.material_help_label)
         self.first_run_guidance_label = QLabel(self.t("first_run_guidance"))
-        self.first_run_guidance_label.setProperty("role", "secondary")
+        self.first_run_guidance_label.setProperty("role", "muted")
         self.first_run_guidance_label.setWordWrap(True)
         layout.addWidget(self.first_run_guidance_label)
 
@@ -432,49 +437,17 @@ class CardMakerPanel(QWidget):
             self.ai_card,
             layout,
         ) = self._make_section("ai_section")
-        layout.setSpacing(10)
-        provider_model_row = QHBoxLayout()
-        provider_model_row.setSpacing(20)
+        layout.setSpacing(12)
 
-        self.provider_combo = QComboBox()
-        self.provider_combo.addItem(
-            "DeepSeek",
-            ("DeepSeek", "https://api.deepseek.com", "deepseek-v4-flash"),
+        self.generation_preferences_label = QLabel(
+            self.t("generation_preferences")
         )
-        self.provider_combo.addItem(
-            "OpenAI",
-            ("OpenAI", "https://api.openai.com/v1", "gpt-4o-mini"),
-        )
-        self.provider_combo.addItem(
-            "OpenAI-compatible",
-            ("OpenAI-compatible", "", ""),
-        )
-        self.provider_combo.currentIndexChanged.connect(
-            self._on_provider_changed
-        )
-        self.provider_label = QLabel(self.t("provider"))
-        self.provider_label.setProperty("role", "fieldLabel")
-        self.provider_combo.setMinimumWidth(220)
-        provider_field = QVBoxLayout()
-        provider_field.setSpacing(7)
-        provider_field.addWidget(self.provider_label)
-        provider_field.addWidget(self.provider_combo)
-        provider_model_row.addLayout(provider_field, 1)
+        self.generation_preferences_label.setProperty("role", "subsectionTitle")
+        layout.addWidget(self.generation_preferences_label)
 
-        self.model_input = QLineEdit("deepseek-v4-flash")
-        self.model_input.setPlaceholderText(self.t("model_placeholder"))
-        self.model_label = QLabel(self.t("model"))
-        self.model_label.setProperty("role", "fieldLabel")
-        self.model_input.setMinimumWidth(240)
-        model_field = QVBoxLayout()
-        model_field.setSpacing(7)
-        model_field.addWidget(self.model_label)
-        model_field.addWidget(self.model_input)
-        provider_model_row.addLayout(model_field, 1)
-        layout.addLayout(provider_model_row)
-
-        mode_row = QHBoxLayout()
-        mode_row.setSpacing(12)
+        mode_form = QFormLayout()
+        mode_form.setHorizontalSpacing(14)
+        mode_form.setVerticalSpacing(8)
         self.card_mode_label = QLabel(self.t("card_mode"))
         self.card_mode_label.setProperty("role", "fieldLabel")
         self.card_mode_combo = QComboBox()
@@ -485,13 +458,13 @@ class CardMakerPanel(QWidget):
             ("quick_review", "mode_quick_review"),
         ):
             self.card_mode_combo.addItem(self.t(key), mode_id)
+        mode_form.addRow(self.card_mode_label, self.card_mode_combo)
+        layout.addLayout(mode_form)
+
         self.card_mode_description_label = QLabel()
         self.card_mode_description_label.setProperty("role", "secondary")
         self.card_mode_description_label.setWordWrap(True)
-        mode_row.addWidget(self.card_mode_label)
-        mode_row.addWidget(self.card_mode_combo, 1)
-        mode_row.addWidget(self.card_mode_description_label, 2)
-        layout.addLayout(mode_row)
+        layout.addWidget(self.card_mode_description_label)
 
         self.generation_settings_btn = QPushButton(
             self.t("generation_settings")
@@ -507,6 +480,8 @@ class CardMakerPanel(QWidget):
         self.generation_settings_container = QWidget()
         generation_form = QFormLayout(self.generation_settings_container)
         generation_form.setContentsMargins(18, 0, 0, 0)
+        generation_form.setHorizontalSpacing(14)
+        generation_form.setVerticalSpacing(8)
         self.card_count_combo = QComboBox()
         for value, key in (
             ("auto", "card_count_auto"),
@@ -544,6 +519,44 @@ class CardMakerPanel(QWidget):
         self.generation_settings_container.setVisible(False)
         layout.addWidget(self.generation_settings_container)
 
+        self.provider_settings_label = QLabel(self.t("provider_settings"))
+        self.provider_settings_label.setProperty("role", "subsectionTitle")
+        layout.addWidget(self.provider_settings_label)
+
+        provider_form = QFormLayout()
+        provider_form.setHorizontalSpacing(14)
+        provider_form.setVerticalSpacing(8)
+
+        self.provider_combo = QComboBox()
+        self.provider_combo.addItem(
+            "DeepSeek",
+            ("DeepSeek", "https://api.deepseek.com", "deepseek-v4-flash"),
+        )
+        self.provider_combo.addItem(
+            "OpenAI",
+            ("OpenAI", "https://api.openai.com/v1", "gpt-4o-mini"),
+        )
+        self.provider_combo.addItem(
+            "OpenAI-compatible",
+            ("OpenAI-compatible", "", ""),
+        )
+        self.provider_combo.currentIndexChanged.connect(
+            self._on_provider_changed
+        )
+        self.provider_label = QLabel(self.t("provider"))
+        self.provider_label.setProperty("role", "fieldLabel")
+        provider_form.addRow(self.provider_label, self.provider_combo)
+
+        self.model_input = QLineEdit("deepseek-v4-flash")
+        self.model_input.setPlaceholderText(self.t("model_placeholder"))
+        self.model_label = QLabel(self.t("model"))
+        self.model_label.setProperty("role", "fieldLabel")
+        provider_form.addRow(self.model_label, self.model_input)
+        layout.addLayout(provider_form)
+
+        self.api_key_section_label = QLabel(self.t("api_key"))
+        self.api_key_section_label.setProperty("role", "subsectionTitle")
+        layout.addWidget(self.api_key_section_label)
         self.api_key_input = QLineEdit()
         password_mode = (
             QLineEdit.EchoMode.Password
@@ -552,14 +565,7 @@ class CardMakerPanel(QWidget):
         )
         self.api_key_input.setEchoMode(password_mode)
         self.api_key_input.setPlaceholderText(self.t("api_key_placeholder"))
-        self.api_key_label = QLabel(self.t("api_key"))
-        self.api_key_label.setProperty("role", "fieldLabel")
-        api_key_field = QVBoxLayout()
-        api_key_field.setContentsMargins(0, 3, 0, 0)
-        api_key_field.setSpacing(7)
-        api_key_field.addWidget(self.api_key_label)
-        api_key_field.addWidget(self.api_key_input)
-        layout.addLayout(api_key_field)
+        layout.addWidget(self.api_key_input)
 
         self.api_key_help_label = QLabel(self.t("api_key_help"))
         self.api_key_help_label.setProperty("role", "secondary")
@@ -586,19 +592,17 @@ class CardMakerPanel(QWidget):
         self.ai_advanced_container.setVisible(False)
         layout.addWidget(self.ai_advanced_container)
 
-        action_row = QHBoxLayout()
         self.generate_btn = QPushButton(self.t("generate_cards"))
         self.generate_btn.setProperty("role", "primary")
         self.generate_btn.setDefault(True)
-        self.generate_btn.setFixedSize(178, 44)
+        self.generate_btn.setMinimumHeight(44)
         self.generate_btn.clicked.connect(self._generate_cards)
+        layout.addWidget(self.generate_btn)
         self.generation_status_label = QLabel()
         self.generation_status_label.setProperty("role", "status")
         self.generation_status_label.setWordWrap(True)
         self.generation_status_label.setVisible(False)
-        action_row.addWidget(self.generate_btn)
-        action_row.addWidget(self.generation_status_label, 1)
-        layout.addLayout(action_row)
+        layout.addWidget(self.generation_status_label)
 
         for widget in (
             self.model_input,
@@ -632,6 +636,7 @@ class CardMakerPanel(QWidget):
         self.review_required_label = QLabel(self.t("review_required"))
         self.review_required_label.setProperty("role", "secondary")
         self.review_required_label.setWordWrap(True)
+        self.review_required_label.setVisible(False)
         layout.addWidget(self.review_required_label)
         quality_row = QHBoxLayout()
         self.quality_summary_label = QLabel()
@@ -1000,6 +1005,7 @@ class CardMakerPanel(QWidget):
         self.card_button_groups = {}
         cards = self.session.candidate_card_previews
         if not cards:
+            self.review_required_label.setVisible(False)
             self.quality_summary_label.setVisible(False)
             self.discard_blocking_btn.setVisible(False)
             self.cards_empty_widget.setVisible(True)
@@ -1007,6 +1013,7 @@ class CardMakerPanel(QWidget):
             return
         self.cards_empty_widget.setVisible(False)
         self.cards_scroll.setVisible(True)
+        self.review_required_label.setVisible(True)
         qualities = tuple(
             self.session.quality_for_candidate(card.id) for card in cards
         )
@@ -1040,13 +1047,8 @@ class CardMakerPanel(QWidget):
             card_layout.addWidget(front)
             card_layout.addWidget(back)
 
-            quality_status = self.t(f"quality_status_{quality.severity}")
             quality_label = QLabel(
-                self.t(
-                    "quality_score",
-                    score=round(quality.quality_score * 100),
-                    status=quality_status,
-                )
+                self.t(f"quality_status_{quality.severity}")
             )
             self._set_status_role(
                 quality_label,

@@ -10,15 +10,18 @@ from ankiforge_ai.ui.product_i18n import PRODUCT_COPY
 
 
 class FileDropImportContractTests(unittest.TestCase):
-    def test_file_picker_and_placeholder_cover_supported_extensions(self):
+    def test_file_picker_and_help_cover_supported_extensions(self):
         zh = PRODUCT_COPY["zh"]
         en = PRODUCT_COPY["en"]
 
         self.assertEqual(zh["choose_file"], "选择文件")
         self.assertEqual(en["choose_file"], "Choose file")
+        for suffix in (".md", ".txt", ".docx"):
+            self.assertIn(suffix, zh["material_help"])
+            self.assertIn(suffix, en["material_help"])
+        self.assertIn("PDF", zh["material_help"])
+        self.assertIn("PDF", en["material_help"])
         for suffix in (".md", ".txt", ".docx", ".pdf"):
-            self.assertIn(suffix, zh["material_placeholder"])
-            self.assertIn(suffix, en["material_placeholder"])
             self.assertIn(suffix, zh["source_file_filter"])
             self.assertIn(suffix, en["source_file_filter"])
 

@@ -10,19 +10,15 @@ PRODUCT_COPY = {
         "title": "AnkiForge AI",
         "subtitle": "把学习材料变成 Anki 卡片",
         "language_toggle": "English",
-        "advanced_debug": "高级 / 调试工具",
-        "advanced_debug_collapse": "收起高级 / 调试工具",
-        "advanced_debug_help": "旧流程与开发调试入口。普通制卡不需要使用这里。",
+        "advanced_debug": "高级",
+        "advanced_debug_collapse": "收起高级",
+        "advanced_debug_help": "旧版工具入口。普通制卡不需要使用。",
         "open_legacy_flow": "打开旧流程工具",
-        "open_debug_panel": "打开旧调试面板",
+        "open_debug_panel": "打开旧版工具",
         "material_section": "学习材料",
-        "material_help": "粘贴学习材料，或导入本地文件；导入后仍可继续编辑。",
-        "first_run_guidance": (
-            "这是 Anki 插件，不提供现成卡组。请放入自己的学习材料并使用自己的 "
-            "AI Provider API key；API key 仅在当前窗口使用，不保存。生成后请逐张审核，"
-            "写入前还要再次确认。建议先使用测试牌组。"
-        ),
-        "material_placeholder": "粘贴材料，或拖入 .md / .txt / .docx / .pdf 文件",
+        "material_help": "粘贴学习材料，或导入 .md / .txt / .docx 文件。PDF 请先复制文本或转换格式。",
+        "first_run_guidance": "第一次使用？可以先试试示例材料，并写入测试牌组。",
+        "material_placeholder": "粘贴材料，或拖入文件",
         "choose_file": "选择文件",
         "source_file_filter": (
             "支持的文件 (*.md *.markdown *.txt *.docx *.pdf);;"
@@ -65,12 +61,14 @@ PRODUCT_COPY = {
             "未提取到可复制文本，该 PDF 可能是扫描版；当前不支持 OCR。"
         ),
         "ai_section": "AI",
+        "generation_preferences": "生成偏好",
+        "provider_settings": "Provider 配置",
         "provider": "Provider",
         "model": "Model",
         "model_placeholder": "例如 deepseek-v4-flash",
         "api_key": "API key",
         "api_key_placeholder": "本次使用，不会保存",
-        "api_key_help": "API key 仅本次使用，不会保存。",
+        "api_key_help": "仅本次使用，不会保存。",
         "card_mode": "卡片模式",
         "mode_concept": "概念理解",
         "mode_concept_description": "理解概念、因果、区别和意义",
@@ -95,8 +93,8 @@ PRODUCT_COPY = {
         "output_language_auto": "跟随材料",
         "output_language_zh": "简体中文",
         "output_language_en": "English",
-        "advanced_settings": "高级设置",
-        "advanced_settings_collapse": "收起高级设置",
+        "advanced_settings": "更多设置",
+        "advanced_settings_collapse": "收起更多设置",
         "base_url": "Base URL",
         "timeout": "Timeout",
         "generate_cards": "生成卡片",
@@ -108,7 +106,7 @@ PRODUCT_COPY = {
             "模型名称可能不正确。DeepSeek 可尝试 deepseek-v4-flash "
             "或 deepseek-v4-pro。"
         ),
-        "generation_success": "已生成 {count} 张卡片，请逐张审核后再写入。",
+        "generation_success": "已生成 {count} 张卡片，请检查后保留需要的卡片。",
         "cards_section": "生成的卡片",
         "no_cards": "还没有卡片",
         "no_cards_help": "放入材料后点击“生成卡片”",
@@ -119,11 +117,11 @@ PRODUCT_COPY = {
         "keep": "保留",
         "edit": "编辑",
         "discard": "丢弃",
-        "review_required": "每张卡都需要明确选择保留或丢弃。",
-        "quality_summary": "质量辅助检查：{good} 良好 · {warnings} 警告 · {blocking} 阻止",
+        "review_required": "请检查卡片内容，保留需要写入 Anki 的卡片。",
+        "quality_summary": "卡片检查：{good} 张可用 · {warnings} 张建议检查 · {blocking} 张不能写入",
         "quality_score": "质量 {score}% · {status}",
-        "quality_status_info": "未发现明显问题",
-        "quality_status_warning": "建议检查",
+        "quality_status_info": "可用",
+        "quality_status_warning": "请检查",
         "quality_status_blocking": "不能写入",
         "discard_blocking": "丢弃不能写入的卡",
         "quality_empty_front": "正面为空，不能写入",
@@ -132,13 +130,13 @@ PRODUCT_COPY = {
         "quality_empty_back_suggestion": "补充直接答案，或丢弃这张卡。",
         "quality_short_front": "问题可能过短",
         "quality_short_front_suggestion": "补充必要上下文，让问题可独立复习。",
-        "quality_generic_front": "问题过于笼统",
+        "quality_generic_front": "问题可能太泛",
         "quality_generic_front_suggestion": "把问题改得更具体。",
         "quality_long_back": "答案偏长",
         "quality_long_back_suggestion": "建议拆短，只保留直接答案。",
-        "quality_multiple_questions": "正面可能包含多个问题",
+        "quality_multiple_questions": "可能包含多个问题",
         "quality_multiple_questions_suggestion": "拆成多张一卡一问的卡片。",
-        "quality_multi_point_card": "这张卡可能包含多个知识点",
+        "quality_multi_point_card": "可能包含多个知识点",
         "quality_multi_point_card_suggestion": "只保留一个可独立复习的知识点。",
         "quality_boilerplate_phrase": "包含无助于复习的套话",
         "quality_boilerplate_phrase_suggestion": "删除“根据材料可知”等套话。",
@@ -158,9 +156,9 @@ PRODUCT_COPY = {
         "field_read_failed": "无法读取笔记类型字段。",
         "check_duplicates": "检查重复",
         "duplicates_unchecked": "未检查",
-        "duplicates_clear": "未发现重复",
+        "duplicates_clear": "已检查",
         "duplicates_skipped": "可能重复，已跳过",
-        "write_summary_empty": "完成逐张审核、字段映射和重复检查后，这里会显示写入汇总。",
+        "write_summary_empty": "完成审核和重复检查后，将显示写入摘要。",
         "write_summary": (
             "写入汇总｜牌组：{deck}｜笔记类型：{note_type}｜卡片：{cards}｜"
             "警告：{warnings}｜阻止：{blocking}\n来源：{source}\n标签：{tags}\n"
@@ -192,28 +190,20 @@ PRODUCT_COPY = {
         "title": "AnkiForge AI",
         "subtitle": "Turn study materials into Anki cards",
         "language_toggle": "中文",
-        "advanced_debug": "Advanced / Debug Tools",
-        "advanced_debug_collapse": "Hide Advanced / Debug Tools",
+        "advanced_debug": "Advanced",
+        "advanced_debug_collapse": "Hide Advanced",
         "advanced_debug_help": (
-            "Legacy workflow and developer tools. You do not need these "
-            "for normal card creation."
+            "Legacy tools. You do not need these for normal card creation."
         ),
         "open_legacy_flow": "Open Legacy Workflow",
-        "open_debug_panel": "Open Debug Panel",
+        "open_debug_panel": "Open Legacy Tools",
         "material_section": "Study Material",
         "material_help": (
-            "Paste study material or import a local file, then edit it before "
-            "generating cards."
+            "Paste study material, or import a .md, .txt, or .docx file. "
+            "For PDFs, copy the text or convert the file first."
         ),
-        "first_run_guidance": (
-            "This is an Anki add-on and does not include pre-made decks. Add your own "
-            "study material and your own AI Provider API key. The key is session-only "
-            "and not saved. Review every generated card and confirm before writing. "
-            "Start with a test deck."
-        ),
-        "material_placeholder": (
-            "Paste material, or drop a .md / .txt / .docx / .pdf file"
-        ),
+        "first_run_guidance": "New here? Try the example material and write to a test deck first.",
+        "material_placeholder": "Paste material, or drop a file",
         "choose_file": "Choose file",
         "source_file_filter": (
             "Supported files (*.md *.markdown *.txt *.docx *.pdf);;"
@@ -284,14 +274,14 @@ PRODUCT_COPY = {
             "not supported."
         ),
         "ai_section": "AI",
+        "generation_preferences": "Generation preferences",
+        "provider_settings": "Provider settings",
         "provider": "Provider",
         "model": "Model",
         "model_placeholder": "For example, deepseek-v4-flash",
         "api_key": "API key",
         "api_key_placeholder": "Used this session only; not saved",
-        "api_key_help": (
-            "API key is used only for this session and will not be saved."
-        ),
+        "api_key_help": "API key is used only for this session and is not saved.",
         "card_mode": "Card mode",
         "mode_concept": "Concept",
         "mode_concept_description": "Understand concepts, causes, differences, and significance",
@@ -316,8 +306,8 @@ PRODUCT_COPY = {
         "output_language_auto": "Match material",
         "output_language_zh": "Simplified Chinese",
         "output_language_en": "English",
-        "advanced_settings": "Advanced Settings",
-        "advanced_settings_collapse": "Hide Advanced Settings",
+        "advanced_settings": "More Settings",
+        "advanced_settings_collapse": "Hide More Settings",
         "base_url": "Base URL",
         "timeout": "Timeout",
         "generate_cards": "Generate Cards",
@@ -334,7 +324,7 @@ PRODUCT_COPY = {
             "The model name may be incorrect. For DeepSeek, try "
             "deepseek-v4-flash or deepseek-v4-pro."
         ),
-        "generation_success": "Generated {count} cards. Review each one before writing.",
+        "generation_success": "Generated {count} cards. Check them and keep the ones you need.",
         "cards_section": "Generated Cards",
         "no_cards": "No cards yet",
         "no_cards_help": "Add material, then click “Generate Cards”",
@@ -345,11 +335,11 @@ PRODUCT_COPY = {
         "keep": "Keep",
         "edit": "Edit",
         "discard": "Discard",
-        "review_required": "Explicitly keep or discard every card.",
-        "quality_summary": "Quality assistant: {good} clear · {warnings} warnings · {blocking} blocked",
+        "review_required": "Check each card and keep the ones you want to write to Anki.",
+        "quality_summary": "Card check: {good} ready · {warnings} review · {blocking} cannot write",
         "quality_score": "Quality {score}% · {status}",
-        "quality_status_info": "No obvious issues",
-        "quality_status_warning": "Check suggested",
+        "quality_status_info": "Ready",
+        "quality_status_warning": "Review",
         "quality_status_blocking": "Cannot be written",
         "discard_blocking": "Discard blocked cards",
         "quality_empty_front": "Front is empty and cannot be written",
@@ -358,13 +348,13 @@ PRODUCT_COPY = {
         "quality_empty_back_suggestion": "Add a direct answer or discard this card.",
         "quality_short_front": "Question may be too short",
         "quality_short_front_suggestion": "Add enough context for independent review.",
-        "quality_generic_front": "Question may be too generic",
+        "quality_generic_front": "Question may be too broad",
         "quality_generic_front_suggestion": "Make the question more specific.",
         "quality_long_back": "Answer may be too long",
         "quality_long_back_suggestion": "Shorten it to the direct answer.",
-        "quality_multiple_questions": "Front may contain multiple questions",
+        "quality_multiple_questions": "May contain multiple questions",
         "quality_multiple_questions_suggestion": "Split it into one question per card.",
-        "quality_multi_point_card": "This card may contain multiple knowledge points",
+        "quality_multi_point_card": "May contain multiple points",
         "quality_multi_point_card_suggestion": "Keep one independently reviewable point.",
         "quality_boilerplate_phrase": "The card contains review-unhelpful filler",
         "quality_boilerplate_phrase_suggestion": "Remove phrases such as “according to the material”.",
@@ -384,9 +374,9 @@ PRODUCT_COPY = {
         "field_read_failed": "Could not read note type fields.",
         "check_duplicates": "Check Duplicates",
         "duplicates_unchecked": "Not checked",
-        "duplicates_clear": "No duplicates found",
+        "duplicates_clear": "Checked",
         "duplicates_skipped": "Possible duplicate, skipped",
-        "write_summary_empty": "Review every card, map fields, and check duplicates to see the write summary.",
+        "write_summary_empty": "Review cards and check duplicates to see the write summary.",
         "write_summary": (
             "Write summary | Deck: {deck} | Note type: {note_type} | Cards: {cards} | "
             "Warnings: {warnings} | Blocked: {blocking}\nSource: {source}\nTags: {tags}\n"

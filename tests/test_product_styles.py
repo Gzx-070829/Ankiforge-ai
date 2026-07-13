@@ -18,7 +18,9 @@ class ProductStyleTests(unittest.TestCase):
             "#3B82F6",
             "#2563EB",
             "#3A3D42",
-            "#7A7F87",
+            "#334155",
+            "#94A3B8",
+            "#475569",
         ):
             self.assertIn(color, PRODUCT_DARK_STYLESHEET)
         self.assertIn("QDialog#AnkiForgeMainDialog", PRODUCT_DARK_STYLESHEET)
@@ -80,16 +82,13 @@ class ProductStyleTests(unittest.TestCase):
             builder = self.function_source(source, builder_name)
             self.assertIn("self._make_section", builder)
 
-    def test_ai_fields_use_labels_above_inputs(self):
+    def test_ai_fields_use_clear_stacked_semantic_groups(self):
         builder = self.function_source(self.panel_source(), "_build_ai_section")
 
-        self.assertIn("provider_model_row = QHBoxLayout()", builder)
-        self.assertIn("provider_model_row.setSpacing(20)", builder)
-        self.assertIn("provider_field = QVBoxLayout()", builder)
-        self.assertIn("model_field = QVBoxLayout()", builder)
-        self.assertIn("api_key_field = QVBoxLayout()", builder)
-        self.assertIn("self.provider_combo.setMinimumWidth(220)", builder)
-        self.assertIn("self.model_input.setMinimumWidth(240)", builder)
+        self.assertIn("self.generation_preferences_label", builder)
+        self.assertIn("self.provider_settings_label", builder)
+        self.assertIn("provider_form = QFormLayout()", builder)
+        self.assertIn("self.api_key_section_label", builder)
         self.assertNotIn("QGridLayout", builder)
 
     def test_import_area_and_status_messages_have_clear_visual_roles(self):
