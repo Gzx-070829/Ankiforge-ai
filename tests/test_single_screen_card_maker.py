@@ -15,7 +15,13 @@ class SingleScreenCardMakerTests(unittest.TestCase):
 
         self.assertIn("CardMakerPanel", self.function_source(main, "_build_ui"))
         self.assertIn('self.t("subtitle")', main)
-        for key in ("material_section", "ai_section", "cards_section", "write_section"):
+        for key in (
+            "material_section",
+            "generation_settings",
+            "ai_provider",
+            "cards_section",
+            "write_section",
+        ):
             self.assertIn(f'self.t("{key}")', panel)
         self.assertNotIn("五步流程导航", panel)
         self.assertNotIn("四步流程", panel)
@@ -62,13 +68,14 @@ class SingleScreenCardMakerTests(unittest.TestCase):
 
         self.assertIn('self.t("advanced_debug")', build_ui)
         self.assertIn("self.advanced_tools_panel.setVisible(False)", build_ui)
+        self.assertIn("self.advanced_toggle_btn.setVisible(False)", build_ui)
         self.assertIn("self.advanced_toggle_btn.setMaximumWidth(175)", build_ui)
         self.assertNotIn("Mock Pipeline", build_ui)
         self.assertNotIn("Human Review", build_ui)
         self.assertNotIn("添加到 Anki", build_ui)
 
     def test_ai_advanced_settings_are_collapsed(self):
-        builder = self.function_source(self.panel_source(), "_build_ai_section")
+        builder = self.function_source(self.panel_source(), "_build_provider_section")
 
         for key in ("provider", "model", "api_key", "base_url", "timeout"):
             self.assertIn(f'self.t("{key}")', builder)

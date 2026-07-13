@@ -8,34 +8,37 @@ from ankiforge_ai.ui.product_styles import PRODUCT_DARK_STYLESHEET
 
 class UICopyHotfixTests(unittest.TestCase):
     def test_ai_layout_separates_preferences_provider_and_api_key(self):
-        builder = self.function_source(self.panel_source(), "_build_ai_section")
+        source = self.panel_source()
+        layout = self.function_source(source, "_build_ui")
+        generation = self.function_source(source, "_build_generation_section")
+        provider = self.function_source(source, "_build_provider_section")
 
-        self.assertIn("self.generation_preferences_label", builder)
-        self.assertIn("self.provider_settings_label", builder)
-        self.assertIn("self.api_key_section_label", builder)
         self.assertLess(
-            builder.index("self.generation_preferences_label"),
-            builder.index("self.provider_settings_label"),
+            layout.index("self._build_generation_section()"),
+            layout.index("self._build_provider_section()"),
         )
         self.assertLess(
-            builder.index("self.provider_settings_label"),
-            builder.index("self.api_key_section_label"),
+            provider.index("self.provider_combo"),
+            provider.index("self.model_input"),
         )
         self.assertLess(
-            builder.index("self.card_mode_combo"),
-            builder.index("self.provider_combo"),
+            provider.index("self.model_input"),
+            provider.index("self.api_key_input"),
         )
-        self.assertIn("provider_form = QFormLayout()", builder)
-        self.assertNotIn("provider_model_row", builder)
-        self.assertNotIn("setMinimumWidth(220)", builder)
-        self.assertNotIn("setMinimumWidth(240)", builder)
+        self.assertIn("self.card_mode_combo", generation)
+        self.assertIn("provider_form = QFormLayout()", provider)
+        self.assertNotIn("provider_model_row", provider)
+        self.assertNotIn("setMinimumWidth(220)", provider)
+        self.assertNotIn("setMinimumWidth(240)", provider)
 
     def test_generation_details_stay_collapsed_and_primary_action_is_full_width(self):
-        builder = self.function_source(self.panel_source(), "_build_ai_section")
+        source = self.panel_source()
+        generation = self.function_source(source, "_build_generation_section")
+        provider = self.function_source(source, "_build_provider_section")
 
-        self.assertIn("self.generation_settings_container.setVisible(False)", builder)
-        self.assertIn("layout.addWidget(self.generate_btn)", builder)
-        self.assertNotIn("self.generate_btn.setFixedSize", builder)
+        self.assertIn("self.generation_settings_container.setVisible(False)", generation)
+        self.assertIn("layout.addWidget(self.generate_btn)", provider)
+        self.assertNotIn("self.generate_btn.setFixedSize", provider)
 
     def test_empty_cards_do_not_show_review_instruction(self):
         builder = self.function_source(self.panel_source(), "_build_cards_section")
@@ -57,9 +60,9 @@ class UICopyHotfixTests(unittest.TestCase):
 
         self.assertEqual(
             zh["material_help"],
-            "粘贴学习材料，或导入 .md / .txt / .docx 文件。PDF 请先复制文本或转换格式。",
+            "粘贴材料，或导入 Markdown / TXT / DOCX。",
         )
-        self.assertEqual(zh["material_placeholder"], "粘贴材料，或拖入文件")
+        self.assertEqual(zh["material_placeholder"], "粘贴学习材料，或拖入文件")
         self.assertEqual(
             zh["first_run_guidance"],
             "第一次使用？可以先试试示例材料，并写入测试牌组。",
@@ -89,6 +92,7 @@ class UICopyHotfixTests(unittest.TestCase):
         self.assertNotIn("调试工具", rendered)
         self.assertNotIn("debug tools", rendered)
         build_ui = self.function_source(self.main_source(), "_build_ui")
+        self.assertIn("self.advanced_toggle_btn.setVisible(False)", build_ui)
         self.assertIn("self.advanced_tools_panel.setVisible(False)", build_ui)
 
     def test_bilingual_catalog_remains_complete(self):
