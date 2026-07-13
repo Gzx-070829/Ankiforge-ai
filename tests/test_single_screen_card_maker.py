@@ -95,7 +95,7 @@ class SingleScreenCardMakerTests(unittest.TestCase):
         handler = self.function_source(self.panel_source(), "_confirm_and_write")
 
         self.assertIn('self.t("confirm_write_title")', handler)
-        self.assertIn('"confirm_write_body"', handler)
+        self.assertIn('"confirm_write_body_v1"', handler)
         self.assertIn('self.t("cancel")', handler)
         self.assertIn('self.t("confirm_write")', handler)
         self.assertIn("if not confirmed", handler)

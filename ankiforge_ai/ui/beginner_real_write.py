@@ -5,6 +5,7 @@ import hashlib
 import json
 from typing import Optional
 
+from ..pipeline.write_traceability import build_default_tags, safe_source_label
 from ..anki_writer.minimal_write import (
     BeginnerWriteCardCommand,
     BeginnerWriteCommand,
@@ -161,6 +162,15 @@ def prepare_beginner_write(
         for candidate in candidates:
             review = session.candidate_review_decisions.get(candidate.id)
             duplicate = duplicate_results[candidate.id]
+            quality = session.candidate_quality_results.get(candidate.id)
+            if (
+                review is BeginnerReviewDecision.LOOKS_GOOD
+                and quality is not None
+                and quality.is_blocking
+            ):
+                missing.append("有审核保留的候选卡未通过质量硬性检查")
+                skipped_ids.append(candidate.id)
+                continue
             if (
                 review is BeginnerReviewDecision.LOOKS_GOOD
                 and duplicate.status
@@ -181,16 +191,18 @@ def prepare_beginner_write(
             skipped_candidate_ids=tuple(skipped_ids),
         )
 
+    source_label = safe_source_label(session.source_type, "en")
+    tags = build_default_tags(session.generation_settings, session.source_type)
     cards = tuple(
         BeginnerWriteCardCommand(
             candidate_id=item.id,
             front=item.front_preview,
             back=item.back_preview,
-            source=item.source_excerpt,
+            source=source_label,
         )
         for item in writable
     )
-    snapshot_id = _snapshot_id(session, mapping, cards)
+    snapshot_id = _snapshot_id(session, mapping, cards, tags)
     command = BeginnerWriteCommand(
         snapshot_id=snapshot_id,
         deck_id=mapping.deck.id,
@@ -202,6 +214,7 @@ def prepare_beginner_write(
         source_field=mapping.source_field,
         cards=cards,
         skipped_count=len(skipped_ids),
+        tags=tags,
     )
     if session.has_completed_write_snapshot(snapshot_id):
         return BeginnerWritePreparation(
@@ -224,7 +237,7 @@ def execute_beginner_write_if_confirmed(confirmed, writer, command):
     return writer.write(command)
 
 
-def _snapshot_id(session, mapping, cards):
+def _snapshot_id(session, mapping, cards, tags=()):
     payload = {
         "candidate_revision": session.candidate_revision,
         "review_revision": session.review_revision,
@@ -233,6 +246,7 @@ def _snapshot_id(session, mapping, cards):
         "front_field": mapping.front_field,
         "back_field": mapping.back_field,
         "source_field": mapping.source_field,
+        "tags": list(tags),
         "cards": [
             {
                 "candidate_id": item.candidate_id,

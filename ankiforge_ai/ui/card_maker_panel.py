@@ -32,6 +32,15 @@ from ..importers.source_import import (
     import_source_file,
     merge_imported_source_text,
 )
+from ..pipeline.generation_settings import GenerationSettings
+from ..pipeline.write_traceability import (
+    LastWriteBatchRecord,
+    SourceType,
+    build_write_result_summary,
+    build_write_summary,
+    safe_source_label,
+    source_type_from_path,
+)
 from .beginner_ai_card_drafts import (
     BeginnerAICardDraftGenerator,
     BeginnerAIProviderRuntimeSettings,
@@ -89,6 +98,8 @@ class CardMakerPanel(QWidget):
         self.anki_mapping = None
         self.duplicate_results = None
         self.write_summary = None
+        self.final_confirmation_preview = None
+        self.write_result_summary = None
         self.write_preparation = None
         self.write_command = None
         self.write_result = None
@@ -114,6 +125,7 @@ class CardMakerPanel(QWidget):
     def _retranslate_ui(self):
         self.material_title_label.setText(self.t("material_section"))
         self.material_help_label.setText(self.t("material_help"))
+        self.first_run_guidance_label.setText(self.t("first_run_guidance"))
         self.material_input.setPlaceholderText(self.t("material_placeholder"))
         self.choose_file_btn.setText(self.t("choose_file"))
         self.example_btn.setText(self.t("use_example"))
@@ -126,6 +138,8 @@ class CardMakerPanel(QWidget):
         self.api_key_label.setText(self.t("api_key"))
         self.api_key_input.setPlaceholderText(self.t("api_key_placeholder"))
         self.api_key_help_label.setText(self.t("api_key_help"))
+        self.card_mode_label.setText(self.t("card_mode"))
+        self._retranslate_generation_settings()
         self.base_url_label.setText(self.t("base_url"))
         self.timeout_label.setText(self.t("timeout"))
         self._toggle_ai_advanced(self.ai_advanced_btn.isChecked())
@@ -133,6 +147,8 @@ class CardMakerPanel(QWidget):
         self.cards_title_label.setText(self.t("cards_section"))
         self.empty_cards_title.setText(self.t("no_cards"))
         self.empty_cards_help.setText(self.t("no_cards_help"))
+        self.review_required_label.setText(self.t("review_required"))
+        self.discard_blocking_btn.setText(self.t("discard_blocking"))
 
         self.write_title_label.setText(self.t("write_section"))
         self.deck_label.setText(self.t("deck"))
@@ -143,6 +159,7 @@ class CardMakerPanel(QWidget):
         self.duplicate_btn.setText(self.t("check_duplicates"))
         self._retranslate_combo_placeholders()
         self._render_cards()
+        self._render_write_summary()
         self._render_status_messages()
         self._refresh_product_state()
 
@@ -155,6 +172,52 @@ class CardMakerPanel(QWidget):
                 combo.setItemText(0, self.t("select"))
         if self.source_field_combo.count():
             self.source_field_combo.setItemText(0, self.t("no_source"))
+
+    def _retranslate_generation_settings(self):
+        for combo, keys in (
+            (
+                self.card_mode_combo,
+                (
+                    "mode_concept",
+                    "mode_definition",
+                    "mode_exam",
+                    "mode_quick_review",
+                ),
+            ),
+            (
+                self.card_count_combo,
+                (
+                    "card_count_auto",
+                    "card_count_fewer",
+                    "card_count_balanced",
+                    "card_count_more",
+                ),
+            ),
+            (
+                self.answer_length_combo,
+                ("answer_length_short", "answer_length_medium"),
+            ),
+            (
+                self.output_language_combo,
+                (
+                    "output_language_auto",
+                    "output_language_zh",
+                    "output_language_en",
+                ),
+            ),
+        ):
+            for index, key in enumerate(keys):
+                combo.setItemText(index, self.t(key))
+        self.card_count_label.setText(self.t("card_count"))
+        self.answer_length_label.setText(self.t("answer_length"))
+        self.output_language_label.setText(self.t("output_language"))
+        self.generation_settings_help_label.setText(
+            self.t("generation_settings_help")
+        )
+        self._toggle_generation_settings(
+            self.generation_settings_btn.isChecked()
+        )
+        self._update_card_mode_description()
 
     def _set_generation_message(self, key=None, **values):
         self._generation_message = (key, values) if key else None
@@ -320,6 +383,10 @@ class CardMakerPanel(QWidget):
         self.material_help_label = QLabel(self.t("material_help"))
         self.material_help_label.setProperty("role", "secondary")
         layout.addWidget(self.material_help_label)
+        self.first_run_guidance_label = QLabel(self.t("first_run_guidance"))
+        self.first_run_guidance_label.setProperty("role", "secondary")
+        self.first_run_guidance_label.setWordWrap(True)
+        layout.addWidget(self.first_run_guidance_label)
 
         self.material_input = FileDropTextEdit(
             files_dropped=self._handle_dropped_files,
@@ -406,6 +473,77 @@ class CardMakerPanel(QWidget):
         provider_model_row.addLayout(model_field, 1)
         layout.addLayout(provider_model_row)
 
+        mode_row = QHBoxLayout()
+        mode_row.setSpacing(12)
+        self.card_mode_label = QLabel(self.t("card_mode"))
+        self.card_mode_label.setProperty("role", "fieldLabel")
+        self.card_mode_combo = QComboBox()
+        for mode_id, key in (
+            ("concept", "mode_concept"),
+            ("definition", "mode_definition"),
+            ("exam", "mode_exam"),
+            ("quick_review", "mode_quick_review"),
+        ):
+            self.card_mode_combo.addItem(self.t(key), mode_id)
+        self.card_mode_description_label = QLabel()
+        self.card_mode_description_label.setProperty("role", "secondary")
+        self.card_mode_description_label.setWordWrap(True)
+        mode_row.addWidget(self.card_mode_label)
+        mode_row.addWidget(self.card_mode_combo, 1)
+        mode_row.addWidget(self.card_mode_description_label, 2)
+        layout.addLayout(mode_row)
+
+        self.generation_settings_btn = QPushButton(
+            self.t("generation_settings")
+        )
+        self.generation_settings_btn.setProperty("role", "subtle")
+        self.generation_settings_btn.setCheckable(True)
+        self.generation_settings_btn.setFlat(True)
+        self.generation_settings_btn.toggled.connect(
+            self._toggle_generation_settings
+        )
+        layout.addWidget(self.generation_settings_btn)
+
+        self.generation_settings_container = QWidget()
+        generation_form = QFormLayout(self.generation_settings_container)
+        generation_form.setContentsMargins(18, 0, 0, 0)
+        self.card_count_combo = QComboBox()
+        for value, key in (
+            ("auto", "card_count_auto"),
+            ("fewer", "card_count_fewer"),
+            ("balanced", "card_count_balanced"),
+            ("more", "card_count_more"),
+        ):
+            self.card_count_combo.addItem(self.t(key), value)
+        self.card_count_combo.setCurrentIndex(2)
+        self.card_count_label = QLabel(self.t("card_count"))
+        generation_form.addRow(self.card_count_label, self.card_count_combo)
+        self.answer_length_combo = QComboBox()
+        self.answer_length_combo.addItem(self.t("answer_length_short"), "short")
+        self.answer_length_combo.addItem(self.t("answer_length_medium"), "medium")
+        self.answer_length_label = QLabel(self.t("answer_length"))
+        generation_form.addRow(
+            self.answer_length_label,
+            self.answer_length_combo,
+        )
+        self.output_language_combo = QComboBox()
+        self.output_language_combo.addItem(self.t("output_language_auto"), "auto")
+        self.output_language_combo.addItem(self.t("output_language_zh"), "zh")
+        self.output_language_combo.addItem(self.t("output_language_en"), "en")
+        self.output_language_label = QLabel(self.t("output_language"))
+        generation_form.addRow(
+            self.output_language_label,
+            self.output_language_combo,
+        )
+        self.generation_settings_help_label = QLabel(
+            self.t("generation_settings_help")
+        )
+        self.generation_settings_help_label.setProperty("role", "secondary")
+        self.generation_settings_help_label.setWordWrap(True)
+        generation_form.addRow("", self.generation_settings_help_label)
+        self.generation_settings_container.setVisible(False)
+        layout.addWidget(self.generation_settings_container)
+
         self.api_key_input = QLineEdit()
         password_mode = (
             QLineEdit.EchoMode.Password
@@ -469,6 +607,19 @@ class CardMakerPanel(QWidget):
         ):
             widget.textChanged.connect(self._on_ai_settings_changed)
         self.timeout_input.valueChanged.connect(self._on_ai_settings_changed)
+        self.card_mode_combo.currentIndexChanged.connect(
+            self._on_generation_settings_changed
+        )
+        self.card_count_combo.currentIndexChanged.connect(
+            self._on_generation_settings_changed
+        )
+        self.answer_length_combo.currentIndexChanged.connect(
+            self._on_generation_settings_changed
+        )
+        self.output_language_combo.currentIndexChanged.connect(
+            self._on_generation_settings_changed
+        )
+        self._update_card_mode_description()
         return self.ai_group
 
     def _build_cards_section(self):
@@ -478,6 +629,24 @@ class CardMakerPanel(QWidget):
             self.cards_card,
             layout,
         ) = self._make_section("cards_section")
+        self.review_required_label = QLabel(self.t("review_required"))
+        self.review_required_label.setProperty("role", "secondary")
+        self.review_required_label.setWordWrap(True)
+        layout.addWidget(self.review_required_label)
+        quality_row = QHBoxLayout()
+        self.quality_summary_label = QLabel()
+        self.quality_summary_label.setProperty("role", "status")
+        self.quality_summary_label.setWordWrap(True)
+        self.quality_summary_label.setVisible(False)
+        self.discard_blocking_btn = QPushButton(self.t("discard_blocking"))
+        self.discard_blocking_btn.setProperty("role", "secondary")
+        self.discard_blocking_btn.setVisible(False)
+        self.discard_blocking_btn.clicked.connect(
+            self._discard_blocking_cards
+        )
+        quality_row.addWidget(self.quality_summary_label, 1)
+        quality_row.addWidget(self.discard_blocking_btn)
+        layout.addLayout(quality_row)
         self.cards_empty_widget = QWidget()
         self.cards_empty_widget.setObjectName("CardsEmptyState")
         empty_layout = QVBoxLayout(self.cards_empty_widget)
@@ -575,6 +744,11 @@ class CardMakerPanel(QWidget):
         duplicate_row.addStretch()
         layout.addLayout(duplicate_row)
 
+        self.write_summary_label = QLabel(self.t("write_summary_empty"))
+        self.write_summary_label.setProperty("role", "status")
+        self.write_summary_label.setWordWrap(True)
+        layout.addWidget(self.write_summary_label)
+
         write_row = QHBoxLayout()
         self.write_btn = QPushButton(self.t("write_to_anki"))
         self.write_btn.setProperty("role", "primary")
@@ -627,6 +801,11 @@ class CardMakerPanel(QWidget):
         if appended:
             warnings.append("source_import_appended")
 
+        imported_source_type = source_type_from_path(imported.filename)
+        self.session.set_source_type(
+            SourceType.UNKNOWN if appended and existing_text.strip() else imported_source_type
+        )
+
         self._applying_source_import = True
         try:
             self.material_input.setPlainText(combined_text)
@@ -675,6 +854,7 @@ class CardMakerPanel(QWidget):
         self.material_import_warning_label.setVisible(bool(warnings))
 
     def _use_example_material(self):
+        self.session.set_source_type(SourceType.PASTE)
         self.session.load_example_material()
         self.material_input.blockSignals(True)
         self.material_input.setPlainText(self.session.material_text)
@@ -684,7 +864,11 @@ class CardMakerPanel(QWidget):
         self._after_upstream_change()
 
     def _on_material_changed(self):
-        self.session.update_material(self.material_input.toPlainText())
+        material_text = self.material_input.toPlainText()
+        if not self._applying_source_import:
+            if not self.session.material_text.strip() or not material_text.strip():
+                self.session.set_source_type(SourceType.PASTE)
+        self.session.update_material(material_text)
         if not self._applying_source_import:
             self._clear_source_import_feedback()
         self._set_generation_message()
@@ -715,6 +899,36 @@ class CardMakerPanel(QWidget):
             if expanded
             else self.t("advanced_settings")
         )
+
+    def _toggle_generation_settings(self, expanded):
+        self.generation_settings_container.setVisible(expanded)
+        self.generation_settings_btn.setText(
+            self.t("generation_settings_collapse")
+            if expanded
+            else self.t("generation_settings")
+        )
+
+    def _current_generation_settings(self):
+        return GenerationSettings(
+            card_mode=self.card_mode_combo.currentData(),
+            card_count=self.card_count_combo.currentData(),
+            answer_length=self.answer_length_combo.currentData(),
+            language=self.output_language_combo.currentData(),
+        )
+
+    def _update_card_mode_description(self):
+        mode_id = self.card_mode_combo.currentData() or "concept"
+        self.card_mode_description_label.setText(
+            self.t(f"mode_{mode_id}_description")
+        )
+
+    def _on_generation_settings_changed(self, *unused):
+        self._update_card_mode_description()
+        self.session.set_generation_settings(
+            self._current_generation_settings()
+        )
+        self._set_generation_message()
+        self._after_upstream_change(render_material_count=False)
 
     def _on_ai_settings_changed(self, *unused):
         self.session.mark_ai_runtime_settings_changed()
@@ -750,6 +964,8 @@ class CardMakerPanel(QWidget):
             self._set_generation_message("generation_failed")
             return
 
+        generation_settings = self._current_generation_settings()
+        self.session.set_generation_settings(generation_settings)
         self.session.begin_ai_candidate_generation()
         self._clear_generated_state()
         self._render_cards()
@@ -760,6 +976,7 @@ class CardMakerPanel(QWidget):
         result = BeginnerAICardDraftGenerator().generate(
             settings=settings,
             material_text=self.session.material_text,
+            generation_settings=generation_settings,
         )
         if not result.success:
             self.session.record_ai_card_draft_error(
@@ -771,11 +988,6 @@ class CardMakerPanel(QWidget):
             return
 
         self.session.apply_ai_candidate_card_drafts(result.drafts)
-        for card in self.session.candidate_card_previews:
-            self.session.set_candidate_review_decision(
-                card.id,
-                BeginnerReviewDecision.LOOKS_GOOD,
-            )
         self._set_generation_message(
             "generation_success",
             count=len(self.session.candidate_card_previews),
@@ -788,13 +1000,36 @@ class CardMakerPanel(QWidget):
         self.card_button_groups = {}
         cards = self.session.candidate_card_previews
         if not cards:
+            self.quality_summary_label.setVisible(False)
+            self.discard_blocking_btn.setVisible(False)
             self.cards_empty_widget.setVisible(True)
             self.cards_scroll.setVisible(False)
             return
         self.cards_empty_widget.setVisible(False)
         self.cards_scroll.setVisible(True)
+        qualities = tuple(
+            self.session.quality_for_candidate(card.id) for card in cards
+        )
+        blocking = sum(item.is_blocking for item in qualities)
+        warnings = sum(item.severity == "warning" for item in qualities)
+        good = len(qualities) - blocking - warnings
+        self._set_status_role(
+            self.quality_summary_label,
+            "error" if blocking else "warning" if warnings else "success",
+        )
+        self.quality_summary_label.setText(
+            self.t(
+                "quality_summary",
+                good=good,
+                warnings=warnings,
+                blocking=blocking,
+            )
+        )
+        self.quality_summary_label.setVisible(True)
+        self.discard_blocking_btn.setVisible(bool(blocking))
 
         for index, card in enumerate(cards, start=1):
+            quality = self.session.quality_for_candidate(card.id)
             card_group = QGroupBox(self.t("card_number", number=index))
             card_group.setProperty("cardItem", True)
             card_layout = QVBoxLayout(card_group)
@@ -804,6 +1039,37 @@ class CardMakerPanel(QWidget):
             back.setWordWrap(True)
             card_layout.addWidget(front)
             card_layout.addWidget(back)
+
+            quality_status = self.t(f"quality_status_{quality.severity}")
+            quality_label = QLabel(
+                self.t(
+                    "quality_score",
+                    score=round(quality.quality_score * 100),
+                    status=quality_status,
+                )
+            )
+            self._set_status_role(
+                quality_label,
+                {
+                    "info": "success",
+                    "warning": "warning",
+                    "blocking": "error",
+                }[quality.severity],
+            )
+            quality_label.setWordWrap(True)
+            card_layout.addWidget(quality_label)
+            if quality.issues:
+                warning_lines = []
+                for issue in quality.issues[:3]:
+                    warning_id = issue.warning_id
+                    warning_lines.append(
+                        f"• {self.t(f'quality_{warning_id}')} — "
+                        f"{self.t(f'quality_{issue.suggestion_id}')}"
+                    )
+                quality_detail = QLabel("\n".join(warning_lines))
+                quality_detail.setProperty("role", "secondary")
+                quality_detail.setWordWrap(True)
+                card_layout.addWidget(quality_detail)
 
             source_btn = QPushButton(self.t("source"))
             source_btn.setProperty("role", "subtle")
@@ -824,6 +1090,7 @@ class CardMakerPanel(QWidget):
             edit_btn.setProperty("role", "secondary")
             current = self.session.candidate_review_decisions.get(card.id)
             keep_btn.setChecked(current is BeginnerReviewDecision.LOOKS_GOOD)
+            keep_btn.setEnabled(not quality.is_blocking)
             discard_btn.setChecked(
                 current is BeginnerReviewDecision.SKIP_FOR_NOW
             )
@@ -855,6 +1122,13 @@ class CardMakerPanel(QWidget):
             self.cards_layout.addWidget(card_group)
         self.cards_layout.addStretch()
 
+    def _discard_blocking_cards(self):
+        discarded = self.session.discard_blocking_candidates()
+        if discarded:
+            self._clear_duplicate_state()
+            self._render_cards()
+            self._refresh_product_state()
+
     def _set_card_decision(self, card_id, decision, checked):
         if not checked:
             return
@@ -877,26 +1151,7 @@ class CardMakerPanel(QWidget):
         if not dialog.exec():
             return
         front, back = dialog.values()
-        if not front or not back:
-            return
-        decisions = dict(self.session.candidate_review_decisions)
-        drafts = []
-        for item in self.session.candidate_card_previews:
-            draft_id = item.id.removeprefix("candidate-")
-            drafts.append(
-                BeginnerAICardDraft(
-                    id=draft_id,
-                    front=front if item.id == card_id else item.front_preview,
-                    back=back if item.id == card_id else item.back_preview,
-                    source_excerpt=item.source_excerpt,
-                )
-            )
-        self.session.apply_ai_candidate_card_drafts(tuple(drafts))
-        for item in self.session.candidate_card_previews:
-            self.session.set_candidate_review_decision(
-                item.id,
-                decisions.get(item.id, BeginnerReviewDecision.LOOKS_GOOD),
-            )
+        self.session.replace_candidate_content(card_id, front, back)
         self._clear_duplicate_state()
         self._render_cards()
         self._refresh_product_state()
@@ -1068,25 +1323,97 @@ class CardMakerPanel(QWidget):
         self._refresh_product_state()
 
     def _prepare_current_write(self):
-        summary = build_beginner_final_confirmation_preview(
+        final_preview = build_beginner_final_confirmation_preview(
             self.session,
             self.anki_mapping,
             self.duplicate_results,
         )
-        self.write_summary = summary
+        self.final_confirmation_preview = final_preview
         self.session.apply_final_confirmation_preview(
-            summary.candidate_count,
-            len(summary.missing_conditions),
+            final_preview.candidate_count,
+            len(final_preview.missing_conditions),
         )
         preparation = prepare_beginner_write(
             self.session,
-            summary,
+            final_preview,
             self.anki_mapping,
             self.duplicate_results,
         )
         self.write_preparation = preparation
         self.write_command = preparation.command
+        command = preparation.command
+        if command is None:
+            self.write_summary = None
+        else:
+            written_ids = {item.candidate_id for item in command.cards}
+            qualities = tuple(
+                self.session.quality_for_candidate(candidate_id)
+                for candidate_id in written_ids
+            )
+            field_mapping = (
+                f"Front → {command.front_field}",
+                f"Back → {command.back_field}",
+                *(
+                    (f"Source → {command.source_field}",)
+                    if command.source_field
+                    else ()
+                ),
+            )
+            self.write_summary = build_write_summary(
+                target_deck=command.deck_name,
+                note_type=command.note_type_name,
+                field_mapping=field_mapping,
+                source_label=command.cards[0].source,
+                cards_to_write=command.requested_count,
+                warning_count=sum(item.warning_count for item in qualities),
+                blocking_count=sum(item.blocking_count for item in qualities),
+                duplicate_behavior="skip_possible_duplicates",
+                tags=command.tags,
+            )
+        self._render_write_summary()
         return preparation
+
+    def _render_write_summary(self):
+        if self.write_result_summary is not None:
+            result = self.write_result_summary
+            self._set_status_role(
+                self.write_summary_label,
+                "success" if result.written_count and not result.failed_count else "warning",
+            )
+            self.write_summary_label.setText(
+                self.t(
+                    "write_result_summary",
+                    written=result.written_count,
+                    skipped=result.skipped_duplicate_count,
+                    failed=result.failed_count,
+                    deck=result.target_deck,
+                    tags=", ".join(result.tags),
+                )
+            )
+            return
+        if self.write_summary is None:
+            self._set_status_role(self.write_summary_label, "status")
+            self.write_summary_label.setText(self.t("write_summary_empty"))
+            return
+        summary = self.write_summary
+        self._set_status_role(
+            self.write_summary_label,
+            "error" if summary.blocking_count else "warning"
+            if summary.warning_count
+            else "success",
+        )
+        self.write_summary_label.setText(
+            self.t(
+                "write_summary",
+                deck=summary.target_deck,
+                note_type=summary.note_type,
+                cards=summary.cards_to_write,
+                warnings=summary.warning_count,
+                blocking=summary.blocking_count,
+                source=summary.source_label,
+                tags=", ".join(summary.tags),
+            )
+        )
 
     def _confirm_and_write(self):
         preparation = self._prepare_current_write()
@@ -1100,9 +1427,15 @@ class CardMakerPanel(QWidget):
         message_box.setWindowTitle(self.t("confirm_write_title"))
         message_box.setText(
             self.t(
-                "confirm_write_body",
+                "confirm_write_body_v1",
                 count=command.requested_count,
                 deck=command.deck_name,
+                warnings=(
+                    self.write_summary.warning_count
+                    if self.write_summary is not None
+                    else 0
+                ),
+                tags=", ".join(command.tags),
             )
         )
         roles = getattr(QMessageBox, "ButtonRole", QMessageBox)
@@ -1137,6 +1470,26 @@ class CardMakerPanel(QWidget):
             result.failed_count,
         )
         self.write_result = result
+        self.write_result_summary = build_write_result_summary(
+            written_count=result.success_count,
+            skipped_duplicate_count=result.skipped_count,
+            failed_count=result.failed_count,
+            target_deck=command.deck_name,
+            tags=command.tags,
+        )
+        if result.created_note_ids:
+            self.session.record_last_write_batch(
+                LastWriteBatchRecord(
+                    snapshot_id=result.snapshot_id,
+                    created_note_ids=result.created_note_ids,
+                    requested_count=command.requested_count,
+                    skipped_count=result.skipped_count,
+                    failed_count=result.failed_count,
+                    target_deck=command.deck_name,
+                    tags=command.tags,
+                    source_type=self.session.source_type,
+                )
+            )
         if result.success_count and not result.failed_count:
             self._set_write_message(
                 "write_success",
@@ -1150,6 +1503,7 @@ class CardMakerPanel(QWidget):
             )
         else:
             self._set_write_message("write_failed")
+        self._render_write_summary()
         self._refresh_product_state()
 
     def _after_upstream_change(self, render_material_count=True):
@@ -1171,10 +1525,14 @@ class CardMakerPanel(QWidget):
     def _clear_duplicate_state(self):
         self.duplicate_results = None
         self.write_summary = None
+        self.final_confirmation_preview = None
+        self.write_result_summary = None
         self.write_preparation = None
         self.write_command = None
         self.write_result = None
         self._refresh_duplicate_copy()
+        if hasattr(self, "write_summary_label"):
+            self._render_write_summary()
 
     def _refresh_product_state(self):
         self.material_count_label.setText(
@@ -1252,6 +1610,8 @@ class CardMakerPanel(QWidget):
         self.anki_mapping = None
         self.duplicate_results = None
         self.write_summary = None
+        self.final_confirmation_preview = None
+        self.write_result_summary = None
         self.write_preparation = None
         self.write_command = None
         self.write_result = None
