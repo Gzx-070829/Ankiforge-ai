@@ -56,9 +56,9 @@ class ProductI18nTests(unittest.TestCase):
 
         self.assertEqual(en["deck"], "Deck")
         self.assertEqual(en["note_type"], "Note type")
-        self.assertEqual(en["front_mapping"], "Front →")
-        self.assertEqual(en["back_mapping"], "Back →")
-        self.assertEqual(en["source_mapping"], "Source →")
+        self.assertEqual(en["front_mapping"], "Front")
+        self.assertEqual(en["back_mapping"], "Back")
+        self.assertEqual(en["source_mapping"], "Source")
 
     def test_main_window_toggle_is_memory_only_and_updates_panel(self):
         source = self.main_source()
@@ -100,7 +100,7 @@ class ProductI18nTests(unittest.TestCase):
 
     def test_deepseek_product_defaults_are_current(self):
         source = self.panel_source()
-        builder = self.function_source(source, "_build_ai_section")
+        builder = self.function_source(source, "_build_provider_section")
 
         self.assertLess(builder.index('"DeepSeek"'), builder.index('"OpenAI"'))
         self.assertIn("deepseek-v4-flash", builder)

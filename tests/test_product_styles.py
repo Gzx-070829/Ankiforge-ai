@@ -31,25 +31,29 @@ class ProductStyleTests(unittest.TestCase):
     def test_inputs_share_one_focus_and_shape_language(self):
         for selector in ("QTextEdit", "QLineEdit", "QComboBox", "QSpinBox"):
             self.assertIn(selector, PRODUCT_DARK_STYLESHEET)
-        self.assertIn("border-radius: 6px", PRODUCT_DARK_STYLESHEET)
+        self.assertIn("border-radius: 8px", PRODUCT_DARK_STYLESHEET)
         self.assertIn("border: 1px solid #3B82F6", PRODUCT_DARK_STYLESHEET)
 
     def test_generate_and_write_buttons_share_primary_role(self):
         source = self.panel_source()
-        generate = self.function_source(source, "_build_ai_section")
+        generate = self.function_source(source, "_build_provider_section")
         write = self.function_source(source, "_build_write_section")
+        configure = self.function_source(source, "_configure_primary_button")
 
-        self.assertIn('self.generate_btn.setProperty("role", "primary")', generate)
-        self.assertIn('self.write_btn.setProperty("role", "primary")', write)
+        self.assertIn('button.setProperty("role", "primary")', configure)
+        self.assertIn("self._configure_primary_button(self.generate_btn)", generate)
+        self.assertIn("self._configure_primary_button(self.write_btn)", write)
         self.assertIn('QPushButton[role="primary"]', PRODUCT_DARK_STYLESHEET)
         self.assertIn('QPushButton[role="primary"]:disabled', PRODUCT_DARK_STYLESHEET)
 
     def test_secondary_and_subtle_actions_do_not_compete(self):
         source = self.panel_source()
 
-        self.assertIn('self.choose_file_btn.setProperty("role", "secondary")', source)
-        self.assertIn('self.example_btn.setProperty("role", "secondary")', source)
-        self.assertIn('self.duplicate_btn.setProperty("role", "secondary")', source)
+        configure = self.function_source(source, "_configure_secondary_button")
+        self.assertIn('button.setProperty("role", "secondary")', configure)
+        self.assertIn("self._configure_secondary_button(self.choose_file_btn)", source)
+        self.assertIn("self._configure_secondary_button(self.example_btn)", source)
+        self.assertIn("self._configure_secondary_button(self.duplicate_btn)", source)
         self.assertIn('self.ai_advanced_btn.setProperty("role", "subtle")', source)
         self.assertIn("AdvancedDebugLink", self.main_source())
 
@@ -61,7 +65,9 @@ class ProductStyleTests(unittest.TestCase):
         self.assertIn("CardsEmptyState", cards)
         self.assertEqual(cards.count("Qt.AlignmentFlag.AlignCenter"), 2)
         self.assertIn("columns = QHBoxLayout()", builder)
-        self.assertIn("columns.setSpacing(22)", builder)
+        self.assertIn("columns.setSpacing(COLUMN_GAP)", builder)
+        self.assertIn("columns.addWidget(left, 48)", builder)
+        self.assertIn("columns.addWidget(right, 52)", builder)
 
     def test_sections_use_external_titles_and_frame_cards(self):
         source = self.panel_source()
@@ -71,11 +77,12 @@ class ProductStyleTests(unittest.TestCase):
         self.assertIn('title.setProperty("role", "sectionTitle")', factory)
         self.assertIn("card = QFrame()", factory)
         self.assertIn('card.setProperty("sectionCard", True)', factory)
-        self.assertIn("section_layout.setSpacing(8)", factory)
+        self.assertIn("section_layout.setSpacing(SPACING_SM)", factory)
         self.assertNotIn("QGroupBox", factory)
         for builder_name in (
             "_build_material_section",
-            "_build_ai_section",
+            "_build_generation_section",
+            "_build_provider_section",
             "_build_cards_section",
             "_build_write_section",
         ):
@@ -83,13 +90,15 @@ class ProductStyleTests(unittest.TestCase):
             self.assertIn("self._make_section", builder)
 
     def test_ai_fields_use_clear_stacked_semantic_groups(self):
-        builder = self.function_source(self.panel_source(), "_build_ai_section")
+        source = self.panel_source()
+        generation = self.function_source(source, "_build_generation_section")
+        provider = self.function_source(source, "_build_provider_section")
 
-        self.assertIn("self.generation_preferences_label", builder)
-        self.assertIn("self.provider_settings_label", builder)
-        self.assertIn("provider_form = QFormLayout()", builder)
-        self.assertIn("self.api_key_section_label", builder)
-        self.assertNotIn("QGridLayout", builder)
+        self.assertIn('self._make_section("generation_settings")', generation)
+        self.assertIn('self._make_section("ai_provider")', provider)
+        self.assertIn("provider_form = QFormLayout()", provider)
+        self.assertIn("self.api_key_label", provider)
+        self.assertNotIn("QGridLayout", generation + provider)
 
     def test_import_area_and_status_messages_have_clear_visual_roles(self):
         source = self.panel_source()
@@ -112,9 +121,9 @@ class ProductStyleTests(unittest.TestCase):
     def test_write_configuration_uses_consistent_form_spacing(self):
         builder = self.function_source(self.panel_source(), "_build_write_section")
 
-        self.assertIn("form.setHorizontalSpacing(14)", builder)
-        self.assertIn("form.setVerticalSpacing(9)", builder)
-        self.assertEqual(builder.count("label.setMinimumWidth(92)"), 1)
+        self.assertIn("self._configure_form_layout(form)", builder)
+        self.assertEqual(builder.count("self._make_form_label("), 5)
+        self.assertIn("self._add_form_row(form, self.deck_label", builder)
 
     def test_styles_module_has_no_business_runtime_dependencies(self):
         source = self.style_source()

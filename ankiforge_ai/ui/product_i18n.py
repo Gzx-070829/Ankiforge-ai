@@ -16,9 +16,9 @@ PRODUCT_COPY = {
         "open_legacy_flow": "打开旧流程工具",
         "open_debug_panel": "打开旧版工具",
         "material_section": "学习材料",
-        "material_help": "粘贴学习材料，或导入 .md / .txt / .docx 文件。PDF 请先复制文本或转换格式。",
+        "material_help": "粘贴材料，或导入 Markdown / TXT / DOCX。",
         "first_run_guidance": "第一次使用？可以先试试示例材料，并写入测试牌组。",
-        "material_placeholder": "粘贴材料，或拖入文件",
+        "material_placeholder": "粘贴学习材料，或拖入文件",
         "choose_file": "选择文件",
         "source_file_filter": (
             "支持的文件 (*.md *.markdown *.txt *.docx *.pdf);;"
@@ -61,6 +61,7 @@ PRODUCT_COPY = {
             "未提取到可复制文本，该 PDF 可能是扫描版；当前不支持 OCR。"
         ),
         "ai_section": "AI",
+        "ai_provider": "AI Provider",
         "generation_preferences": "生成偏好",
         "provider_settings": "Provider 配置",
         "provider": "Provider",
@@ -71,15 +72,17 @@ PRODUCT_COPY = {
         "api_key_help": "仅本次使用，不会保存。",
         "card_mode": "卡片模式",
         "mode_concept": "概念理解",
-        "mode_concept_description": "理解概念、因果、区别和意义",
+        "mode_concept_description": "理解概念、原因、区别和意义。",
         "mode_definition": "术语定义",
         "mode_definition_description": "记忆术语、定义、关键特征和必要例子",
         "mode_exam": "考试复习",
         "mode_exam_description": "考题式正面，背面保留标准答题点",
-        "mode_quick_review": "快速记忆",
+        "mode_quick_review": "快速回顾",
         "mode_quick_review_description": "短问短答，一卡一事实",
         "generation_settings": "生成设置",
         "generation_settings_collapse": "收起生成设置",
+        "more_options": "更多选项",
+        "more_options_collapse": "收起选项",
         "generation_settings_help": "按需要调整；默认设置适合大多数材料。",
         "card_count": "卡片数量",
         "card_count_auto": "自动",
@@ -109,7 +112,7 @@ PRODUCT_COPY = {
         "generation_success": "已生成 {count} 张卡片，请检查后保留需要的卡片。",
         "cards_section": "生成的卡片",
         "no_cards": "还没有卡片",
-        "no_cards_help": "放入材料后点击“生成卡片”",
+        "no_cards_help": "放入材料后点击“生成卡片”。",
         "card_number": "卡片 {number}",
         "front": "正面",
         "back": "背面",
@@ -147,9 +150,9 @@ PRODUCT_COPY = {
         "write_section": "写入 Anki",
         "deck": "目标牌组",
         "note_type": "笔记类型",
-        "front_mapping": "正面 →",
-        "back_mapping": "背面 →",
-        "source_mapping": "来源 →",
+        "front_mapping": "正面",
+        "back_mapping": "背面",
+        "source_mapping": "来源",
         "select": "请选择",
         "no_source": "不使用",
         "target_read_failed": "无法读取 Anki 牌组或笔记类型。",
@@ -160,13 +163,16 @@ PRODUCT_COPY = {
         "duplicates_skipped": "可能重复，已跳过",
         "write_summary_empty": "完成审核和重复检查后，将显示写入摘要。",
         "write_summary": (
-            "写入汇总｜牌组：{deck}｜笔记类型：{note_type}｜卡片：{cards}｜"
-            "警告：{warnings}｜阻止：{blocking}\n来源：{source}\n标签：{tags}\n"
-            "重复策略：可能重复的卡默认跳过"
+            "将写入：{cards} 张\n"
+            "跳过重复：{skipped} 张\n"
+            "质量提醒：{warnings} 张\n"
+            "Tags：{tags}"
         ),
         "write_result_summary": (
-            "写入结果｜成功：{written}｜跳过重复：{skipped}｜失败：{failed}｜"
-            "牌组：{deck}\n标签：{tags}"
+            "已写入：{written} 张\n"
+            "跳过重复：{skipped} 张\n"
+            "失败：{failed} 张\n"
+            "Tags：{tags}"
         ),
         "write_to_anki": "写入 Anki",
         "write_running": "正在写入…",
@@ -198,12 +204,9 @@ PRODUCT_COPY = {
         "open_legacy_flow": "Open Legacy Workflow",
         "open_debug_panel": "Open Legacy Tools",
         "material_section": "Study Material",
-        "material_help": (
-            "Paste study material, or import a .md, .txt, or .docx file. "
-            "For PDFs, copy the text or convert the file first."
-        ),
+        "material_help": "Paste material, or import Markdown / TXT / DOCX.",
         "first_run_guidance": "New here? Try the example material and write to a test deck first.",
-        "material_placeholder": "Paste material, or drop a file",
+        "material_placeholder": "Paste study material, or drop a file",
         "choose_file": "Choose file",
         "source_file_filter": (
             "Supported files (*.md *.markdown *.txt *.docx *.pdf);;"
@@ -274,6 +277,7 @@ PRODUCT_COPY = {
             "not supported."
         ),
         "ai_section": "AI",
+        "ai_provider": "AI Provider",
         "generation_preferences": "Generation preferences",
         "provider_settings": "Provider settings",
         "provider": "Provider",
@@ -281,7 +285,7 @@ PRODUCT_COPY = {
         "model_placeholder": "For example, deepseek-v4-flash",
         "api_key": "API key",
         "api_key_placeholder": "Used this session only; not saved",
-        "api_key_help": "API key is used only for this session and is not saved.",
+        "api_key_help": "Used only for this session. Not saved.",
         "card_mode": "Card mode",
         "mode_concept": "Concept",
         "mode_concept_description": "Understand concepts, causes, differences, and significance",
@@ -289,10 +293,12 @@ PRODUCT_COPY = {
         "mode_definition_description": "Learn terms, definitions, key traits, and essential examples",
         "mode_exam": "Exam",
         "mode_exam_description": "Exam-style questions with concise answer points",
-        "mode_quick_review": "Quick review",
+        "mode_quick_review": "Quick Review",
         "mode_quick_review_description": "Short question, short answer, one fact per card",
         "generation_settings": "Generation Settings",
         "generation_settings_collapse": "Hide Generation Settings",
+        "more_options": "More options",
+        "more_options_collapse": "Hide options",
         "generation_settings_help": "Adjust when needed; the defaults suit most material.",
         "card_count": "Card count",
         "card_count_auto": "Auto",
@@ -327,7 +333,7 @@ PRODUCT_COPY = {
         "generation_success": "Generated {count} cards. Check them and keep the ones you need.",
         "cards_section": "Generated Cards",
         "no_cards": "No cards yet",
-        "no_cards_help": "Add material, then click “Generate Cards”",
+        "no_cards_help": "Add material, then click “Generate cards”.",
         "card_number": "Card {number}",
         "front": "Front",
         "back": "Back",
@@ -365,9 +371,9 @@ PRODUCT_COPY = {
         "write_section": "Write to Anki",
         "deck": "Deck",
         "note_type": "Note type",
-        "front_mapping": "Front →",
-        "back_mapping": "Back →",
-        "source_mapping": "Source →",
+        "front_mapping": "Front",
+        "back_mapping": "Back",
+        "source_mapping": "Source",
         "select": "Select",
         "no_source": "Do not use",
         "target_read_failed": "Could not read Anki decks or note types.",
@@ -378,13 +384,16 @@ PRODUCT_COPY = {
         "duplicates_skipped": "Possible duplicate, skipped",
         "write_summary_empty": "Review cards and check duplicates to see the write summary.",
         "write_summary": (
-            "Write summary | Deck: {deck} | Note type: {note_type} | Cards: {cards} | "
-            "Warnings: {warnings} | Blocked: {blocking}\nSource: {source}\nTags: {tags}\n"
-            "Duplicate behavior: possible duplicates are skipped"
+            "Cards to write: {cards}\n"
+            "Duplicate skips: {skipped}\n"
+            "Quality reminders: {warnings}\n"
+            "Tags: {tags}"
         ),
         "write_result_summary": (
-            "Write result | Written: {written} | Duplicate skips: {skipped} | "
-            "Failed: {failed} | Deck: {deck}\nTags: {tags}"
+            "Written: {written}\n"
+            "Duplicate skips: {skipped}\n"
+            "Failed: {failed}\n"
+            "Tags: {tags}"
         ),
         "write_to_anki": "Write to Anki",
         "write_running": "Writing…",

@@ -16,11 +16,9 @@ class FileDropImportContractTests(unittest.TestCase):
 
         self.assertEqual(zh["choose_file"], "选择文件")
         self.assertEqual(en["choose_file"], "Choose file")
-        for suffix in (".md", ".txt", ".docx"):
-            self.assertIn(suffix, zh["material_help"])
-            self.assertIn(suffix, en["material_help"])
-        self.assertIn("PDF", zh["material_help"])
-        self.assertIn("PDF", en["material_help"])
+        for name in ("Markdown", "TXT", "DOCX"):
+            self.assertIn(name, zh["material_help"])
+            self.assertIn(name, en["material_help"])
         for suffix in (".md", ".txt", ".docx", ".pdf"):
             self.assertIn(suffix, zh["source_file_filter"])
             self.assertIn(suffix, en["source_file_filter"])

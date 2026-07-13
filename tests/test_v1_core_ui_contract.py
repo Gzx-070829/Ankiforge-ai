@@ -7,7 +7,7 @@ from ankiforge_ai.ui.product_i18n import PRODUCT_COPY, product_text
 
 class V1CoreUIContractTests(unittest.TestCase):
     def test_generation_controls_keep_mode_visible_and_details_collapsed(self):
-        builder = self.function_source("_build_ai_section")
+        builder = self.function_source("_build_generation_section")
 
         self.assertIn("self.card_mode_combo", builder)
         self.assertIn('self.t("card_mode")', builder)
@@ -24,7 +24,7 @@ class V1CoreUIContractTests(unittest.TestCase):
         )
 
     def test_generation_defaults_are_exact_and_passed_to_explicit_generate(self):
-        builder = self.function_source("_build_ai_section")
+        builder = self.function_source("_build_generation_section")
         handler = self.function_source("_generate_cards")
 
         for value in ("concept", "balanced", "short", "auto"):

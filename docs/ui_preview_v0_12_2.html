@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AnkiForge AI v0.12.2 UI preview</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 1280px; height: 1020px; overflow: hidden; }
+    body {
+      background: #202124;
+      color: #f4f4f5;
+      font: 13px/1.4 Inter, "Segoe UI", "Microsoft YaHei", sans-serif;
+      padding: 24px;
+    }
+    header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+    h1 { margin: 0; font-size: 18px; line-height: 1.2; }
+    .subtitle { color: #9ca3af; margin-top: 5px; }
+    button, .button {
+      min-height: 36px; border: 1px solid #4b4f57; border-radius: 8px;
+      background: #32343a; color: #e5e7eb; padding: 8px 14px; font: inherit;
+    }
+    .language { min-width: 96px; }
+    main { display: grid; grid-template-columns: 48fr 52fr; gap: 24px; }
+    .column { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+    section > h2 { font-size: 16px; margin: 0 0 8px; line-height: 1.25; }
+    .card { background: #2b2d30; border: 1px solid #3f4248; border-radius: 8px; padding: 18px; }
+    .help, .hint { color: #9ca3af; font-size: 12px; }
+    .material-card { height: 264px; }
+    .drop {
+      height: 150px; margin: 12px 0; padding: 12px; background: #1c2025;
+      border: 1px dashed #596273; border-radius: 8px; color: #6b7280;
+    }
+    .actions { display: flex; align-items: center; gap: 8px; }
+    .count { color: #6b7280; margin-left: auto; font-size: 12px; }
+    .generation-card { min-height: 132px; }
+    .provider-card { min-height: 290px; }
+    .form { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; align-items: center; }
+    .label { color: #d1d5db; font-weight: 500; }
+    .control {
+      height: 40px; display: flex; align-items: center; padding: 0 11px;
+      background: #1f2023; border: 1px solid #3f4248; border-radius: 8px;
+    }
+    .muted-control { color: #6b7280; }
+    .span-control { grid-column: 2; }
+    .mode-hint { margin: 9px 0 0 108px; }
+    .more { display: flex; justify-content: space-between; color: #9ca3af; margin-top: 13px; font-size: 12px; }
+    .provider-hint { grid-column: 2; margin-top: -6px; }
+    .quiet { text-align: right; color: #6b7280; font-size: 11px; margin-top: 8px; }
+    .primary {
+      width: 100%; height: 44px; margin-top: 12px; border: 1px solid #475569;
+      border-radius: 8px; background: #334155; color: #94a3b8; font-weight: 700;
+    }
+    .cards-card { height: 294px; display: grid; place-items: center; text-align: center; }
+    .empty-title { font-size: 19px; font-weight: 600; color: #e5e7eb; margin-bottom: 8px; }
+    .write-card { min-height: 448px; }
+    .duplicate { margin-top: 12px; display: flex; gap: 12px; align-items: center; }
+    .status { color: #6b7280; font-size: 12px; }
+    .summary {
+      margin-top: 12px; padding: 12px; min-height: 48px; color: #9ca3af;
+      background: #24272b; border: 1px solid #353a42; border-radius: 8px; font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div><h1>AnkiForge AI</h1><div class="subtitle" data-copy="subtitle"></div></div>
+    <button class="language" data-copy="language"></button>
+  </header>
+  <main>
+    <div class="column">
+      <section>
+        <h2 data-copy="materialTitle"></h2>
+        <div class="card material-card">
+          <div class="help" data-copy="materialHelp"></div>
+          <div class="drop" data-copy="placeholder"></div>
+          <div class="actions"><button data-copy="choose"></button><button data-copy="example"></button><span class="count" data-copy="count"></span></div>
+        </div>
+      </section>
+      <section>
+        <h2 data-copy="generationTitle"></h2>
+        <div class="card generation-card">
+          <div class="form"><div class="label" data-copy="cardMode"></div><div class="control" data-copy="concept"></div></div>
+          <div class="hint mode-hint" data-copy="modeHint"></div>
+          <div class="more"><span data-copy="more"></span><span data-copy="show"></span></div>
+        </div>
+      </section>
+      <section>
+        <h2>AI Provider</h2>
+        <div class="card provider-card">
+          <div class="form">
+            <div class="label">Provider</div><div class="control">DeepSeek&nbsp; ▾</div>
+            <div class="label">Model</div><div class="control">deepseek-v4-flash</div>
+            <div class="label">API key</div><div class="control muted-control" data-copy="apiPlaceholder"></div>
+            <div class="hint provider-hint" data-copy="apiHint"></div>
+          </div>
+          <div class="quiet" data-copy="providerMore"></div>
+          <button class="primary" data-copy="generate"></button>
+        </div>
+      </section>
+    </div>
+    <div class="column">
+      <section>
+        <h2 data-copy="cardsTitle"></h2>
+        <div class="card cards-card"><div><div class="empty-title" data-copy="emptyTitle"></div><div class="hint" data-copy="emptyHelp"></div></div></div>
+      </section>
+      <section>
+        <h2 data-copy="writeTitle"></h2>
+        <div class="card write-card">
+          <div class="form">
+            <div class="label" data-copy="deck"></div><div class="control muted-control" data-copy="select"></div>
+            <div class="label" data-copy="noteType"></div><div class="control muted-control" data-copy="select"></div>
+            <div class="label" data-copy="front"></div><div class="control muted-control" data-copy="select"></div>
+            <div class="label" data-copy="back"></div><div class="control muted-control" data-copy="select"></div>
+            <div class="label" data-copy="source"></div><div class="control muted-control" data-copy="noSource"></div>
+          </div>
+          <div class="duplicate"><button data-copy="duplicates"></button><span class="status" data-copy="notChecked"></span></div>
+          <div class="summary" data-copy="summary"></div>
+          <button class="primary" data-copy="write"></button>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script>
+    const copy = {
+      zh: {
+        subtitle: "把学习材料变成 Anki 卡片", language: "English", materialTitle: "学习材料",
+        materialHelp: "粘贴材料，或导入 Markdown / TXT / DOCX。", placeholder: "粘贴学习材料，或拖入文件",
+        choose: "选择文件", example: "使用示例", count: "0 字符", generationTitle: "生成设置",
+        cardMode: "卡片模式", concept: "概念理解  ▾", modeHint: "理解概念、原因、区别和意义。",
+        more: "更多选项", show: "展开  ▾", apiPlaceholder: "输入 API key", apiHint: "仅本次使用，不会保存。",
+        providerMore: "更多设置", generate: "生成卡片", cardsTitle: "生成的卡片", emptyTitle: "还没有卡片",
+        emptyHelp: "放入材料后点击“生成卡片”。", writeTitle: "写入 Anki", deck: "目标牌组", select: "请选择  ▾",
+        noteType: "笔记类型", front: "正面", back: "背面", source: "来源", noSource: "不使用  ▾",
+        duplicates: "检查重复", notChecked: "未检查", summary: "完成审核和重复检查后，将显示写入摘要。", write: "写入 Anki"
+      },
+      en: {
+        subtitle: "Turn study materials into Anki cards", language: "简体中文", materialTitle: "Study Material",
+        materialHelp: "Paste material, or import Markdown / TXT / DOCX.", placeholder: "Paste study material, or drop a file",
+        choose: "Choose File", example: "Use Example", count: "0 characters", generationTitle: "Generation Settings",
+        cardMode: "Card mode", concept: "Concept  ▾", modeHint: "Understand concepts, causes, differences, and significance.",
+        more: "More options", show: "Show  ▾", apiPlaceholder: "Enter API key", apiHint: "Used only for this session. Not saved.",
+        providerMore: "More settings", generate: "Generate Cards", cardsTitle: "Generated Cards", emptyTitle: "No cards yet",
+        emptyHelp: "Add material, then click “Generate cards”.", writeTitle: "Write to Anki", deck: "Deck", select: "Select  ▾",
+        noteType: "Note type", front: "Front", back: "Back", source: "Source", noSource: "Do not use  ▾",
+        duplicates: "Check Duplicates", notChecked: "Not checked", summary: "Review cards and check duplicates to see the write summary.", write: "Write to Anki"
+      }
+    };
+    const language = new URLSearchParams(location.search).get("lang") === "en" ? "en" : "zh";
+    document.documentElement.lang = language === "en" ? "en" : "zh-CN";
+    for (const node of document.querySelectorAll("[data-copy]")) node.textContent = copy[language][node.dataset.copy];
+  </script>
+</body>
+</html>

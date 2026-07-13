@@ -14,13 +14,13 @@ QDialog#AnkiForgeMainDialog QLabel {
 
 QLabel#ProductTitle {
     color: #F8FAFC;
-    font-size: 31px;
+    font-size: 18px;
     font-weight: 700;
 }
 
 QLabel#ProductSubtitle {
     color: #9CA3AF;
-    font-size: 16px;
+    font-size: 13px;
 }
 
 QWidget#CardMakerPanel {
@@ -41,7 +41,7 @@ QWidget#CardMakerPanel QLabel[role="muted"] {
 
 QWidget#CardMakerPanel QLabel[role="sectionTitle"] {
     color: #F8FAFC;
-    font-size: 17px;
+    font-size: 16px;
     font-weight: 600;
     padding: 0;
 }
@@ -108,7 +108,7 @@ QLabel#EmptyStateHelp {
 QWidget#CardMakerPanel QFrame[sectionCard="true"] {
     background-color: #2B2D30;
     border: 1px solid #3F4248;
-    border-radius: 11px;
+    border-radius: 8px;
     color: #F4F4F5;
 }
 
@@ -147,7 +147,7 @@ QWidget#CardMakerPanel QSpinBox {
     background-color: #1F2023;
     color: #F4F4F5;
     border: 1px solid #3F4248;
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 6px 8px;
     selection-background-color: #2563EB;
     min-height: 30px;
@@ -189,7 +189,7 @@ QPushButton[role="secondary"] {
     background-color: #32343A;
     color: #E5E7EB;
     border: 1px solid #4B4F57;
-    border-radius: 7px;
+    border-radius: 8px;
     padding: 7px 13px;
     min-height: 29px;
 }
@@ -204,10 +204,10 @@ QWidget#CardMakerPanel QPushButton[role="primary"] {
     background-color: #3B82F6;
     color: #FFFFFF;
     border: 1px solid #3B82F6;
-    border-radius: 7px;
+    border-radius: 8px;
     padding: 8px 22px;
     min-height: 38px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
 }
 

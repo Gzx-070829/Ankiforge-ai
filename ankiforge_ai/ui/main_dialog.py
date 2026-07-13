@@ -85,7 +85,7 @@ class MainDialog(QDialog):
                 "provider_preview must be ReadOnlyProviderPreview or None."
             )
         self.setWindowTitle(self.t("title"))
-        self.resize(1120, 820)
+        self.resize(1280, 960)
 
         self._provider_preview = provider_preview
         self.cards = []
@@ -142,11 +142,8 @@ class MainDialog(QDialog):
         self.advanced_toggle_btn.setCheckable(True)
         self.advanced_toggle_btn.setFlat(True)
         self.advanced_toggle_btn.setMaximumWidth(175)
+        self.advanced_toggle_btn.setVisible(False)
         self.advanced_toggle_btn.toggled.connect(self.toggle_advanced_tools)
-        advanced_link_row = QHBoxLayout()
-        advanced_link_row.addStretch()
-        advanced_link_row.addWidget(self.advanced_toggle_btn)
-        layout.addLayout(advanced_link_row)
 
         self.advanced_tools_panel = QWidget()
         self.advanced_tools_panel.setVisible(False)
