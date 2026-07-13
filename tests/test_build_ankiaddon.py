@@ -93,6 +93,21 @@ class BuildAnkiAddonTests(unittest.TestCase):
 
             self.assertEqual(first.read_bytes(), second.read_bytes())
 
+    def test_archive_writer_normalizes_text_line_endings(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            lf_source = root / "lf.py"
+            crlf_source = root / "crlf.py"
+            lf_source.write_bytes(b"first = 1\nsecond = 2\n")
+            crlf_source.write_bytes(b"first = 1\r\nsecond = 2\r\n")
+            lf_archive = root / "lf.ankiaddon"
+            crlf_archive = root / "crlf.ankiaddon"
+
+            _write_archive(lf_archive, [(lf_source, "module.py")])
+            _write_archive(crlf_archive, [(crlf_source, "module.py")])
+
+            self.assertEqual(lf_archive.read_bytes(), crlf_archive.read_bytes())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -63,6 +63,14 @@ ALLOWED_RUNTIME_SUFFIXES = {
     ".woff",
     ".woff2",
 }
+TEXT_RUNTIME_SUFFIXES = {
+    ".css",
+    ".html",
+    ".js",
+    ".json",
+    ".py",
+    ".svg",
+}
 REQUIRED_ARCHIVE_FILES = {
     "__init__.py",
     "importers/source_import.py",
@@ -156,7 +164,10 @@ def _write_archive(
             info = zipfile.ZipInfo(archive_name, date_time=(1980, 1, 1, 0, 0, 0))
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o100644 << 16
-            archive.writestr(info, source_path.read_bytes())
+            content = source_path.read_bytes()
+            if PurePosixPath(archive_name).suffix.casefold() in TEXT_RUNTIME_SUFFIXES:
+                content = content.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+            archive.writestr(info, content)
 
 
 def _validate_archive(archive_path: Path, expected_names: set[str]) -> int:
