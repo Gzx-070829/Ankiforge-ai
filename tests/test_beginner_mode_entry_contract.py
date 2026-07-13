@@ -23,9 +23,9 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
         self.assertIn("CardMakerPanel", source)
         self.assertIn("product_i18n", source)
         self.assertEqual(PRODUCT_COPY["zh"]["subtitle"], "把学习材料变成 Anki 卡片")
-        self.assertEqual(PRODUCT_COPY["zh"]["advanced_debug"], "高级 / 调试工具")
+        self.assertEqual(PRODUCT_COPY["zh"]["advanced_debug"], "高级")
         self.assertEqual(PRODUCT_COPY["zh"]["open_legacy_flow"], "打开旧流程工具")
-        self.assertEqual(PRODUCT_COPY["zh"]["open_debug_panel"], "打开旧调试面板")
+        self.assertEqual(PRODUCT_COPY["zh"]["open_debug_panel"], "打开旧版工具")
         self.assertIn("可能包含真实 Anki 写入入口", ADVANCED_WORKBENCH_WARNING)
 
     def test_beginner_copy_states_network_is_explicit_click_only(self):

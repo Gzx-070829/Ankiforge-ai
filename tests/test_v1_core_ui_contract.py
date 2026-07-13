@@ -45,7 +45,7 @@ class V1CoreUIContractTests(unittest.TestCase):
         edit = self.function_source("_edit_card")
 
         self.assertIn("quality_for_candidate", render)
-        self.assertIn('"quality_score"', render)
+        self.assertNotIn('"quality_score"', render)
         self.assertIn("warning_id", render)
         self.assertIn("replace_candidate_content", edit)
         self.assertIn("_clear_duplicate_state", edit)
@@ -76,18 +76,15 @@ class V1CoreUIContractTests(unittest.TestCase):
         ):
             self.assertIn(value, prepare)
 
-    def test_first_run_copy_explains_product_and_safety(self):
-        for language in ("zh", "en"):
-            text = product_text(language, "first_run_guidance").casefold()
-            for idea in (
-                ("anki 插件", "anki add-on"),
-                ("自己的学习材料", "your own study material"),
-                ("api key", "api key"),
-                ("审核", "review"),
-                ("确认", "confirm"),
-                ("测试牌组", "test deck"),
-            ):
-                self.assertTrue(any(term in text for term in idea))
+    def test_first_run_copy_is_a_lightweight_test_deck_tip(self):
+        self.assertEqual(
+            product_text("zh", "first_run_guidance"),
+            "第一次使用？可以先试试示例材料，并写入测试牌组。",
+        )
+        self.assertEqual(
+            product_text("en", "first_run_guidance"),
+            "New here? Try the example material and write to a test deck first.",
+        )
 
     def test_quality_copy_is_complete_in_both_languages(self):
         self.assertEqual(set(PRODUCT_COPY["zh"]), set(PRODUCT_COPY["en"]))
