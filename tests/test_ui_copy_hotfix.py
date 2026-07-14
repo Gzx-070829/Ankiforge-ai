@@ -26,7 +26,8 @@ class UICopyHotfixTests(unittest.TestCase):
             provider.index("self.api_key_input"),
         )
         self.assertIn("self.card_mode_combo", generation)
-        self.assertIn("provider_form = QFormLayout()", provider)
+        self.assertIn("provider_rows = QVBoxLayout()", provider)
+        self.assertEqual(provider.count("provider_rows.addLayout("), 3)
         self.assertNotIn("provider_model_row", provider)
         self.assertNotIn("setMinimumWidth(220)", provider)
         self.assertNotIn("setMinimumWidth(240)", provider)

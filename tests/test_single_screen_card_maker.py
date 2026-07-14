@@ -74,12 +74,16 @@ class SingleScreenCardMakerTests(unittest.TestCase):
         self.assertNotIn("Human Review", build_ui)
         self.assertNotIn("添加到 Anki", build_ui)
 
-    def test_ai_advanced_settings_are_collapsed(self):
+    def test_compatible_provider_connection_settings_are_collapsed(self):
         builder = self.function_source(self.panel_source(), "_build_provider_section")
 
         for key in ("provider", "model", "api_key", "base_url", "timeout"):
             self.assertIn(f'self.t("{key}")', builder)
-        self.assertIn("self.ai_advanced_container.setVisible(False)", builder)
+        self.assertIn(
+            "self.provider_connection_container.setVisible(False)",
+            builder,
+        )
+        self.assertNotIn("self.ai_advanced_btn", builder)
 
     def test_api_key_is_session_only_and_redacted(self):
         secret = "sk-session-only-secret"

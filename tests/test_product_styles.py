@@ -54,7 +54,11 @@ class ProductStyleTests(unittest.TestCase):
         self.assertIn("self._configure_secondary_button(self.choose_file_btn)", source)
         self.assertIn("self._configure_secondary_button(self.example_btn)", source)
         self.assertIn("self._configure_secondary_button(self.duplicate_btn)", source)
-        self.assertIn('self.ai_advanced_btn.setProperty("role", "subtle")', source)
+        self.assertIn(
+            'self.generation_settings_btn.setProperty("role", "subtle")',
+            source,
+        )
+        self.assertNotIn("self.ai_advanced_btn", source)
         self.assertIn("AdvancedDebugLink", self.main_source())
 
     def test_empty_state_is_centered_without_changing_two_column_layout(self):
@@ -96,7 +100,8 @@ class ProductStyleTests(unittest.TestCase):
 
         self.assertIn('self._make_section("generation_settings")', generation)
         self.assertIn('self._make_section("ai_provider")', provider)
-        self.assertIn("provider_form = QFormLayout()", provider)
+        self.assertIn("provider_rows = QVBoxLayout()", provider)
+        self.assertIn("provider_rows.setSpacing(ROW_GAP)", provider)
         self.assertIn("self.api_key_label", provider)
         self.assertNotIn("QGridLayout", generation + provider)
 

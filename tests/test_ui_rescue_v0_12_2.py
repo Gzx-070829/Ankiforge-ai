@@ -33,15 +33,9 @@ class UIRescueV0122Tests(unittest.TestCase):
         source = self.panel_source()
         builder = self.function_source(source, "_build_provider_section")
 
-        self.assertIn("provider_form = QFormLayout()", builder)
-        self.assertEqual(
-            builder.count("self._add_form_row(\n            provider_form,"),
-            3,
-        )
-        self.assertEqual(
-            builder.count("self._add_form_row(\n            advanced_form,"),
-            2,
-        )
+        self.assertIn("provider_rows = QVBoxLayout()", builder)
+        self.assertEqual(builder.count("provider_rows.addLayout("), 3)
+        self.assertEqual(builder.count("connection_rows.addLayout("), 2)
         self.assertLess(
             builder.index("self.provider_combo"),
             builder.index("self.model_input"),
@@ -50,7 +44,7 @@ class UIRescueV0122Tests(unittest.TestCase):
             builder.index("self.model_input"),
             builder.index("self.api_key_input"),
         )
-        self.assertIn("self._add_form_hint(", builder)
+        self.assertIn("api_key_field_layout.addWidget(self.api_key_help_label)", builder)
         self.assertNotIn("provider_model_row", builder)
         self.assertNotIn("api_key_section_label", builder)
 
@@ -150,15 +144,15 @@ class UIRescueV0122Tests(unittest.TestCase):
         self.assertIn("self.generate_btn.setToolTip(", refresh)
         self.assertIn('self.t("generation_requirements")', refresh)
 
-    def test_runtime_version_and_bilingual_catalog_are_ready_for_0122(self):
+    def test_runtime_version_and_bilingual_catalog_are_ready_for_0123(self):
         manifest = json.loads(
             (self.root() / "ankiforge_ai" / "manifest.json").read_text(
                 encoding="utf-8"
             )
         )
 
-        self.assertEqual(ankiforge_ai.__version__, "0.12.2")
-        self.assertEqual(manifest["version"], "0.12.2")
+        self.assertEqual(ankiforge_ai.__version__, "0.12.3")
+        self.assertEqual(manifest["version"], "0.12.3")
         self.assertEqual(set(PRODUCT_COPY["zh"]), set(PRODUCT_COPY["en"]))
 
     @staticmethod
