@@ -13,12 +13,10 @@ from aqt.qt import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QMessageBox,
     QPushButton,
     QRadioButton,
     QScrollArea,
-    QSpinBox,
     QTextEdit,
     Qt,
     QVBoxLayout,
@@ -78,9 +76,6 @@ SPACING_MD = 12
 SPACING_LG = 16
 COLUMN_GAP = 24
 FORM_LABEL_WIDTH = 96
-FORM_HORIZONTAL_GAP = 16
-ROW_GAP = 12
-HINT_TOP_MARGIN = 4
 CONTROL_HEIGHT = 40
 BUTTON_HEIGHT = 36
 PRIMARY_BUTTON_HEIGHT = 44
@@ -119,6 +114,7 @@ class CardMakerPanel(QWidget):
         self.write_command = None
         self.write_result = None
         self.card_button_groups = {}
+        self._ai_runtime_settings = None
 
         self.setObjectName("CardMakerPanel")
         self.setMaximumWidth(1280)
@@ -129,6 +125,25 @@ class CardMakerPanel(QWidget):
 
     def t(self, key, **values):
         return product_text(self.language, key, **values)
+
+    def ai_runtime_settings(self):
+        return self._ai_runtime_settings
+
+    def set_ai_runtime_settings(self, settings):
+        if not isinstance(settings, BeginnerAIProviderRuntimeSettings):
+            raise TypeError(
+                "settings must be BeginnerAIProviderRuntimeSettings"
+            )
+        self._ai_runtime_settings = settings
+        self.session.mark_ai_runtime_settings_changed()
+        self._set_generation_message()
+        self._after_upstream_change(render_material_count=False)
+
+    def clear_ai_runtime_settings(self):
+        self._ai_runtime_settings = None
+        self.session.mark_ai_runtime_settings_changed()
+        self._set_generation_message()
+        self._after_upstream_change(render_material_count=False)
 
     def set_language(self, language):
         if language == self.language:
@@ -146,19 +161,12 @@ class CardMakerPanel(QWidget):
         self._render_source_import_feedback()
 
         self.generation_title_label.setText(self.t("generation_settings"))
-        self.provider_title_label.setText(self.t("ai_provider"))
-        self.provider_label.setText(self.t("provider"))
-        self.model_label.setText(self.t("model"))
-        self.model_input.setPlaceholderText(self.t("model_placeholder"))
-        self.api_key_label.setText(self.t("api_key"))
-        self.api_key_input.setPlaceholderText(self.t("api_key_placeholder"))
-        self.api_key_help_label.setText(self.t("api_key_help"))
+        self.create_panel_title.setText(self.t("create_cards_section"))
         self.card_mode_label.setText(self.t("card_mode"))
         self._retranslate_generation_settings()
-        self.base_url_label.setText(self.t("base_url"))
-        self.timeout_label.setText(self.t("timeout"))
 
         self.cards_title_label.setText(self.t("cards_section"))
+        self.review_panel_title.setText(self.t("cards_section"))
         self.empty_cards_title.setText(self.t("no_cards"))
         self.empty_cards_help.setText(self.t("no_cards_help"))
         self.review_required_label.setText(self.t("review_required"))
@@ -340,33 +348,73 @@ class CardMakerPanel(QWidget):
 
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(0, SPACING_SM, 0, SPACING_SM)
-        root.setSpacing(SPACING_LG)
+        root.setContentsMargins(0, 0, 0, 0)
 
         columns = QHBoxLayout()
         columns.setSpacing(COLUMN_GAP)
         left = QWidget()
-        left.setMinimumWidth(500)
+        left.setMinimumWidth(440)
         left_layout = QVBoxLayout(left)
         left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.setSpacing(SPACING_LG)
-        left_layout.addWidget(self._build_material_section(), 1)
-        left_layout.addWidget(self._build_generation_section())
-        left_layout.addWidget(self._build_provider_section())
+        left_layout.addWidget(self._build_create_panel(), 1)
 
         right = QWidget()
         right.setMinimumWidth(460)
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(SPACING_LG)
-        right_layout.addWidget(self._build_cards_section(), 1)
-        right_layout.addWidget(self._build_write_section())
+        right_layout.addWidget(self._build_review_panel(), 1)
 
-        columns.addWidget(left, 48)
-        columns.addWidget(right, 52)
+        columns.addWidget(left, 45)
+        columns.addWidget(right, 55)
         root.addLayout(columns)
 
-    def _make_section(self, title_key):
+    def _make_panel(self, title_key, object_name):
+        panel = QFrame()
+        panel.setObjectName(object_name)
+        panel.setProperty("workflowPanel", True)
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(
+            SECTION_PADDING,
+            SECTION_PADDING,
+            SECTION_PADDING,
+            SECTION_PADDING,
+        )
+        layout.setSpacing(SPACING_LG)
+        title = QLabel(self.t(title_key))
+        title.setProperty("role", "panelTitle")
+        layout.addWidget(title)
+        return panel, title, layout
+
+    def _build_create_panel(self):
+        panel, self.create_panel_title, layout = self._make_panel(
+            "create_cards_section",
+            "CreatePanel",
+        )
+        layout.addWidget(self._build_material_section(), 1)
+        layout.addWidget(self._build_generation_section())
+
+        self.generate_btn = QPushButton(self.t("generate_cards"))
+        self._configure_primary_button(self.generate_btn)
+        self.generate_btn.setDefault(True)
+        self.generate_btn.clicked.connect(self._generate_cards)
+        layout.addWidget(self.generate_btn)
+        self.generation_status_label = QLabel()
+        self.generation_status_label.setProperty("role", "status")
+        self.generation_status_label.setWordWrap(True)
+        self.generation_status_label.setVisible(False)
+        layout.addWidget(self.generation_status_label)
+        return panel
+
+    def _build_review_panel(self):
+        panel, self.review_panel_title, layout = self._make_panel(
+            "cards_section",
+            "ReviewPanel",
+        )
+        layout.addWidget(self._build_cards_section(show_title=False), 1)
+        layout.addWidget(self._build_write_section())
+        return panel
+
+    def _make_section(self, title_key, *, elevated=False):
         section = QWidget()
         section.setProperty("productSection", True)
         section_layout = QVBoxLayout(section)
@@ -378,13 +426,15 @@ class CardMakerPanel(QWidget):
         section_layout.addWidget(title)
 
         card = QFrame()
-        card.setProperty("sectionCard", True)
+        card.setProperty("sectionCard", elevated)
+        card.setProperty("sectionBody", not elevated)
         card_layout = QVBoxLayout(card)
+        body_padding = SECTION_PADDING if elevated else 0
         card_layout.setContentsMargins(
-            SECTION_PADDING,
-            SECTION_PADDING,
-            SECTION_PADDING,
-            SECTION_PADDING,
+            body_padding,
+            body_padding,
+            body_padding,
+            body_padding,
         )
         card_layout.setSpacing(SPACING_MD)
         section_layout.addWidget(card, 1)
@@ -414,18 +464,6 @@ class CardMakerPanel(QWidget):
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         )
         return label
-
-    def _make_provider_form_row(self, label, control):
-        row = QHBoxLayout()
-        row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(FORM_HORIZONTAL_GAP)
-        label.setFixedWidth(FORM_LABEL_WIDTH)
-        label.setMinimumHeight(CONTROL_HEIGHT)
-        label.setWordWrap(False)
-        self._configure_form_control(control)
-        row.addWidget(label, 0, Qt.AlignmentFlag.AlignTop)
-        row.addWidget(control, 1, Qt.AlignmentFlag.AlignTop)
-        return row
 
     @staticmethod
     def _configure_form_control(widget):
@@ -463,10 +501,9 @@ class CardMakerPanel(QWidget):
         )
         self.material_input.setObjectName("MaterialDropArea")
         self.material_input.setPlaceholderText(self.t("material_placeholder"))
-        self.material_input.setMinimumHeight(150)
-        self.material_input.setMaximumHeight(230)
+        self.material_input.setMinimumHeight(220)
         self.material_input.textChanged.connect(self._on_material_changed)
-        layout.addWidget(self.material_input)
+        layout.addWidget(self.material_input, 1)
 
         self.material_import_status_label = QLabel()
         self.material_import_status_label.setProperty("role", "status")
@@ -586,125 +623,6 @@ class CardMakerPanel(QWidget):
         )
         self.generation_settings_container.setVisible(False)
         layout.addWidget(self.generation_settings_container)
-        return self.generation_group
-
-    def _build_provider_section(self):
-        (
-            self.provider_group,
-            self.provider_title_label,
-            self.provider_card,
-            layout,
-        ) = self._make_section("ai_provider")
-
-        provider_rows = QVBoxLayout()
-        provider_rows.setContentsMargins(0, 0, 0, 0)
-        provider_rows.setSpacing(ROW_GAP)
-
-        self.provider_combo = QComboBox()
-        self.provider_combo.addItem(
-            "DeepSeek",
-            ("DeepSeek", "https://api.deepseek.com", "deepseek-v4-flash"),
-        )
-        self.provider_combo.addItem(
-            "OpenAI",
-            ("OpenAI", "https://api.openai.com/v1", "gpt-4o-mini"),
-        )
-        self.provider_combo.addItem(
-            "OpenAI-compatible",
-            ("OpenAI-compatible", "", ""),
-        )
-        self.provider_combo.currentIndexChanged.connect(
-            self._on_provider_changed
-        )
-        self.provider_label = self._make_form_label(self.t("provider"))
-        provider_rows.addLayout(
-            self._make_provider_form_row(
-                self.provider_label,
-                self.provider_combo,
-            )
-        )
-
-        self.model_input = QLineEdit("deepseek-v4-flash")
-        self.model_input.setPlaceholderText(self.t("model_placeholder"))
-        self.model_label = self._make_form_label(self.t("model"))
-        provider_rows.addLayout(
-            self._make_provider_form_row(
-                self.model_label,
-                self.model_input,
-            )
-        )
-
-        self.api_key_input = QLineEdit()
-        password_mode = (
-            QLineEdit.EchoMode.Password
-            if hasattr(QLineEdit, "EchoMode")
-            else QLineEdit.Password
-        )
-        self.api_key_input.setEchoMode(password_mode)
-        self.api_key_input.setPlaceholderText(self.t("api_key_placeholder"))
-        self._configure_form_control(self.api_key_input)
-        self.api_key_label = self._make_form_label(self.t("api_key"))
-        self.api_key_help_label = QLabel(self.t("api_key_help"))
-        self.api_key_help_label.setProperty("role", "muted")
-        self.api_key_help_label.setWordWrap(True)
-        self.api_key_field = QWidget()
-        api_key_field_layout = QVBoxLayout(self.api_key_field)
-        api_key_field_layout.setContentsMargins(0, 0, 0, 0)
-        api_key_field_layout.setSpacing(HINT_TOP_MARGIN)
-        api_key_field_layout.addWidget(self.api_key_input)
-        api_key_field_layout.addWidget(self.api_key_help_label)
-        provider_rows.addLayout(
-            self._make_provider_form_row(
-                self.api_key_label,
-                self.api_key_field,
-            )
-        )
-        layout.addLayout(provider_rows)
-
-        self.provider_connection_container = QWidget()
-        connection_rows = QVBoxLayout(self.provider_connection_container)
-        connection_rows.setContentsMargins(0, 0, 0, 0)
-        connection_rows.setSpacing(ROW_GAP)
-        self.base_url_input = QLineEdit("https://api.deepseek.com")
-        self.base_url_label = self._make_form_label(self.t("base_url"))
-        connection_rows.addLayout(
-            self._make_provider_form_row(
-                self.base_url_label,
-                self.base_url_input,
-            )
-        )
-        self.timeout_input = QSpinBox()
-        self.timeout_input.setRange(1, 300)
-        self.timeout_input.setValue(60)
-        self.timeout_label = self._make_form_label(self.t("timeout"))
-        connection_rows.addLayout(
-            self._make_provider_form_row(
-                self.timeout_label,
-                self.timeout_input,
-            )
-        )
-        self.provider_connection_container.setVisible(False)
-        layout.addWidget(self.provider_connection_container)
-
-        self.generate_btn = QPushButton(self.t("generate_cards"))
-        self._configure_primary_button(self.generate_btn)
-        self.generate_btn.setDefault(True)
-        self.generate_btn.clicked.connect(self._generate_cards)
-        layout.addSpacing(SPACING_LG)
-        layout.addWidget(self.generate_btn)
-        self.generation_status_label = QLabel()
-        self.generation_status_label.setProperty("role", "status")
-        self.generation_status_label.setWordWrap(True)
-        self.generation_status_label.setVisible(False)
-        layout.addWidget(self.generation_status_label)
-
-        for widget in (
-            self.model_input,
-            self.api_key_input,
-            self.base_url_input,
-        ):
-            widget.textChanged.connect(self._on_ai_settings_changed)
-        self.timeout_input.valueChanged.connect(self._on_ai_settings_changed)
         self.card_mode_combo.currentIndexChanged.connect(
             self._on_generation_settings_changed
         )
@@ -718,15 +636,16 @@ class CardMakerPanel(QWidget):
             self._on_generation_settings_changed
         )
         self._update_card_mode_description()
-        return self.provider_group
+        return self.generation_group
 
-    def _build_cards_section(self):
+    def _build_cards_section(self, show_title=True):
         (
             self.cards_group,
             self.cards_title_label,
             self.cards_card,
             layout,
         ) = self._make_section("cards_section")
+        self.cards_title_label.setVisible(show_title)
         self.review_required_label = QLabel(self.t("review_required"))
         self.review_required_label.setProperty("role", "secondary")
         self.review_required_label.setWordWrap(True)
@@ -750,6 +669,9 @@ class CardMakerPanel(QWidget):
         self.cards_empty_widget.setObjectName("CardsEmptyState")
         empty_layout = QVBoxLayout(self.cards_empty_widget)
         empty_layout.setContentsMargins(12, 16, 12, 16)
+        self.empty_cards_glyph = QLabel("◇")
+        self.empty_cards_glyph.setObjectName("EmptyStateGlyph")
+        self.empty_cards_glyph.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty_cards_title = QLabel(self.t("no_cards"))
         self.empty_cards_title.setObjectName("EmptyStateTitle")
         self.empty_cards_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -757,6 +679,7 @@ class CardMakerPanel(QWidget):
         self.empty_cards_help.setObjectName("EmptyStateHelp")
         self.empty_cards_help.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_layout.addStretch()
+        empty_layout.addWidget(self.empty_cards_glyph)
         empty_layout.addWidget(self.empty_cards_title)
         empty_layout.addWidget(self.empty_cards_help)
         empty_layout.addStretch()
@@ -765,7 +688,6 @@ class CardMakerPanel(QWidget):
         self.cards_scroll = QScrollArea()
         self.cards_scroll.setWidgetResizable(True)
         self.cards_scroll.setMinimumHeight(190)
-        self.cards_scroll.setMaximumHeight(280)
         self.cards_container = QWidget()
         self.cards_container.setObjectName("CardsList")
         self.cards_layout = QVBoxLayout(self.cards_container)
@@ -780,7 +702,8 @@ class CardMakerPanel(QWidget):
             self.write_title_label,
             self.write_card,
             layout,
-        ) = self._make_section("write_section")
+        ) = self._make_section("write_section", elevated=True)
+        self.write_card.setObjectName("WriteFooter")
         form = QFormLayout()
         self._configure_form_layout(form)
 
@@ -970,27 +893,6 @@ class CardMakerPanel(QWidget):
         self._set_generation_message()
         self._after_upstream_change()
 
-    def _on_provider_changed(self, _index):
-        _provider_name, base_url, suggested_model = (
-            self.provider_combo.currentData()
-        )
-        self.provider_connection_container.setVisible(
-            _provider_name == "OpenAI-compatible"
-        )
-        previous_model = self.model_input.text().strip()
-        self.base_url_input.blockSignals(True)
-        self.base_url_input.setText(base_url)
-        self.base_url_input.blockSignals(False)
-        if previous_model in {
-            "",
-            "deepseek-v4-flash",
-            "gpt-4o-mini",
-        }:
-            self.model_input.blockSignals(True)
-            self.model_input.setText(suggested_model)
-            self.model_input.blockSignals(False)
-        self._on_ai_settings_changed()
-
     def _toggle_generation_settings(self, expanded):
         self.generation_settings_container.setVisible(expanded)
         self.generation_settings_btn.setText(
@@ -1021,39 +923,17 @@ class CardMakerPanel(QWidget):
         self._set_generation_message()
         self._after_upstream_change(render_material_count=False)
 
-    def _on_ai_settings_changed(self, *unused):
-        self.session.mark_ai_runtime_settings_changed()
-        self._set_generation_message()
-        self._after_upstream_change(render_material_count=False)
-
     def _ai_settings_are_ready(self):
-        return all(
-            (
-                self.session.material_text.strip(),
-                self.model_input.text().strip(),
-                self.api_key_input.text().strip(),
-                self.base_url_input.text().strip(),
-            )
+        return bool(
+            self.session.material_text.strip()
+            and self._ai_runtime_settings is not None
         )
 
     def _generate_cards(self):
         if not self._ai_settings_are_ready():
             self._set_generation_message("generation_requirements")
             return
-        provider_name, _preset_url, _suggested_model = (
-            self.provider_combo.currentData()
-        )
-        try:
-            settings = BeginnerAIProviderRuntimeSettings(
-                provider_name=provider_name,
-                base_url=self.base_url_input.text(),
-                model=self.model_input.text(),
-                api_key=self.api_key_input.text(),
-                timeout_seconds=self.timeout_input.value(),
-            )
-        except ValueError:
-            self._set_generation_message("generation_failed")
-            return
+        settings = self._ai_runtime_settings
 
         generation_settings = self._current_generation_settings()
         self.session.set_generation_settings(generation_settings)
@@ -1697,9 +1577,7 @@ class CardMakerPanel(QWidget):
         self.material_input.clear()
         self.material_input.blockSignals(False)
         self._clear_source_import_feedback()
-        self.api_key_input.blockSignals(True)
-        self.api_key_input.clear()
-        self.api_key_input.blockSignals(False)
+        self._ai_runtime_settings = None
         if not self.session.closed:
             self.session.close()
         self.anki_target_snapshot = None

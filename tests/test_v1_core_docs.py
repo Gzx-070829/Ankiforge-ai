@@ -27,8 +27,8 @@ class V1CoreDocumentationTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(ankiforge_ai.__version__, "0.12.3")
-        self.assertEqual(manifest["version"], "0.12.3")
+        self.assertEqual(ankiforge_ai.__version__, "0.12.5")
+        self.assertEqual(manifest["version"], "0.12.5")
 
     def test_readmes_describe_modes_quality_review_and_safety(self):
         combined = "\n".join(

@@ -99,8 +99,9 @@ class ProductI18nTests(unittest.TestCase):
             self.assertNotIn(forbidden, rendered)
 
     def test_deepseek_product_defaults_are_current(self):
-        source = self.panel_source()
-        builder = self.function_source(source, "_build_provider_section")
+        builder = (
+            self.root() / "ankiforge_ai" / "ui" / "ai_settings_dialog.py"
+        ).read_text(encoding="utf-8")
 
         self.assertLess(builder.index('"DeepSeek"'), builder.index('"OpenAI"'))
         self.assertIn("deepseek-v4-flash", builder)
@@ -130,7 +131,7 @@ class ProductI18nTests(unittest.TestCase):
 
         self.assertNotIn("config", set_language.casefold())
         self.assertNotIn("save", set_language.casefold())
-        self.assertIn("self.api_key_input.clear()", discard)
+        self.assertIn("self._ai_runtime_settings = None", discard)
         for forbidden in ("save_config", "write_config", "setConfig"):
             self.assertNotIn(forbidden, source)
 

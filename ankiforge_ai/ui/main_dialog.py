@@ -52,6 +52,7 @@ from .human_review_draft_dialog import HumanReviewDecisionDraftDialog
 from .beginner_flow_models import ADVANCED_WORKBENCH_WARNING
 from .beginner_mode_dialog import BeginnerModeDialog
 from .card_maker_panel import CardMakerPanel
+from .ai_settings_dialog import AiSettingsDialog
 from .product_i18n import DEFAULT_PRODUCT_LANGUAGE, product_text
 from .product_styles import PRODUCT_DARK_STYLESHEET
 from .review_helpers import (
@@ -107,6 +108,11 @@ class MainDialog(QDialog):
         header_row.setContentsMargins(0, 0, 0, 0)
         self.title_label = QLabel(self.t("title"))
         self.title_label.setObjectName("ProductTitle")
+        self.ai_status_label = QLabel(self.t("ai_not_configured"))
+        self.ai_status_label.setObjectName("AiStatusChip")
+        self.ai_settings_btn = QPushButton(self.t("ai_settings"))
+        self.ai_settings_btn.setObjectName("AiSettingsButton")
+        self.ai_settings_btn.clicked.connect(self._open_ai_settings)
         self.language_toggle_btn = QPushButton(self.t("language_toggle"))
         self.language_toggle_btn.setObjectName("LanguageToggle")
         self.language_toggle_btn.setFixedSize(96, 35)
@@ -114,6 +120,8 @@ class MainDialog(QDialog):
         self.language_toggle_btn.clicked.connect(self.toggle_language)
         header_row.addWidget(self.title_label)
         header_row.addStretch()
+        header_row.addWidget(self.ai_status_label)
+        header_row.addWidget(self.ai_settings_btn)
         header_row.addWidget(self.language_toggle_btn)
         header_row.setAlignment(
             self.language_toggle_btn,
@@ -136,6 +144,7 @@ class MainDialog(QDialog):
         panel_row.addWidget(self.card_maker_panel, 1)
         panel_row.addStretch()
         layout.addLayout(panel_row, 1)
+        self._refresh_ai_status()
 
         self.advanced_toggle_btn = QPushButton(self.t("advanced_debug"))
         self.advanced_toggle_btn.setObjectName("AdvancedDebugLink")
@@ -176,11 +185,47 @@ class MainDialog(QDialog):
         self.title_label.setText(self.t("title"))
         self.subtitle_label.setText(self.t("subtitle"))
         self.language_toggle_btn.setText(self.t("language_toggle"))
+        self.ai_settings_btn.setText(self.t("ai_settings"))
+        self._refresh_ai_status()
         self.advanced_description_label.setText(self.t("advanced_debug_help"))
         self.beginner_entry_btn.setText(self.t("open_legacy_flow"))
         self.legacy_entry_btn.setText(self.t("open_debug_panel"))
         self.toggle_advanced_tools(self.advanced_tools_panel.isVisible())
         self.card_maker_panel.set_language(self.ui_language)
+
+    def _open_ai_settings(self):
+        dialog = AiSettingsDialog(
+            parent=self,
+            language=self.ui_language,
+            settings=self.card_maker_panel.ai_runtime_settings(),
+        )
+        accepted = (
+            QDialog.DialogCode.Accepted
+            if hasattr(QDialog, "DialogCode")
+            else QDialog.Accepted
+        )
+        if dialog.exec() != accepted:
+            return
+        settings = dialog.runtime_settings()
+        if settings is None:
+            return
+        self.card_maker_panel.set_ai_runtime_settings(settings)
+        self._refresh_ai_status()
+
+    def _refresh_ai_status(self):
+        settings = self.card_maker_panel.ai_runtime_settings()
+        if settings is None:
+            text = self.t("ai_not_configured")
+            self.ai_status_label.setProperty("configured", False)
+        else:
+            text = self.t(
+                "ai_configured",
+                provider=settings.provider_name,
+            )
+            self.ai_status_label.setProperty("configured", True)
+        self.ai_status_label.setText(text)
+        self.ai_status_label.style().unpolish(self.ai_status_label)
+        self.ai_status_label.style().polish(self.ai_status_label)
 
     def toggle_advanced_tools(self, expanded):
         self.advanced_tools_panel.setVisible(expanded)

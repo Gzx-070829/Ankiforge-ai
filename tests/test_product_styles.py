@@ -8,35 +8,34 @@ from ankiforge_ai.ui.product_styles import PRODUCT_DARK_STYLESHEET
 class ProductStyleTests(unittest.TestCase):
     def test_dark_palette_and_scoped_panels_are_defined(self):
         for color in (
-            "#202124",
-            "#2B2D30",
-            "#1F2023",
-            "#3F4248",
-            "#F4F4F5",
-            "#9CA3AF",
-            "#6B7280",
-            "#3B82F6",
-            "#2563EB",
-            "#3A3D42",
+            "#0D1117",
+            "#111827",
+            "#161B22",
+            "#0F141B",
+            "#1C2430",
+            "#263241",
             "#334155",
-            "#94A3B8",
-            "#475569",
+            "#F8FAFC",
+            "#CBD5E1",
+            "#7D8EA3",
+            "#7C5CFF",
+            "#8B73FF",
         ):
             self.assertIn(color, PRODUCT_DARK_STYLESHEET)
         self.assertIn("QDialog#AnkiForgeMainDialog", PRODUCT_DARK_STYLESHEET)
         self.assertIn("QWidget#CardMakerPanel", PRODUCT_DARK_STYLESHEET)
-        self.assertIn('QFrame[sectionCard="true"]', PRODUCT_DARK_STYLESHEET)
+        self.assertIn('QFrame[workflowPanel="true"]', PRODUCT_DARK_STYLESHEET)
         self.assertNotIn('QGroupBox[productPanel="true"]', PRODUCT_DARK_STYLESHEET)
 
     def test_inputs_share_one_focus_and_shape_language(self):
         for selector in ("QTextEdit", "QLineEdit", "QComboBox", "QSpinBox"):
             self.assertIn(selector, PRODUCT_DARK_STYLESHEET)
-        self.assertIn("border-radius: 8px", PRODUCT_DARK_STYLESHEET)
-        self.assertIn("border: 1px solid #3B82F6", PRODUCT_DARK_STYLESHEET)
+        self.assertIn("border-radius: 10px", PRODUCT_DARK_STYLESHEET)
+        self.assertIn("border: 1px solid #7C5CFF", PRODUCT_DARK_STYLESHEET)
 
     def test_generate_and_write_buttons_share_primary_role(self):
         source = self.panel_source()
-        generate = self.function_source(source, "_build_provider_section")
+        generate = self.function_source(source, "_build_create_panel")
         write = self.function_source(source, "_build_write_section")
         configure = self.function_source(source, "_configure_primary_button")
 
@@ -67,43 +66,45 @@ class ProductStyleTests(unittest.TestCase):
         builder = self.function_source(source, "_build_ui")
 
         self.assertIn("CardsEmptyState", cards)
-        self.assertEqual(cards.count("Qt.AlignmentFlag.AlignCenter"), 2)
+        self.assertEqual(cards.count("Qt.AlignmentFlag.AlignCenter"), 3)
         self.assertIn("columns = QHBoxLayout()", builder)
         self.assertIn("columns.setSpacing(COLUMN_GAP)", builder)
-        self.assertIn("columns.addWidget(left, 48)", builder)
-        self.assertIn("columns.addWidget(right, 52)", builder)
+        self.assertIn("columns.addWidget(left, 45)", builder)
+        self.assertIn("columns.addWidget(right, 55)", builder)
 
-    def test_sections_use_external_titles_and_frame_cards(self):
+    def test_sections_use_spacing_and_only_elevate_write_footer(self):
         source = self.panel_source()
         factory = self.function_source(source, "_make_section")
 
         self.assertIn("title = QLabel", factory)
         self.assertIn('title.setProperty("role", "sectionTitle")', factory)
         self.assertIn("card = QFrame()", factory)
-        self.assertIn('card.setProperty("sectionCard", True)', factory)
+        self.assertIn('card.setProperty("sectionCard", elevated)', factory)
+        self.assertIn('card.setProperty("sectionBody", not elevated)', factory)
         self.assertIn("section_layout.setSpacing(SPACING_SM)", factory)
         self.assertNotIn("QGroupBox", factory)
         for builder_name in (
             "_build_material_section",
             "_build_generation_section",
-            "_build_provider_section",
             "_build_cards_section",
             "_build_write_section",
         ):
             builder = self.function_source(source, builder_name)
             self.assertIn("self._make_section", builder)
+        write = self.function_source(source, "_build_write_section")
+        self.assertIn('elevated=True', write)
+        self.assertIn('setObjectName("WriteFooter")', write)
 
-    def test_ai_fields_use_clear_stacked_semantic_groups(self):
+    def test_ai_fields_live_in_the_settings_dialog(self):
         source = self.panel_source()
         generation = self.function_source(source, "_build_generation_section")
-        provider = self.function_source(source, "_build_provider_section")
+        dialog = self.dialog_source()
 
         self.assertIn('self._make_section("generation_settings")', generation)
-        self.assertIn('self._make_section("ai_provider")', provider)
-        self.assertIn("provider_rows = QVBoxLayout()", provider)
-        self.assertIn("provider_rows.setSpacing(ROW_GAP)", provider)
-        self.assertIn("self.api_key_label", provider)
-        self.assertNotIn("QGridLayout", generation + provider)
+        self.assertNotIn('self._make_section("ai_provider")', source)
+        self.assertIn("class AiSettingsDialog", dialog)
+        self.assertIn("self.api_key_input", dialog)
+        self.assertNotIn("QGridLayout", generation + dialog)
 
     def test_import_area_and_status_messages_have_clear_visual_roles(self):
         source = self.panel_source()
@@ -136,12 +137,12 @@ class ProductStyleTests(unittest.TestCase):
 
         self.assertFalse(any(isinstance(node, (ast.Import, ast.ImportFrom)) for node in tree.body))
         for forbidden in (
-            "provider",
-            "writer",
-            "duplicate",
-            "collection",
-            "api_key",
-            "config",
+            "from ..ai",
+            "from ..anki_writer",
+            "from .read_only_duplicate_check",
+            "collection.",
+            "api_key =",
+            "load_config",
         ):
             self.assertNotIn(forbidden, source.casefold())
 
@@ -172,6 +173,11 @@ class ProductStyleTests(unittest.TestCase):
     def style_source(self):
         return (
             self.root() / "ankiforge_ai" / "ui" / "product_styles.py"
+        ).read_text(encoding="utf-8")
+
+    def dialog_source(self):
+        return (
+            self.root() / "ankiforge_ai" / "ui" / "ai_settings_dialog.py"
         ).read_text(encoding="utf-8")
 
 

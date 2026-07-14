@@ -7,39 +7,34 @@ from ankiforge_ai.ui.product_styles import PRODUCT_DARK_STYLESHEET
 
 
 class UICopyHotfixTests(unittest.TestCase):
-    def test_ai_layout_separates_preferences_provider_and_api_key(self):
+    def test_ai_layout_keeps_preferences_in_flow_and_provider_in_dialog(self):
         source = self.panel_source()
         layout = self.function_source(source, "_build_ui")
         generation = self.function_source(source, "_build_generation_section")
-        provider = self.function_source(source, "_build_provider_section")
+        dialog = self.dialog_source()
 
+        self.assertIn("self._build_create_panel()", layout)
+        self.assertNotIn("self._build_provider_section()", layout)
         self.assertLess(
-            layout.index("self._build_generation_section()"),
-            layout.index("self._build_provider_section()"),
+            dialog.index("self.provider_combo"),
+            dialog.index("self.model_input"),
         )
         self.assertLess(
-            provider.index("self.provider_combo"),
-            provider.index("self.model_input"),
-        )
-        self.assertLess(
-            provider.index("self.model_input"),
-            provider.index("self.api_key_input"),
+            dialog.index("self.model_input"),
+            dialog.index("self.api_key_input"),
         )
         self.assertIn("self.card_mode_combo", generation)
-        self.assertIn("provider_rows = QVBoxLayout()", provider)
-        self.assertEqual(provider.count("provider_rows.addLayout("), 3)
-        self.assertNotIn("provider_model_row", provider)
-        self.assertNotIn("setMinimumWidth(220)", provider)
-        self.assertNotIn("setMinimumWidth(240)", provider)
+        self.assertIn("self._make_form_row", dialog)
+        self.assertNotIn("provider_model_row", dialog)
 
     def test_generation_details_stay_collapsed_and_primary_action_is_full_width(self):
         source = self.panel_source()
         generation = self.function_source(source, "_build_generation_section")
-        provider = self.function_source(source, "_build_provider_section")
+        create_panel = self.function_source(source, "_build_create_panel")
 
         self.assertIn("self.generation_settings_container.setVisible(False)", generation)
-        self.assertIn("layout.addWidget(self.generate_btn)", provider)
-        self.assertNotIn("self.generate_btn.setFixedSize", provider)
+        self.assertIn("layout.addWidget(self.generate_btn)", create_panel)
+        self.assertNotIn("self.generate_btn.setFixedSize", create_panel)
 
     def test_empty_cards_do_not_show_review_instruction(self):
         builder = self.function_source(self.panel_source(), "_build_cards_section")
@@ -104,9 +99,9 @@ class UICopyHotfixTests(unittest.TestCase):
             'QWidget#CardMakerPanel QPushButton[role="primary"]:disabled {'
         )[1].split("}", 1)[0]
 
-        self.assertIn("background-color: #334155", disabled_block)
-        self.assertIn("color: #94A3B8", disabled_block)
-        self.assertIn("border-color: #475569", disabled_block)
+        self.assertIn("background-color: #292347", disabled_block)
+        self.assertIn("color: #8F83C7", disabled_block)
+        self.assertIn("border-color: #3C3266", disabled_block)
 
     @staticmethod
     def function_source(source, name):
@@ -130,6 +125,11 @@ class UICopyHotfixTests(unittest.TestCase):
     def main_source(self):
         return (
             self.root() / "ankiforge_ai" / "ui" / "main_dialog.py"
+        ).read_text(encoding="utf-8")
+
+    def dialog_source(self):
+        return (
+            self.root() / "ankiforge_ai" / "ui" / "ai_settings_dialog.py"
         ).read_text(encoding="utf-8")
 
 
