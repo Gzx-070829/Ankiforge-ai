@@ -1,15 +1,15 @@
-"""Scoped dark product styles for the single-screen card maker."""
+"""Scoped v0.12.5 product styles for the linear card-making workflow."""
 
 
 PRODUCT_DARK_STYLESHEET = """
 QDialog#AnkiForgeMainDialog {
-    background-color: #202124;
-    color: #F4F4F5;
+    background-color: #0D1117;
+    color: #F8FAFC;
 }
 
 QDialog#AnkiForgeMainDialog QLabel {
-    color: #F4F4F5;
-    font-size: 14px;
+    color: #F8FAFC;
+    font-size: 13px;
 }
 
 QLabel#ProductTitle {
@@ -19,7 +19,7 @@ QLabel#ProductTitle {
 }
 
 QLabel#ProductSubtitle {
-    color: #9CA3AF;
+    color: #7D8EA3;
     font-size: 13px;
 }
 
@@ -27,37 +27,61 @@ QWidget#CardMakerPanel {
     background: transparent;
 }
 
-QWidget#CardMakerPanel QLabel[role="secondary"] {
-    color: #9CA3AF;
-    font-size: 13px;
-    font-weight: 400;
+QFrame[workflowPanel="true"] {
+    background-color: #111827;
+    border: 1px solid #263241;
+    border-radius: 12px;
 }
 
-QWidget#CardMakerPanel QLabel[role="muted"] {
-    color: #6B7280;
-    font-size: 12px;
-    font-weight: 400;
+QWidget#CardMakerPanel QLabel[role="panelTitle"] {
+    color: #F8FAFC;
+    font-size: 16px;
+    font-weight: 600;
 }
 
 QWidget#CardMakerPanel QLabel[role="sectionTitle"] {
-    color: #F8FAFC;
-    font-size: 16px;
+    color: #CBD5E1;
+    font-size: 13px;
     font-weight: 600;
     padding: 0;
 }
 
-QWidget#CardMakerPanel QLabel[role="subsectionTitle"] {
-    color: #D1D5DB;
+QWidget#CardMakerPanel QLabel[role="secondary"] {
+    color: #CBD5E1;
     font-size: 13px;
-    font-weight: 600;
-    padding-top: 3px;
+}
+
+QWidget#CardMakerPanel QLabel[role="muted"],
+QDialog#AiSettingsDialog QLabel[role="muted"] {
+    color: #7D8EA3;
+    font-size: 12px;
+}
+
+QWidget#CardMakerPanel QLabel[role="fieldLabel"],
+QDialog#AiSettingsDialog QLabel[role="fieldLabel"] {
+    color: #CBD5E1;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+QWidget#CardMakerPanel QFrame[sectionBody="true"] {
+    background: transparent;
+    border: none;
+}
+
+QWidget#CardMakerPanel QFrame[sectionCard="true"],
+QFrame#WriteFooter {
+    background-color: #161B22;
+    border: 1px solid #263241;
+    border-radius: 10px;
 }
 
 QWidget#CardMakerPanel QLabel[role="status"],
 QWidget#CardMakerPanel QLabel[role="success"],
 QWidget#CardMakerPanel QLabel[role="warning"],
-QWidget#CardMakerPanel QLabel[role="error"] {
-    border-radius: 5px;
+QWidget#CardMakerPanel QLabel[role="error"],
+QDialog#AiSettingsDialog QLabel[role="error"] {
+    border-radius: 7px;
     padding: 5px 8px;
     font-size: 12px;
     font-weight: 500;
@@ -65,205 +89,259 @@ QWidget#CardMakerPanel QLabel[role="error"] {
 
 QWidget#CardMakerPanel QLabel[role="status"] {
     color: #CBD5E1;
-    background-color: #24272B;
-    border: 1px solid #353A42;
+    background-color: #161B22;
+    border: 1px solid #263241;
 }
 
 QWidget#CardMakerPanel QLabel[role="success"] {
     color: #86EFAC;
-    background-color: #163224;
-    border: 1px solid #245C3A;
+    background-color: #102A1B;
+    border: 1px solid #1F5A36;
 }
 
 QWidget#CardMakerPanel QLabel[role="warning"] {
     color: #FCD34D;
-    background-color: #332B14;
-    border: 1px solid #5D4A1C;
+    background-color: #2B220E;
+    border: 1px solid #5B4316;
 }
 
-QWidget#CardMakerPanel QLabel[role="error"] {
+QWidget#CardMakerPanel QLabel[role="error"],
+QDialog#AiSettingsDialog QLabel[role="error"] {
     color: #FCA5A5;
-    background-color: #351C20;
-    border: 1px solid #6B2A32;
+    background-color: #30171B;
+    border: 1px solid #6A2730;
 }
 
-QWidget#CardMakerPanel QLabel[role="fieldLabel"] {
-    color: #D1D5DB;
-    font-size: 13px;
-    font-weight: 500;
+QWidget#CardsEmptyState {
+    background-color: #0F141B;
+    border: 1px dashed #263241;
+    border-radius: 10px;
+}
+
+QLabel#EmptyStateGlyph {
+    color: #7C5CFF;
+    font-size: 24px;
+    font-weight: 600;
 }
 
 QLabel#EmptyStateTitle {
-    color: #E5E7EB;
-    font-size: 19px;
+    color: #CBD5E1;
+    font-size: 16px;
     font-weight: 600;
 }
 
 QLabel#EmptyStateHelp {
-    color: #6B7280;
-    font-size: 13px;
-    font-weight: 400;
-}
-
-QWidget#CardMakerPanel QFrame[sectionCard="true"] {
-    background-color: #2B2D30;
-    border: 1px solid #3F4248;
-    border-radius: 8px;
-    color: #F4F4F5;
-}
-
-QWidget#CardMakerPanel QGroupBox[cardItem="true"] {
-    background-color: #25272A;
-    border: 1px solid #3F4248;
-    border-radius: 7px;
-    margin-top: 13px;
-    padding: 10px;
-    color: #F4F4F5;
-}
-
-QWidget#CardMakerPanel QGroupBox[cardItem="true"]::title {
-    subcontrol-origin: margin;
-    left: 10px;
-    padding: 0 5px;
-    color: #D1D5DB;
-    background: transparent;
-    font-weight: 600;
-}
-
-QWidget#CardsEmptyState {
-    background-color: #1F2023;
-    border: 1px dashed #3F4248;
-    border-radius: 7px;
+    color: #7D8EA3;
+    font-size: 12px;
 }
 
 QWidget#CardsList {
     background: transparent;
 }
 
+QWidget#CardMakerPanel QGroupBox[cardItem="true"] {
+    background-color: #161B22;
+    border: 1px solid #263241;
+    border-radius: 10px;
+    margin-top: 13px;
+    padding: 10px;
+    color: #F8FAFC;
+}
+
+QWidget#CardMakerPanel QGroupBox[cardItem="true"]::title {
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 5px;
+    color: #CBD5E1;
+    background: transparent;
+    font-weight: 600;
+}
+
 QWidget#CardMakerPanel QTextEdit,
 QWidget#CardMakerPanel QLineEdit,
 QWidget#CardMakerPanel QComboBox,
-QWidget#CardMakerPanel QSpinBox {
-    background-color: #1F2023;
-    color: #F4F4F5;
-    border: 1px solid #3F4248;
-    border-radius: 8px;
-    padding: 6px 8px;
-    selection-background-color: #2563EB;
-    min-height: 30px;
+QWidget#CardMakerPanel QSpinBox,
+QDialog#AiSettingsDialog QLineEdit,
+QDialog#AiSettingsDialog QComboBox,
+QDialog#AiSettingsDialog QSpinBox {
+    background-color: #0F141B;
+    color: #F8FAFC;
+    border: 1px solid #263241;
+    border-radius: 10px;
+    padding: 6px 9px;
+    selection-background-color: #7C5CFF;
+    min-height: 28px;
 }
 
 QWidget#CardMakerPanel QTextEdit:focus,
 QWidget#CardMakerPanel QLineEdit:focus,
 QWidget#CardMakerPanel QComboBox:focus,
-QWidget#CardMakerPanel QSpinBox:focus {
-    border: 1px solid #3B82F6;
+QWidget#CardMakerPanel QSpinBox:focus,
+QDialog#AiSettingsDialog QLineEdit:focus,
+QDialog#AiSettingsDialog QComboBox:focus,
+QDialog#AiSettingsDialog QSpinBox:focus {
+    border: 1px solid #7C5CFF;
 }
 
 QWidget#CardMakerPanel QTextEdit#MaterialDropArea {
-    background-color: #1C2025;
-    border: 1px dashed #596273;
-    border-radius: 8px;
-    padding: 10px;
+    background-color: #0F141B;
+    border: 1px dashed #334155;
+    border-radius: 10px;
+    padding: 12px;
 }
 
 QWidget#CardMakerPanel QTextEdit#MaterialDropArea:focus {
-    border: 1px solid #3B82F6;
-    background-color: #1F2329;
+    border: 1px solid #7C5CFF;
+    background-color: #111821;
 }
 
-QWidget#CardMakerPanel QComboBox::drop-down {
+QComboBox::drop-down {
     border: none;
     width: 24px;
 }
 
-QWidget#CardMakerPanel QComboBox QAbstractItemView {
-    background-color: #2B2D30;
-    color: #F4F4F5;
-    border: 1px solid #3F4248;
-    selection-background-color: #2563EB;
+QComboBox QAbstractItemView {
+    background-color: #161B22;
+    color: #F8FAFC;
+    border: 1px solid #334155;
+    selection-background-color: #7C5CFF;
 }
 
 QWidget#CardMakerPanel QPushButton,
-QPushButton[role="secondary"] {
-    background-color: #32343A;
-    color: #E5E7EB;
-    border: 1px solid #4B4F57;
-    border-radius: 8px;
+QPushButton[role="secondary"],
+QPushButton[role="dialogSecondary"] {
+    background-color: #161B22;
+    color: #CBD5E1;
+    border: 1px solid #263241;
+    border-radius: 10px;
     padding: 7px 13px;
-    min-height: 29px;
+    min-height: 28px;
 }
 
 QWidget#CardMakerPanel QPushButton:hover,
-QPushButton[role="secondary"]:hover {
-    background-color: #3A3D42;
-    border-color: #60656F;
+QPushButton[role="secondary"]:hover,
+QPushButton[role="dialogSecondary"]:hover {
+    background-color: #1C2430;
+    border-color: #334155;
 }
 
-QWidget#CardMakerPanel QPushButton[role="primary"] {
-    background-color: #3B82F6;
+QWidget#CardMakerPanel QPushButton[role="primary"],
+QPushButton[role="dialogPrimary"] {
+    background-color: #7C5CFF;
     color: #FFFFFF;
-    border: 1px solid #3B82F6;
-    border-radius: 8px;
-    padding: 8px 22px;
-    min-height: 38px;
+    border: 1px solid #7C5CFF;
+    border-radius: 10px;
+    padding: 8px 20px;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
 }
 
-QWidget#CardMakerPanel QPushButton[role="primary"]:hover {
-    background-color: #2563EB;
-    border-color: #2563EB;
+QWidget#CardMakerPanel QPushButton[role="primary"]:hover,
+QPushButton[role="dialogPrimary"]:hover {
+    background-color: #8B73FF;
+    border-color: #8B73FF;
 }
 
 QWidget#CardMakerPanel QPushButton[role="primary"]:disabled {
-    background-color: #334155;
-    color: #94A3B8;
-    border-color: #475569;
+    background-color: #292347;
+    color: #8F83C7;
+    border-color: #3C3266;
 }
 
 QWidget#CardMakerPanel QPushButton[role="subtle"] {
     background: transparent;
-    color: #9CA3AF;
+    color: #7D8EA3;
     border: none;
     padding: 4px 6px;
     min-height: 22px;
 }
 
 QWidget#CardMakerPanel QPushButton[role="subtle"]:hover {
-    color: #D1D5DB;
-    background-color: #32343A;
+    color: #CBD5E1;
+    background-color: #1C2430;
 }
 
+QLabel#AiStatusChip {
+    color: #7D8EA3;
+    background-color: #111827;
+    border: 1px solid #263241;
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+QLabel#AiStatusChip[configured="true"] {
+    color: #A99AFF;
+    background-color: rgba(124, 92, 255, 0.12);
+    border-color: #4B3A8F;
+}
+
+QPushButton#AiSettingsButton,
 QPushButton#LanguageToggle {
-    background-color: #25292E;
-    color: #D1D5DB;
-    border: 1px solid #4B4F57;
-    border-radius: 17px;
-    padding: 5px 12px;
+    background-color: #111827;
+    color: #CBD5E1;
+    border: 1px solid #263241;
+    border-radius: 10px;
+    padding: 6px 12px;
+    min-height: 24px;
     font-size: 13px;
 }
 
+QPushButton#AiSettingsButton:hover,
 QPushButton#LanguageToggle:hover {
     color: #FFFFFF;
-    border-color: #6B7280;
-    background-color: #32343A;
+    border-color: #334155;
+    background-color: #1C2430;
+}
+
+QDialog#AiSettingsDialog {
+    background: transparent;
+}
+
+QFrame#AiSettingsSurface {
+    background-color: #161B22;
+    border: 1px solid #263241;
+    border-radius: 12px;
+}
+
+QWidget#AiSettingsTitleBar {
+    background: transparent;
+}
+
+QLabel#AiSettingsTitle {
+    color: #F8FAFC;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+QPushButton#AiSettingsClose {
+    background: transparent;
+    color: #7D8EA3;
+    border: none;
+    border-radius: 8px;
+    font-size: 20px;
+}
+
+QPushButton#AiSettingsClose:hover {
+    background-color: #1C2430;
+    color: #F8FAFC;
+}
+
+QLabel#AiSettingsSessionNote {
+    color: #7D8EA3;
+    font-size: 12px;
 }
 
 QPushButton#AdvancedDebugLink {
     background: transparent;
-    color: #6B7280;
+    color: #7D8EA3;
     border: none;
     padding: 3px 5px;
     font-size: 11px;
 }
 
-QPushButton#AdvancedDebugLink:hover {
-    color: #9CA3AF;
-}
-
 QWidget#CardMakerPanel QRadioButton {
-    color: #D1D5DB;
+    color: #CBD5E1;
     spacing: 6px;
 }
 
@@ -273,13 +351,13 @@ QWidget#CardMakerPanel QScrollArea {
 }
 
 QWidget#CardMakerPanel QScrollBar:vertical {
-    background: #25272A;
+    background: #111827;
     width: 9px;
     margin: 0;
 }
 
 QWidget#CardMakerPanel QScrollBar::handle:vertical {
-    background: #4B4F57;
+    background: #334155;
     border-radius: 4px;
     min-height: 24px;
 }

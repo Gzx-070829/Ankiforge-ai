@@ -16,9 +16,9 @@ class SingleScreenCardMakerTests(unittest.TestCase):
         self.assertIn("CardMakerPanel", self.function_source(main, "_build_ui"))
         self.assertIn('self.t("subtitle")', main)
         for key in (
+            "create_cards_section",
             "material_section",
             "generation_settings",
-            "ai_provider",
             "cards_section",
             "write_section",
         ):
@@ -74,16 +74,19 @@ class SingleScreenCardMakerTests(unittest.TestCase):
         self.assertNotIn("Human Review", build_ui)
         self.assertNotIn("添加到 Anki", build_ui)
 
-    def test_compatible_provider_connection_settings_are_collapsed(self):
-        builder = self.function_source(self.panel_source(), "_build_provider_section")
+    def test_compatible_provider_connection_settings_are_in_dialog(self):
+        dialog = (
+            self.root() / "ankiforge_ai" / "ui" / "ai_settings_dialog.py"
+        ).read_text(encoding="utf-8")
+        builder = self.function_source(dialog, "_build_ui")
 
         for key in ("provider", "model", "api_key", "base_url", "timeout"):
             self.assertIn(f'self.t("{key}")', builder)
         self.assertIn(
-            "self.provider_connection_container.setVisible(False)",
+            "self.connection_container.setVisible(False)",
             builder,
         )
-        self.assertNotIn("self.ai_advanced_btn", builder)
+        self.assertNotIn("self.ai_advanced_btn", dialog)
 
     def test_api_key_is_session_only_and_redacted(self):
         secret = "sk-session-only-secret"
@@ -98,7 +101,7 @@ class SingleScreenCardMakerTests(unittest.TestCase):
         discard = self.function_source(panel, "discard_session")
 
         self.assertNotIn(secret, rendered)
-        self.assertIn("self.api_key_input.clear()", discard)
+        self.assertIn("self._ai_runtime_settings = None", discard)
         for forbidden in ("save_config", "write_config", "setConfig"):
             self.assertNotIn(forbidden, panel)
 

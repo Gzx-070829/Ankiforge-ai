@@ -6,7 +6,7 @@ kept behind a small function so pure Python tests can import submodules on a
 machine that does not have Anki's `aqt` package installed.
 """
 
-__version__ = "0.12.3"
+__version__ = "0.12.5"
 
 _dialog_instance = None
 

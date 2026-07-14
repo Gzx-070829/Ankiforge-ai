@@ -10,32 +10,27 @@ from ankiforge_ai.ui.product_styles import PRODUCT_DARK_STYLESHEET
 
 
 class UIRescueV0122Tests(unittest.TestCase):
-    def test_left_column_uses_three_independent_product_sections(self):
+    def test_left_column_uses_one_linear_create_panel(self):
         source = self.panel_source()
         builder = self.function_source(source, "_build_ui")
+        create = self.function_source(source, "_build_create_panel")
 
         self.assertIn("def _build_generation_section", source)
-        self.assertIn("def _build_provider_section", source)
-        self.assertNotIn("_build_ai_section()", builder)
+        self.assertNotIn("def _build_provider_section", source)
+        self.assertIn("_build_create_panel()", builder)
         self.assertLess(
-            builder.index("_build_material_section()"),
-            builder.index("_build_generation_section()"),
-        )
-        self.assertLess(
-            builder.index("_build_generation_section()"),
-            builder.index("_build_provider_section()"),
+            create.index("_build_material_section()"),
+            create.index("_build_generation_section()"),
         )
         self.assertIn("columns.setSpacing(COLUMN_GAP)", builder)
-        self.assertIn("columns.addWidget(left, 48)", builder)
-        self.assertIn("columns.addWidget(right, 52)", builder)
+        self.assertIn("columns.addWidget(left, 45)", builder)
+        self.assertIn("columns.addWidget(right, 55)", builder)
 
-    def test_provider_model_and_api_key_are_separate_stable_form_rows(self):
-        source = self.panel_source()
-        builder = self.function_source(source, "_build_provider_section")
+    def test_provider_model_and_api_key_are_stable_dialog_rows(self):
+        source = self.dialog_source()
+        builder = self.function_source(source, "_build_ui")
 
-        self.assertIn("provider_rows = QVBoxLayout()", builder)
-        self.assertEqual(builder.count("provider_rows.addLayout("), 3)
-        self.assertEqual(builder.count("connection_rows.addLayout("), 2)
+        self.assertGreaterEqual(builder.count("self._make_form_row("), 5)
         self.assertLess(
             builder.index("self.provider_combo"),
             builder.index("self.model_input"),
@@ -44,7 +39,7 @@ class UIRescueV0122Tests(unittest.TestCase):
             builder.index("self.model_input"),
             builder.index("self.api_key_input"),
         )
-        self.assertIn("api_key_field_layout.addWidget(self.api_key_help_label)", builder)
+        self.assertIn("api_key_layout.addWidget(self.api_key_help_label)", builder)
         self.assertNotIn("provider_model_row", builder)
         self.assertNotIn("api_key_section_label", builder)
 
@@ -116,7 +111,7 @@ class UIRescueV0122Tests(unittest.TestCase):
         self.assertIn("font-size: 16px", PRODUCT_DARK_STYLESHEET)
         self.assertIn("font-size: 13px", PRODUCT_DARK_STYLESHEET)
         self.assertIn("font-size: 12px", PRODUCT_DARK_STYLESHEET)
-        self.assertIn("border-radius: 8px", PRODUCT_DARK_STYLESHEET)
+        self.assertIn("border-radius: 10px", PRODUCT_DARK_STYLESHEET)
 
     def test_write_summary_copy_is_multiline_and_user_facing(self):
         for language in ("zh", "en"):
@@ -144,15 +139,15 @@ class UIRescueV0122Tests(unittest.TestCase):
         self.assertIn("self.generate_btn.setToolTip(", refresh)
         self.assertIn('self.t("generation_requirements")', refresh)
 
-    def test_runtime_version_and_bilingual_catalog_are_ready_for_0123(self):
+    def test_runtime_version_and_bilingual_catalog_are_ready_for_0125(self):
         manifest = json.loads(
             (self.root() / "ankiforge_ai" / "manifest.json").read_text(
                 encoding="utf-8"
             )
         )
 
-        self.assertEqual(ankiforge_ai.__version__, "0.12.3")
-        self.assertEqual(manifest["version"], "0.12.3")
+        self.assertEqual(ankiforge_ai.__version__, "0.12.5")
+        self.assertEqual(manifest["version"], "0.12.5")
         self.assertEqual(set(PRODUCT_COPY["zh"]), set(PRODUCT_COPY["en"]))
 
     @staticmethod
@@ -177,6 +172,11 @@ class UIRescueV0122Tests(unittest.TestCase):
     def main_source(self):
         return (
             self.root() / "ankiforge_ai" / "ui" / "main_dialog.py"
+        ).read_text(encoding="utf-8")
+
+    def dialog_source(self):
+        return (
+            self.root() / "ankiforge_ai" / "ui" / "ai_settings_dialog.py"
         ).read_text(encoding="utf-8")
 
 

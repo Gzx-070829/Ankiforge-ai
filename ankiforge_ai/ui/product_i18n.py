@@ -10,6 +10,16 @@ PRODUCT_COPY = {
         "title": "AnkiForge AI",
         "subtitle": "把学习材料变成 Anki 卡片",
         "language_toggle": "English",
+        "ai_settings": "AI 设置",
+        "ai_not_configured": "AI 未配置",
+        "ai_configured": "{provider} · 已配置",
+        "save_session_settings": "保存本次设置",
+        "close": "关闭",
+        "ai_settings_session_note": (
+            "API key 仅在本次 Anki 窗口中使用，不会写入配置文件。"
+        ),
+        "ai_settings_invalid": "请填写有效的 Provider、Model 和 API key。",
+        "create_cards_section": "创建卡片",
         "advanced_debug": "高级",
         "advanced_debug_collapse": "收起高级",
         "advanced_debug_help": "旧版工具入口。普通制卡不需要使用。",
@@ -103,7 +113,7 @@ PRODUCT_COPY = {
         "generate_cards": "生成卡片",
         "regenerate_cards": "重新生成",
         "generation_running": "正在生成…",
-        "generation_requirements": "请先填写学习材料、Model 和 API key。",
+        "generation_requirements": "请先添加材料并配置 AI。",
         "generation_failed": "生成失败，请检查 API key、模型或网络后重试。",
         "model_failure_help": (
             "模型名称可能不正确。DeepSeek 可尝试 deepseek-v4-flash "
@@ -196,6 +206,17 @@ PRODUCT_COPY = {
         "title": "AnkiForge AI",
         "subtitle": "Turn study materials into Anki cards",
         "language_toggle": "中文",
+        "ai_settings": "AI Settings",
+        "ai_not_configured": "AI not configured",
+        "ai_configured": "{provider} · Configured",
+        "save_session_settings": "Save for this session",
+        "close": "Close",
+        "ai_settings_session_note": (
+            "The API key is used only in this Anki window and is not written "
+            "to a configuration file."
+        ),
+        "ai_settings_invalid": "Enter a valid Provider, Model, and API key.",
+        "create_cards_section": "Create Cards",
         "advanced_debug": "Advanced",
         "advanced_debug_collapse": "Hide Advanced",
         "advanced_debug_help": (
@@ -319,9 +340,7 @@ PRODUCT_COPY = {
         "generate_cards": "Generate Cards",
         "regenerate_cards": "Regenerate",
         "generation_running": "Generating…",
-        "generation_requirements": (
-            "Add study material, a model, and an API key first."
-        ),
+        "generation_requirements": "Add material and configure AI first.",
         "generation_failed": (
             "Generation failed. Check your API key, model, or network, "
             "then try again."
