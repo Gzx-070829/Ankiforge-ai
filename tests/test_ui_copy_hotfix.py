@@ -88,8 +88,9 @@ class UICopyHotfixTests(unittest.TestCase):
         self.assertNotIn("调试工具", rendered)
         self.assertNotIn("debug tools", rendered)
         build_ui = self.function_source(self.main_source(), "_build_ui")
-        self.assertIn("self.advanced_toggle_btn.setVisible(False)", build_ui)
-        self.assertIn("self.advanced_tools_panel.setVisible(False)", build_ui)
+        self.assertNotIn("advanced_toggle_btn", build_ui)
+        self.assertNotIn("advanced_tools_panel", build_ui)
+        self.assertIn("self.help_btn", build_ui)
 
     def test_bilingual_catalog_remains_complete(self):
         self.assertEqual(set(PRODUCT_COPY["zh"]), set(PRODUCT_COPY["en"]))

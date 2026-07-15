@@ -26,6 +26,7 @@ BLOCKED_PARTS = {
     "__pycache__",
     "addons21",
     "docs",
+    "eval",
     "tests",
 }
 BLOCKED_FILENAMES = {

@@ -1,0 +1,14 @@
+{
+  "fixture_id": "history-concept",
+  "source_text": "工业革命首先在英国展开。蒸汽动力和机械化生产提高了产量，也推动人口向城市集中。其影响包括生产方式变化和城市化加快。",
+  "recommended_mode": "exam",
+  "expected_good_patterns": ["明确考点", "答案含简洁得分点"],
+  "expected_bad_patterns": ["空泛讨论历史", "加入材料外年代"],
+  "expected_min_cards": 2,
+  "expected_max_cards": 4,
+  "notes": "历史概念和考试答题点 fixture。",
+  "mock_cards": [
+    {"id": "history-origin", "front": "工业革命首先在哪个国家展开？", "back": "英国。"},
+    {"id": "history-effects", "front": "材料指出工业革命带来了哪两项主要影响？", "back": "生产方式发生变化，城市化加快。"}
+  ]
+}

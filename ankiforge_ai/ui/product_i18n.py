@@ -10,6 +10,19 @@ PRODUCT_COPY = {
         "title": "AnkiForge AI",
         "subtitle": "把学习材料变成 Anki 卡片",
         "language_toggle": "English",
+        "help": "帮助",
+        "help_title": "第一次使用 AnkiForge AI？",
+        "help_close": "知道了",
+        "help_use_example": "使用示例",
+        "help_addon_identity": "这是 Anki 桌面端插件，不是共享牌组，也不是网页服务。",
+        "help_own_material": "它把你自己的学习材料整理成候选卡，不提供现成卡组。",
+        "help_provider": "生成卡片需要你自行选择 AI Provider。",
+        "help_session_key": "API key 只在当前窗口使用，关闭后即清除。",
+        "help_review": "AI 生成的是候选卡，请逐张审核并修改。",
+        "help_confirmation": "只有你最终确认后，卡片才会写入 Anki。",
+        "help_test_deck": "第一次使用建议选择单独的测试牌组。",
+        "help_pdf": "PDF 暂不解析，请复制文本或转换为 Markdown、TXT 或 DOCX。",
+        "example_picker_title": "选择示例材料",
         "ai_settings": "AI 设置",
         "ai_not_configured": "AI 未配置",
         "ai_configured": "{provider} · 已配置",
@@ -137,6 +150,13 @@ PRODUCT_COPY = {
         "quality_status_warning": "请检查",
         "quality_status_blocking": "不能写入",
         "discard_blocking": "丢弃不能写入的卡",
+        "keep_clean": "保留可用卡片",
+        "copy": "复制",
+        "restore": "还原",
+        "review_stats": (
+            "共 {total} · 待审核 {pending} · 已保留 {kept} · 已丢弃 {discarded} · "
+            "有提醒 {warnings} · 不能写入 {blocking}"
+        ),
         "quality_empty_front": "正面为空，不能写入",
         "quality_empty_front_suggestion": "补充一个具体问题，或丢弃这张卡。",
         "quality_empty_back": "背面为空，不能写入",
@@ -167,28 +187,38 @@ PRODUCT_COPY = {
         "no_source": "不使用",
         "target_read_failed": "无法读取 Anki 牌组或笔记类型。",
         "field_read_failed": "无法读取笔记类型字段。",
+        "mapping_incomplete": "字段映射不完整或不兼容，请重新选择。",
         "check_duplicates": "检查重复",
         "duplicates_unchecked": "未检查",
         "duplicates_clear": "已检查",
         "duplicates_skipped": "可能重复，已跳过",
         "write_summary_empty": "完成审核和重复检查后，将显示写入摘要。",
         "write_summary": (
+            "目标：{deck} · {note_type}\n"
             "将写入：{cards} 张\n"
             "跳过重复：{skipped} 张\n"
             "质量提醒：{warnings} 张\n"
+            "不能写入：{blocking} 张\n"
+            "来源：{source}\n"
             "Tags：{tags}"
         ),
         "write_result_summary": (
             "已写入：{written} 张\n"
             "跳过重复：{skipped} 张\n"
             "失败：{failed} 张\n"
+            "目标：{deck} · {note_type}\n"
+            "来源：{source}\n"
+            "时间：{timestamp}\n"
+            "批次：{batch}\n"
             "Tags：{tags}"
         ),
+        "last_write": "上次写入：{count} 张到 {deck} · {timestamp}",
         "write_to_anki": "写入 Anki",
         "write_running": "正在写入…",
         "write_completed_button": "已写入，请在 Anki 中查看",
         "write_failed": "写入失败，请检查牌组、笔记类型或字段映射后重试。",
         "write_cancelled": "已取消。",
+        "duplicate_state_changed": "重复检查结果已变化，请查看更新后的摘要并再次确认。",
         "write_success": "已写入 {count} 张卡片，可以到 Anki 中查看。",
         "write_partial": "已写入 {success} 张，{failed} 张失败。请检查失败项后重试。",
         "confirm_write_title": "确认写入 Anki？",
@@ -206,6 +236,19 @@ PRODUCT_COPY = {
         "title": "AnkiForge AI",
         "subtitle": "Turn study materials into Anki cards",
         "language_toggle": "中文",
+        "help": "Help",
+        "help_title": "New to AnkiForge AI?",
+        "help_close": "Got it",
+        "help_use_example": "Use an example",
+        "help_addon_identity": "This is an Anki Desktop add-on, not a shared deck or web app.",
+        "help_own_material": "It turns your own study material into candidate cards; no pre-made decks are included.",
+        "help_provider": "Card generation requires an AI provider you choose.",
+        "help_session_key": "Your API key stays in this window and is cleared when it closes.",
+        "help_review": "AI output is a set of candidate cards. Review and edit every card.",
+        "help_confirmation": "Cards are written to Anki only after your final confirmation.",
+        "help_test_deck": "Start with a separate test deck the first time.",
+        "help_pdf": "PDF import is unavailable. Copy the text or convert it to Markdown, TXT, or DOCX.",
+        "example_picker_title": "Choose example material",
         "ai_settings": "AI Settings",
         "ai_not_configured": "AI not configured",
         "ai_configured": "{provider} · Configured",
@@ -367,6 +410,13 @@ PRODUCT_COPY = {
         "quality_status_warning": "Review",
         "quality_status_blocking": "Cannot be written",
         "discard_blocking": "Discard blocked cards",
+        "keep_clean": "Keep clean cards",
+        "copy": "Copy",
+        "restore": "Restore",
+        "review_stats": (
+            "Total {total} · Pending {pending} · Kept {kept} · Discarded {discarded} · "
+            "Reminders {warnings} · Blocked {blocking}"
+        ),
         "quality_empty_front": "Front is empty and cannot be written",
         "quality_empty_front_suggestion": "Add a specific question or discard this card.",
         "quality_empty_back": "Back is empty and cannot be written",
@@ -397,23 +447,32 @@ PRODUCT_COPY = {
         "no_source": "Do not use",
         "target_read_failed": "Could not read Anki decks or note types.",
         "field_read_failed": "Could not read note type fields.",
+        "mapping_incomplete": "Field mapping is incomplete or incompatible. Choose again.",
         "check_duplicates": "Check Duplicates",
         "duplicates_unchecked": "Not checked",
         "duplicates_clear": "Checked",
         "duplicates_skipped": "Possible duplicate, skipped",
         "write_summary_empty": "Review cards and check duplicates to see the write summary.",
         "write_summary": (
+            "Target: {deck} · {note_type}\n"
             "Cards to write: {cards}\n"
             "Duplicate skips: {skipped}\n"
             "Quality reminders: {warnings}\n"
+            "Blocked: {blocking}\n"
+            "Source: {source}\n"
             "Tags: {tags}"
         ),
         "write_result_summary": (
             "Written: {written}\n"
             "Duplicate skips: {skipped}\n"
             "Failed: {failed}\n"
+            "Target: {deck} · {note_type}\n"
+            "Source: {source}\n"
+            "Time: {timestamp}\n"
+            "Batch: {batch}\n"
             "Tags: {tags}"
         ),
+        "last_write": "Last write: {count} cards to {deck} · {timestamp}",
         "write_to_anki": "Write to Anki",
         "write_running": "Writing…",
         "write_completed_button": "Written — check Anki",
@@ -422,6 +481,9 @@ PRODUCT_COPY = {
             "then try again."
         ),
         "write_cancelled": "Cancelled.",
+        "duplicate_state_changed": (
+            "Duplicate results changed. Review the updated summary and confirm again."
+        ),
         "write_success": "Wrote {count} cards. You can now check them in Anki.",
         "write_partial": (
             "Wrote {success} cards; {failed} failed. Check the failed items "

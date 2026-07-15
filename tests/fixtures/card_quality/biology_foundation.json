@@ -1,0 +1,14 @@
+{
+  "fixture_id": "biology-foundation",
+  "source_text": "线粒体通过细胞呼吸产生 ATP，为细胞活动提供能量。核糖体根据 mRNA 信息合成蛋白质。两种细胞结构承担不同功能。",
+  "recommended_mode": "definition",
+  "expected_good_patterns": ["明确细胞结构", "定义包含核心功能"],
+  "expected_bad_patterns": ["混淆线粒体和核糖体", "声称线粒体合成蛋白质"],
+  "expected_min_cards": 2,
+  "expected_max_cards": 4,
+  "notes": "医学和生物基础 fixture，不构成医学建议。",
+  "mock_cards": [
+    {"id": "biology-mitochondria", "front": "线粒体的核心功能是什么？", "back": "它通过细胞呼吸产生 ATP，为细胞活动提供能量。"},
+    {"id": "biology-ribosome", "front": "核糖体的核心功能是什么？", "back": "它根据 mRNA 信息合成蛋白质。"}
+  ]
+}

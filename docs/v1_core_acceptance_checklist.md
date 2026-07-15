@@ -1,5 +1,7 @@
 # v1-Core Acceptance Checklist
 
+> Historical v0.12 checklist. Use the current [v1 Candidate Acceptance Checklist](v1_candidate_acceptance_checklist.md) and [Manual Anki Acceptance](manual_anki_acceptance.md) for the product-grade candidate.
+
 ## Automated gates
 
 - [ ] `python -m unittest discover` passes

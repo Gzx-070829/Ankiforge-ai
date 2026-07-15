@@ -18,13 +18,13 @@ from aqt.qt import (
 
 from .beginner_ai_card_drafts import BeginnerAIProviderRuntimeSettings
 from .product_i18n import DEFAULT_PRODUCT_LANGUAGE, product_text
-
-
-FORM_LABEL_WIDTH = 96
-FORM_HORIZONTAL_GAP = 16
-ROW_GAP = 12
-CONTROL_HEIGHT = 40
-HINT_TOP_MARGIN = 4
+from .style_tokens import (
+    FORM_LABEL_WIDTH,
+    FORM_ROW_GAP as ROW_GAP,
+    INPUT_HEIGHT as CONTROL_HEIGHT,
+    SPACING_LG as FORM_HORIZONTAL_GAP,
+    SPACING_XS as HINT_TOP_MARGIN,
+)
 
 
 class _DialogTitleBar(QWidget):
@@ -200,11 +200,6 @@ class AiSettingsDialog(QDialog):
         )
         self.connection_container.setVisible(False)
         layout.addWidget(self.connection_container)
-
-        self.session_note_label = QLabel(self.t("ai_settings_session_note"))
-        self.session_note_label.setObjectName("AiSettingsSessionNote")
-        self.session_note_label.setWordWrap(True)
-        layout.addWidget(self.session_note_label)
 
         self.error_label = QLabel()
         self.error_label.setProperty("role", "error")

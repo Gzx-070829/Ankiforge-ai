@@ -1,0 +1,14 @@
+{
+  "fixture_id": "math-formula",
+  "source_text": "勾股定理适用于直角三角形：若两条直角边为 a、b，斜边为 c，则 a²+b²=c²。该公式的前提是三角形含有直角。",
+  "recommended_mode": "formula_rule",
+  "expected_good_patterns": ["给出公式", "说明适用条件和变量"],
+  "expected_bad_patterns": ["缺少直角条件", "变量含义不明"],
+  "expected_min_cards": 2,
+  "expected_max_cards": 4,
+  "notes": "数学公式及适用条件 fixture。",
+  "mock_cards": [
+    {"id": "math-pythagorean", "front": "勾股定理在什么条件下适用，公式是什么？", "back": "当三角形为直角三角形时，a²+b²=c²。"},
+    {"id": "math-variables", "front": "勾股定理公式中的 a、b、c 分别表示什么？", "back": "在直角三角形中，a、b 是两条直角边，c 是斜边。"}
+  ]
+}

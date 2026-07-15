@@ -58,7 +58,8 @@ class ProductStyleTests(unittest.TestCase):
             source,
         )
         self.assertNotIn("self.ai_advanced_btn", source)
-        self.assertIn("AdvancedDebugLink", self.main_source())
+        self.assertNotIn("AdvancedDebugLink", self.main_source())
+        self.assertIn("HelpButton", self.main_source())
 
     def test_empty_state_is_centered_without_changing_two_column_layout(self):
         source = self.panel_source()

@@ -26,7 +26,7 @@
 
 API key 仅在当前窗口使用，不会由 AnkiForge AI 保存。
 
-如需从本地文件导入学习材料，请参阅[文件导入说明](file_import.md)。
+如需从本地文件导入学习材料，请参阅[导入学习材料](importing_materials.md)。
 
 PDF 在 v0.11 中是友好提示入口：安装包不包含 PDF 解析器或 OCR。遇到 PDF 时，请复制其中可选文本，或先转换为 TXT / Markdown。
 

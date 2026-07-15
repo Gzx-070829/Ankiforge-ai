@@ -1,0 +1,76 @@
+{
+  "offline_ui_preview_mock": true,
+  "real_anki_acceptance": false,
+  "network_used": false,
+  "anki_or_provider_called": false,
+  "preview": "docs/assets/ui_preview_v0_13.html",
+  "preview_sha256": "908E6FD223DC0F938D9219A7B34E30C71B2480083D2FCA2D42DE3C0AEFC329E1",
+  "screenshots": {
+    "01_zh_default_empty.png": {
+      "state": "zh-default",
+      "width": 1440,
+      "height": 900,
+      "sha256": "D2651E537335D4147FCD894F105DA932D8B0FAEB40688975D51C0E0B869E119C"
+    },
+    "02_ai_settings_dialog.png": {
+      "state": "ai-settings",
+      "width": 1440,
+      "height": 900,
+      "sha256": "AD2A8FA29D53DBFA86CB520E01D2007E0F9D39775BFDEC374D9E15B6FDCF06BA"
+    },
+    "03_ai_configured_main.png": {
+      "state": "configured",
+      "width": 1440,
+      "height": 900,
+      "sha256": "2A8C17E475A3AE4232DCED52C6678E27B96A4C85553E4626810B65AC4D9EA282"
+    },
+    "04_generation_settings_expanded.png": {
+      "state": "generation-expanded",
+      "width": 1440,
+      "height": 900,
+      "sha256": "526D461F3E189A55D1803B6FE7470799C2D5048BAA35F5FE1989F46D3AB20828"
+    },
+    "05_help_dialog.png": {
+      "state": "help",
+      "width": 1440,
+      "height": 900,
+      "sha256": "E7A29829B16130D6B63B16A5228788175DDCB8BF582C0FCC7563E8AA2E2744E5"
+    },
+    "06_en_default_empty.png": {
+      "state": "en-default",
+      "width": 1440,
+      "height": 900,
+      "sha256": "8A31BA627B7ABEE5BAC1B1517758253CD0C4833A013D178213871B1E0CAA869B"
+    },
+    "07_example_loaded.png": {
+      "state": "example-loaded",
+      "width": 1440,
+      "height": 900,
+      "sha256": "607196F1A7B23DB7A553ACA6C882B302AB3DA9FD608FB3040D0B221C9468F4F6"
+    },
+    "08_review_workbench.png": {
+      "state": "review-workbench",
+      "width": 1440,
+      "height": 900,
+      "sha256": "E46BEE3EC11579CD00A01677A61B6BF2112EEFFA06FF7B4C4816D23D25C0F024"
+    },
+    "09_warning_blocking_cards.png": {
+      "state": "quality-alerts",
+      "width": 1440,
+      "height": 900,
+      "sha256": "F76F23BB390318B935590A4617EEA6A07D00663F56ECE2F75C566DF3F4872538"
+    },
+    "10_write_summary_ready.png": {
+      "state": "write-ready",
+      "width": 1440,
+      "height": 900,
+      "sha256": "87AA40186CA73F031E7D78B95103E309E851E1B899AE00C868FE3130EDC502F1"
+    },
+    "11_final_confirmation.png": {
+      "state": "final-confirmation",
+      "width": 1440,
+      "height": 900,
+      "sha256": "A3EB2F6DCD008BF26105C1F4246DECB3A22965B71BB68DD9D73D9119C601F917"
+    }
+  }
+}

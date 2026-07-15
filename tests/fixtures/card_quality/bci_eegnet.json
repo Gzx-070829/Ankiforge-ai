@@ -1,0 +1,14 @@
+{
+  "fixture_id": "bci-eegnet",
+  "source_text": "脑机接口可以利用 EEG 信号识别用户意图。EEGNet 使用深度可分离卷积减少参数量，并学习时间与空间特征，适合 EEG 分类任务。",
+  "recommended_mode": "concept",
+  "expected_good_patterns": ["解释 EEGNet 设计意义", "一卡一知识点"],
+  "expected_bad_patterns": ["声称诊断疾病", "扩展到材料外结论"],
+  "expected_min_cards": 2,
+  "expected_max_cards": 4,
+  "notes": "BCI 与 EEGNet 的技术概念 fixture。",
+  "mock_cards": [
+    {"id": "bci-purpose", "front": "脑机接口如何利用 EEG 信号？", "back": "它通过分析 EEG 信号来识别用户意图。"},
+    {"id": "eegnet-convolution", "front": "EEGNet 使用深度可分离卷积有什么意义？", "back": "它能减少参数量，并学习 EEG 的时间与空间特征。"}
+  ]
+}

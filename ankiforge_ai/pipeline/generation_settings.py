@@ -4,7 +4,17 @@ from dataclasses import dataclass
 from typing import Mapping, Optional
 
 
-CARD_MODES = ("concept", "definition", "exam", "quick_review")
+CARD_MODES = (
+    "concept",
+    "definition",
+    "exam",
+    "quick_review",
+    "compare_contrast",
+    "process_steps",
+    "formula_rule",
+    "mistake_trap",
+    "cloze_candidate",
+)
 CARD_COUNTS = ("auto", "fewer", "balanced", "more")
 ANSWER_LENGTHS = ("short", "medium")
 OUTPUT_LANGUAGES = ("auto", "zh", "en")
@@ -21,6 +31,7 @@ class CardModeProfile:
     default_answer_length: str
     default_card_density: str
     quality_priorities: tuple[str, ...]
+    selectable: bool = True
 
     def __repr__(self) -> str:
         return (
@@ -87,6 +98,77 @@ _CARD_MODE_PROFILES = (
         default_card_density="more",
         quality_priorities=("one-fact", "brief", "fast-recall"),
     ),
+    CardModeProfile(
+        mode_id="compare_contrast",
+        display_name_zh="对比辨析",
+        display_name_en="Compare & contrast",
+        description_zh="在同一维度区分两个容易混淆的概念",
+        description_en="Distinguish two concepts on the same meaningful dimension",
+        prompt_guidance=(
+            "Name both sides explicitly and compare them on the same meaningful "
+            "dimension; make the distinction useful for recall."
+        ),
+        default_answer_length="short",
+        default_card_density="fewer",
+        quality_priorities=("two-sided", "same-dimension", "distinctive"),
+    ),
+    CardModeProfile(
+        mode_id="process_steps",
+        display_name_zh="流程步骤",
+        display_name_en="Process steps",
+        description_zh="记忆步骤、流程与先后顺序",
+        description_en="Learn steps, processes, and their order",
+        prompt_guidance=(
+            "Ask for one bounded process and preserve explicit order, transitions, "
+            "and only the steps supported by the material."
+        ),
+        default_answer_length="medium",
+        default_card_density="fewer",
+        quality_priorities=("ordered", "complete", "concise"),
+    ),
+    CardModeProfile(
+        mode_id="formula_rule",
+        display_name_zh="公式规则",
+        display_name_en="Formula or rule",
+        description_zh="记忆公式、规则、变量和适用条件",
+        description_en="Learn a formula or rule, its variables, and conditions",
+        prompt_guidance=(
+            "State the formula or rule precisely, define essential variables, and "
+            "include its applicable condition without adding a long derivation."
+        ),
+        default_answer_length="short",
+        default_card_density="fewer",
+        quality_priorities=("correct-form", "variables", "condition"),
+    ),
+    CardModeProfile(
+        mode_id="mistake_trap",
+        display_name_zh="易错陷阱",
+        display_name_en="Mistake trap",
+        description_zh="识别常见误区并给出简洁纠正",
+        description_en="Recognize a common misconception and its correction",
+        prompt_guidance=(
+            "Focus on one misconception or easily confused point that is explicitly "
+            "grounded in the material, then give its concise correction."
+        ),
+        default_answer_length="short",
+        default_card_density="balanced",
+        quality_priorities=("misconception", "correction", "grounded"),
+    ),
+    CardModeProfile(
+        mode_id="cloze_candidate",
+        display_name_zh="填空候选",
+        display_name_en="Cloze candidate",
+        description_zh="仅在兼容笔记类型下使用简单、安全的填空",
+        description_en="Use a simple cloze only with a compatible note type",
+        prompt_guidance=(
+            "Create at most one simple, non-nested cloze deletion with enough context; "
+            "treat it as unsupported unless note-type compatibility is confirmed."
+        ),
+        default_answer_length="short",
+        default_card_density="fewer",
+        quality_priorities=("valid-syntax", "single-deletion", "compatible"),
+        selectable=False,
+    ),
 )
 _PROFILE_BY_ID = {profile.mode_id: profile for profile in _CARD_MODE_PROFILES}
 
@@ -115,6 +197,12 @@ class GenerationSettings:
 
 def all_card_mode_profiles() -> tuple[CardModeProfile, ...]:
     return _CARD_MODE_PROFILES
+
+
+def selectable_card_mode_profiles() -> tuple[CardModeProfile, ...]:
+    """Return modes that are safe to expose in the current Basic-card UI."""
+
+    return tuple(profile for profile in _CARD_MODE_PROFILES if profile.selectable)
 
 
 def get_card_mode_profile(mode_id: str) -> CardModeProfile:

@@ -1,11 +1,16 @@
 """Prepare and explicitly gate one immutable beginner-mode write snapshot."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import hashlib
 import json
 from typing import Optional
 
 from ..pipeline.write_traceability import build_default_tags, safe_source_label
+from ..pipeline.field_mapping import assess_field_mapping
+from ..pipeline.write_safety import (
+    WriteSafetySnapshot,
+    evaluate_write_safety,
+)
 from ..anki_writer.minimal_write import (
     BeginnerWriteCardCommand,
     BeginnerWriteCommand,
@@ -112,28 +117,35 @@ def prepare_beginner_write(
     )
     if not mapping_current:
         missing.append("没有当前目标和字段映射")
-    elif len(
-        {
-            item
-            for item in (
-                mapping.front_field,
-                mapping.back_field,
-                mapping.source_field,
-            )
-            if item
-        }
-    ) != len(
-        tuple(
-            item
-            for item in (
-                mapping.front_field,
-                mapping.back_field,
-                mapping.source_field,
-            )
-            if item
+    mapping_assessment = (
+        assess_field_mapping(
+            session.selected_anki_note_type_fields,
+            mapping.front_field,
+            mapping.back_field,
+            mapping.source_field,
+            note_type_name=session.selected_anki_note_type_name,
+            template_id=session.generation_settings.card_mode,
         )
-    ):
-        missing.append("正面、背面和来源不能重复使用同一字段")
+        if mapping_current
+        else None
+    )
+    mapping_complete = bool(
+        mapping_current
+        and mapping_assessment is not None
+        and mapping_assessment.complete
+    )
+    if mapping_assessment is not None:
+        if "mapped_fields_not_unique" in mapping_assessment.blocking_reasons:
+            missing.append("正面、背面和来源不能重复使用同一字段")
+        if "cloze_note_type_incompatible" in mapping_assessment.blocking_reasons:
+            missing.append("当前笔记类型不支持 Cloze 写入")
+
+    generation_complete = bool(
+        session.ai_generation_state.value == "success"
+        and session.ai_draft_state is BeginnerArtifactState.CURRENT
+    )
+    if not generation_complete:
+        missing.append("AI 生成流程尚未结束")
 
     duplicate_results = (
         {item.candidate_id: item for item in duplicate_preview.results}
@@ -185,7 +197,7 @@ def prepare_beginner_write(
     if not writable:
         missing.append("没有审核通过且未发现明显重复的候选卡")
     missing = list(dict.fromkeys(missing))
-    if missing or not mapping_current:
+    if missing or not mapping_complete:
         return BeginnerWritePreparation(
             missing_conditions=tuple(missing),
             skipped_candidate_ids=tuple(skipped_ids),
@@ -215,6 +227,15 @@ def prepare_beginner_write(
         cards=cards,
         skipped_count=len(skipped_ids),
         tags=tags,
+        safety_snapshot=WriteSafetySnapshot(
+            kept_count=len(cards),
+            blocking_write_count=0,
+            mapping_complete=mapping_complete,
+            duplicate_check_complete=duplicate_current,
+            final_confirmation_confirmed=False,
+            target_valid=mapping_current,
+            generation_complete=generation_complete,
+        ),
     )
     if session.has_completed_write_snapshot(snapshot_id):
         return BeginnerWritePreparation(
@@ -234,7 +255,18 @@ def execute_beginner_write_if_confirmed(confirmed, writer, command):
         return None
     if not isinstance(command, BeginnerWriteCommand):
         raise ValueError("command must be a BeginnerWriteCommand.")
-    return writer.write(command)
+    if command.safety_snapshot is None:
+        raise ValueError("write safety snapshot is required.")
+    confirmed_snapshot = replace(
+        command.safety_snapshot,
+        final_confirmation_confirmed=True,
+    )
+    decision = evaluate_write_safety(confirmed_snapshot)
+    if not decision.allowed:
+        raise ValueError(
+            "write safety gates failed: " + ", ".join(decision.blocking_reasons)
+        )
+    return writer.write(replace(command, safety_snapshot=confirmed_snapshot))
 
 
 def _snapshot_id(session, mapping, cards, tags=()):

@@ -253,37 +253,14 @@ class ProviderProfileDraftHelperTests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden_call, called_names)
 
-    def test_main_dialog_handler_does_not_read_legacy_or_card_state(self):
+    def test_legacy_provider_profile_draft_is_not_mounted_on_main_dialog(self):
         source_path = self.repo_root() / "ankiforge_ai" / "ui" / "main_dialog.py"
         source = source_path.read_text(encoding="utf-8")
-        tree = ast.parse(source)
-        main_dialog = next(
-            node
-            for node in tree.body
-            if isinstance(node, ast.ClassDef) and node.name == "MainDialog"
-        )
-        handler = next(
-            node
-            for node in main_dialog.body
-            if isinstance(node, ast.FunctionDef)
-            and node.name == "show_provider_profile_draft_preview"
-        )
-        handler_source = ast.get_source_segment(source, handler) or ""
 
-        for forbidden in (
-            "self.config",
-            "config.json",
-            "provider_combo",
-            "model_input",
-            "api_base_url_input",
-            "api_key_input",
-            "load_config",
-            "save_config",
-            "self.cards",
-            "create_provider",
-        ):
-            self.assertNotIn(forbidden, handler_source)
-        self.assertIn("ProviderProfileDraftDialog", handler_source)
+        self.assertNotIn("show_provider_profile_draft_preview", source)
+        self.assertNotIn("ProviderProfileDraftDialog", source)
+        self.assertNotIn("save_config", source)
+        self.assertNotIn("api_key_input", source)
 
     def test_dialog_source_has_only_allowed_inputs_and_buttons(self):
         source_path = self.repo_root() / "ankiforge_ai" / "ui" / (

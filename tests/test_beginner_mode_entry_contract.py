@@ -77,36 +77,27 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
         self.assertEqual(zh["check_duplicates"], "检查重复")
         self.assertEqual(zh["write_to_anki"], "写入 Anki")
 
-    def test_legacy_workbench_is_lazy_and_hidden_by_default(self):
+    def test_legacy_workbench_is_not_mounted_on_the_product_surface(self):
         init_source = self.function_source("__init__")
         build_ui_source = self.function_source("_build_ui")
-        legacy_source = self.function_source("_build_legacy_workbench")
 
         self.assertNotIn("load_config", init_source)
         self.assertNotIn("load_config", build_ui_source)
-        self.assertIn("setVisible(False)", build_ui_source)
-        self.assertIn("load_config", legacy_source)
+        self.assertNotIn("_build_legacy_workbench", self.main_dialog_source())
+        self.assertNotIn("advanced_tools_panel", build_ui_source)
 
-    def test_new_entry_handlers_are_isolated_from_legacy_runtime_paths(self):
-        for handler_name in ("show_beginner_mode", "show_legacy_workbench"):
-            handler_source = self.function_source(handler_name)
-            with self.subTest(handler=handler_name):
-                for forbidden in (
-                    "add_to_anki",
-                    "self.cards",
-                    "provider",
-                    "writer",
-                    "mw.col",
-                    "config",
-                    "load_config",
-                    "save_config",
-                    "run_full_mock_pipeline_with_status",
-                    "create_provider",
-                ):
-                    self.assertNotIn(forbidden, handler_source.lower())
-        beginner_source = self.function_source("show_beginner_mode")
-        self.assertIn("collection", beginner_source)
-        self.assertNotIn("add_note", beginner_source)
+    def test_product_entry_has_no_legacy_or_debug_handlers(self):
+        source = self.main_dialog_source()
+
+        for forbidden in (
+            "show_beginner_mode",
+            "show_legacy_workbench",
+            "run_full_mock_pipeline_with_status",
+            "save_config",
+            "api_key_input",
+        ):
+            self.assertNotIn(forbidden, source)
+        self.assertIn("CardMakerPanel", source)
 
     def test_new_dialog_has_no_runtime_or_network_dependencies(self):
         source = self.beginner_dialog_source()

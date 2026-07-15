@@ -12,6 +12,17 @@ from ..pipeline.generation_settings import (
     GenerationSettings,
     coerce_generation_settings,
 )
+from ..pipeline.field_mapping import (
+    MappingAssessment,
+    FieldMappingSuggestion,
+    assess_field_mapping,
+    suggest_field_mapping,
+)
+from ..pipeline.review_workbench import (
+    ReviewCandidate,
+    ReviewDecision,
+    ReviewWorkbench,
+)
 from ..pipeline.write_traceability import (
     LastWriteBatchRecord,
     SourceType,
@@ -460,6 +471,10 @@ class BeginnerFlowSession:
         default_factory=dict,
         repr=False,
     )
+    candidate_original_content: dict[str, tuple[str, str, str]] = field(
+        default_factory=dict,
+        repr=False,
+    )
     last_write_batch: Optional[LastWriteBatchRecord] = field(
         default=None,
         repr=False,
@@ -756,6 +771,10 @@ class BeginnerFlowSession:
         self.candidate_revision += 1
         self.candidate_count = len(self.candidate_card_previews)
         self._refresh_candidate_quality()
+        self.candidate_original_content = {
+            item.id: (item.front_preview, item.back_preview, item.source_excerpt)
+            for item in self.candidate_card_previews
+        }
         self.candidate_cards_state = BeginnerArtifactState.CURRENT
         self._clear_ai_draft_values(BeginnerArtifactState.CLEARED)
         self.candidate_origin = "offline_selection"
@@ -796,6 +815,10 @@ class BeginnerFlowSession:
         )
         self.candidate_count = len(self.candidate_card_previews)
         self._refresh_candidate_quality()
+        self.candidate_original_content = {
+            item.id: (item.front_preview, item.back_preview, item.source_excerpt)
+            for item in self.candidate_card_previews
+        }
         self.candidate_cards_state = BeginnerArtifactState.CURRENT
         self.candidate_origin = "real_ai_draft"
         self._clear_from_review("ai_drafts_generated")
@@ -881,6 +904,187 @@ class BeginnerFlowSession:
         self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
         self._clear_prewrite_previews("candidate_content_changed")
 
+    def review_workbench_snapshot(self) -> ReviewWorkbench:
+        """Return an immutable product-review view of current session state."""
+
+        decision_map = {
+            BeginnerReviewDecision.LOOKS_GOOD: ReviewDecision.KEPT,
+            BeginnerReviewDecision.SKIP_FOR_NOW: ReviewDecision.DISCARDED,
+            BeginnerReviewDecision.NEEDS_CHANGES: ReviewDecision.PENDING,
+        }
+        cards = []
+        for item in self.candidate_card_previews:
+            original = self.candidate_original_content.get(
+                item.id,
+                (item.front_preview, item.back_preview, item.source_excerpt),
+            )
+            cards.append(
+                ReviewCandidate(
+                    candidate_id=item.id,
+                    front=item.front_preview,
+                    back=item.back_preview,
+                    source=item.source_excerpt,
+                    original_front=original[0],
+                    original_back=original[1],
+                    original_source=original[2],
+                    quality=self.quality_for_candidate(item.id),
+                    decision=decision_map.get(
+                        self.candidate_review_decisions.get(item.id),
+                        ReviewDecision.PENDING,
+                    ),
+                    revision=self.candidate_revision,
+                )
+            )
+        return ReviewWorkbench(
+            cards=tuple(cards),
+            duplicate_check_current=(
+                self.duplicate_check_preview_state is BeginnerArtifactState.CURRENT
+            ),
+            write_preview_current=(
+                self.final_confirmation_preview_state
+                is BeginnerArtifactState.CURRENT
+            ),
+        )
+
+    def keep_clean_candidates(self) -> int:
+        """Keep only clean pending cards and invalidate downstream previews."""
+
+        self._ensure_open()
+        before = self.review_workbench_snapshot()
+        after = before.keep_clean()
+        newly_kept = tuple(
+            item.candidate_id
+            for item in after.cards
+            if item.decision is ReviewDecision.KEPT
+            and before.card(item.candidate_id).decision is ReviewDecision.PENDING
+        )
+        if not newly_kept:
+            return 0
+        for candidate_id in newly_kept:
+            self.candidate_review_decisions[candidate_id] = (
+                BeginnerReviewDecision.LOOKS_GOOD
+            )
+        self.review_revision += 1
+        self.reviewed_candidate_count = len(self.candidate_review_decisions)
+        self.review_state = BeginnerArtifactState.CURRENT
+        self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
+        self._clear_prewrite_previews("clean_candidates_kept")
+        return len(newly_kept)
+
+    def copy_candidate(self, candidate_id: str) -> str:
+        """Copy current in-memory content into a new pending candidate."""
+
+        self._ensure_open()
+        copy_number = 1
+        while True:
+            copied_id = f"{candidate_id}-copy-{copy_number}"
+            if all(item.id != copied_id for item in self.candidate_card_previews):
+                break
+            copy_number += 1
+        copied_workbench = self.review_workbench_snapshot().copy(
+            candidate_id,
+            copied_id,
+        )
+        copied = copied_workbench.card(copied_id)
+        source_preview = next(
+            item for item in self.candidate_card_previews if item.id == candidate_id
+        )
+        self.candidate_card_previews = (
+            *self.candidate_card_previews,
+            BeginnerCandidateCardPreview(
+                id=copied_id,
+                knowledge_point_id=source_preview.knowledge_point_id,
+                front_preview=copied.front,
+                back_preview=copied.back,
+                source_excerpt=copied.source,
+            ),
+        )
+        source_draft_id = candidate_id.removeprefix("candidate-")
+        copied_draft_id = copied_id.removeprefix("candidate-")
+        source_draft = next(
+            (
+                item
+                for item in self.ai_candidate_card_drafts
+                if item.id == source_draft_id
+            ),
+            None,
+        )
+        if source_draft is not None:
+            self.ai_candidate_card_drafts = (
+                *self.ai_candidate_card_drafts,
+                BeginnerAICardDraft(
+                    id=copied_draft_id,
+                    front=copied.front,
+                    back=copied.back,
+                    source_excerpt=copied.source,
+                ),
+            )
+            self.ai_draft_revision += 1
+        self.candidate_original_content[copied_id] = (
+            copied.front,
+            copied.back,
+            copied.source,
+        )
+        self.candidate_count = len(self.candidate_card_previews)
+        self.candidate_revision += 1
+        self.review_revision += 1
+        self._refresh_candidate_quality()
+        self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
+        self._clear_prewrite_previews("candidate_copied")
+        return copied_id
+
+    def restore_candidate_content(self, candidate_id: str) -> None:
+        """Restore one candidate to its first generated in-memory content."""
+
+        self._ensure_open()
+        restored = self.review_workbench_snapshot().restore(candidate_id).card(
+            candidate_id
+        )
+        draft_id = candidate_id.removeprefix("candidate-")
+        self.candidate_card_previews = tuple(
+            BeginnerCandidateCardPreview(
+                id=item.id,
+                knowledge_point_id=item.knowledge_point_id,
+                front_preview=(
+                    restored.front
+                    if item.id == candidate_id
+                    else item.front_preview
+                ),
+                back_preview=(
+                    restored.back
+                    if item.id == candidate_id
+                    else item.back_preview
+                ),
+                source_excerpt=(
+                    restored.source if item.id == candidate_id else item.source_excerpt
+                ),
+            )
+            for item in self.candidate_card_previews
+        )
+        self.ai_candidate_card_drafts = tuple(
+            BeginnerAICardDraft(
+                id=item.id,
+                front=restored.front if item.id == draft_id else item.front,
+                back=restored.back if item.id == draft_id else item.back,
+                source_excerpt=(
+                    restored.source if item.id == draft_id else item.source_excerpt
+                ),
+            )
+            for item in self.ai_candidate_card_drafts
+        )
+        self.candidate_review_decisions.pop(candidate_id, None)
+        self.candidate_revision += 1
+        self.review_revision += 1
+        self.reviewed_candidate_count = len(self.candidate_review_decisions)
+        self.review_state = (
+            BeginnerArtifactState.CURRENT
+            if self.candidate_review_decisions
+            else BeginnerArtifactState.CLEARED
+        )
+        self._refresh_candidate_quality()
+        self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
+        self._clear_prewrite_previews("candidate_restored")
+
     def discard_blocking_candidates(self) -> int:
         """Remove only currently blocking candidates from this in-memory session."""
 
@@ -903,6 +1107,7 @@ class BeginnerFlowSession:
         )
         for candidate_id in blocking_ids:
             self.candidate_review_decisions.pop(candidate_id, None)
+            self.candidate_original_content.pop(candidate_id, None)
         self.candidate_count = len(self.candidate_card_previews)
         self.reviewed_candidate_count = len(self.candidate_review_decisions)
         has_candidates = bool(self.candidate_card_previews)
@@ -1079,6 +1284,29 @@ class BeginnerFlowSession:
         self.write_plan_preview_state = BeginnerArtifactState.CURRENT
         self._clear_duplicate_preview_values(BeginnerArtifactState.CLEARED)
         self._clear_final_confirmation_preview("anki_field_mapping_changed")
+
+    def suggest_anki_field_mapping(self) -> FieldMappingSuggestion:
+        """Suggest field roles from the currently selected note type metadata."""
+
+        self._ensure_open()
+        return suggest_field_mapping(
+            self.selected_anki_note_type_fields,
+            self.selected_anki_note_type_name,
+            self.generation_settings.card_mode,
+        )
+
+    def assess_anki_field_mapping(self) -> MappingAssessment:
+        """Assess the current mapping without mutating Anki or the session."""
+
+        self._ensure_open()
+        return assess_field_mapping(
+            self.selected_anki_note_type_fields,
+            self.mapped_front_field or None,
+            self.mapped_back_field or None,
+            self.mapped_source_field,
+            note_type_name=self.selected_anki_note_type_name,
+            template_id=self.generation_settings.card_mode,
+        )
 
     def clear_anki_field_mapping(self) -> None:
         self._ensure_open()
@@ -1393,6 +1621,7 @@ class BeginnerFlowSession:
         self.generation_settings = GenerationSettings()
         self.source_type = SourceType.PASTE
         self.candidate_quality_results.clear()
+        self.candidate_original_content.clear()
         self.last_write_batch = None
         self.recognition_state = BeginnerArtifactState.EMPTY
         self.knowledge_selection_state = BeginnerArtifactState.EMPTY
@@ -1474,6 +1703,7 @@ class BeginnerFlowSession:
             "quality_blocking_count": sum(
                 item.blocking_count for item in self.candidate_quality_results.values()
             ),
+            "candidate_original_count": len(self.candidate_original_content),
             "last_write_batch_present": self.last_write_batch is not None,
             "ai_candidate_card_draft_count": len(
                 self.ai_candidate_card_drafts
@@ -1546,6 +1776,7 @@ class BeginnerFlowSession:
         self.candidate_cards_state = BeginnerArtifactState.CLEARED
         self.candidate_card_previews = ()
         self.candidate_quality_results.clear()
+        self.candidate_original_content.clear()
         self.candidate_count = 0
         self._clear_ai_draft_values(BeginnerArtifactState.CLEARED)
         self.candidate_origin = "none"

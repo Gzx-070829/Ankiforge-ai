@@ -113,18 +113,18 @@ class LinearFlowSettingsModalTests(unittest.TestCase):
             "blocking id",
         ):
             self.assertNotIn(forbidden, rendered)
-        self.assertIn("self.advanced_toggle_btn.setVisible(False)", main_builder)
-        self.assertIn("self.advanced_tools_panel.setVisible(False)", main_builder)
+        self.assertNotIn("advanced_toggle_btn", main_builder)
+        self.assertNotIn("advanced_tools_panel", main_builder)
 
-    def test_runtime_and_manifest_versions_are_0125(self):
+    def test_runtime_and_manifest_versions_are_0130(self):
         manifest = json.loads(
             (self.root() / "ankiforge_ai" / "manifest.json").read_text(
                 encoding="utf-8"
             )
         )
 
-        self.assertEqual(ankiforge_ai.__version__, "0.12.5")
-        self.assertEqual(manifest["version"], "0.12.5")
+        self.assertEqual(ankiforge_ai.__version__, "0.13.0")
+        self.assertEqual(manifest["version"], "0.13.0")
 
     @classmethod
     def dialog_source(cls):

@@ -31,6 +31,14 @@ class ImportedSource:
     source_label: str
 
 
+@dataclass(frozen=True)
+class ParsedMarkdown:
+    """Markdown body plus an optional short, non-sensitive display title."""
+
+    body: str
+    title: Optional[str]
+
+
 class SourceImportError(ValueError):
     """A safe, stable import failure that the UI can translate."""
 
@@ -68,7 +76,60 @@ def import_text_file(path: Path) -> ImportedSource:
 def import_markdown_file(path: Path) -> ImportedSource:
     """Import Markdown as text while preserving its original structure."""
 
-    return _import_utf8_text(Path(path), expected_suffixes={".md", ".markdown"})
+    imported = _import_utf8_text(
+        Path(path),
+        expected_suffixes={".md", ".markdown"},
+    )
+    parsed = parse_markdown_frontmatter(imported.text)
+    if parsed.body == imported.text and parsed.title is None:
+        return imported
+    return ImportedSource(
+        filename=imported.filename,
+        suffix=imported.suffix,
+        text=parsed.body,
+        char_count=len(parsed.body),
+        warnings=imported.warnings,
+        source_label=parsed.title or imported.source_label,
+    )
+
+
+def parse_markdown_frontmatter(text: str) -> ParsedMarkdown:
+    """Strip a small YAML-like header and accept only a safe scalar title.
+
+    This intentionally is not a YAML parser: no values are executed, expanded,
+    or used to discover other files.
+    """
+
+    if not isinstance(text, str):
+        raise ValueError("text must be a string")
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    lines = normalized.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return ParsedMarkdown(text, None)
+    closing = next(
+        (index for index, line in enumerate(lines[1:51], start=1) if line.strip() == "---"),
+        None,
+    )
+    if closing is None:
+        return ParsedMarkdown(text, None)
+    title = None
+    for line in lines[1:closing]:
+        if line.casefold().startswith("title:"):
+            candidate = line.split(":", 1)[1].strip().strip('"\'')
+            if _safe_frontmatter_title(candidate):
+                title = candidate
+            break
+    body = "\n".join(lines[closing + 1 :]).lstrip("\n")
+    return ParsedMarkdown(body, title)
+
+
+def _safe_frontmatter_title(value: str) -> bool:
+    if not value or len(value) > 120:
+        return False
+    lowered = value.casefold()
+    if any(marker in lowered for marker in ("api_key", "authorization", "bearer ")):
+        return False
+    return not any(character in value for character in ("/", "\\", "\r", "\n"))
 
 
 def import_docx_file(path: Path) -> ImportedSource:
