@@ -15,7 +15,17 @@ class GenerationSettingsTests(unittest.TestCase):
 
         self.assertEqual(
             tuple(profile.mode_id for profile in profiles),
-            ("concept", "definition", "exam", "quick_review"),
+            (
+                "concept",
+                "definition",
+                "exam",
+                "quick_review",
+                "compare_contrast",
+                "process_steps",
+                "formula_rule",
+                "mistake_trap",
+                "cloze_candidate",
+            ),
         )
         for profile in profiles:
             self.assertTrue(profile.display_name_zh)

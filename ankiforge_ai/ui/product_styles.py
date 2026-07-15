@@ -1,4 +1,4 @@
-"""Scoped v0.12.5 product styles for the linear card-making workflow."""
+"""Scoped v0.13 product styles for the linear card-making workflow."""
 
 
 PRODUCT_DARK_STYLESHEET = """
@@ -277,6 +277,7 @@ QLabel#AiStatusChip[configured="true"] {
 }
 
 QPushButton#AiSettingsButton,
+QPushButton#HelpButton,
 QPushButton#LanguageToggle {
     background-color: #111827;
     color: #CBD5E1;
@@ -288,6 +289,7 @@ QPushButton#LanguageToggle {
 }
 
 QPushButton#AiSettingsButton:hover,
+QPushButton#HelpButton:hover,
 QPushButton#LanguageToggle:hover {
     color: #FFFFFF;
     border-color: #334155;
@@ -296,6 +298,17 @@ QPushButton#LanguageToggle:hover {
 
 QDialog#AiSettingsDialog {
     background: transparent;
+}
+
+QDialog#HelpDialog {
+    background-color: #161B22;
+    color: #F8FAFC;
+}
+
+QLabel#HelpTitle {
+    color: #F8FAFC;
+    font-size: 16px;
+    font-weight: 600;
 }
 
 QFrame#AiSettingsSurface {

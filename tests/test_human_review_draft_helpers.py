@@ -251,38 +251,13 @@ class HumanReviewDraftHelperTests(unittest.TestCase):
         self.assertNotIn("add_to_anki", source)
         self.assertNotIn("add_note", source)
 
-    def test_main_dialog_handler_is_isolated_from_legacy_and_provider_paths(self):
+    def test_legacy_human_review_draft_is_not_mounted_on_main_dialog(self):
         path = self.repo_root() / "ankiforge_ai" / "ui" / "main_dialog.py"
         source = path.read_text(encoding="utf-8")
-        tree = ast.parse(source)
-        dialog_class = next(
-            node
-            for node in tree.body
-            if isinstance(node, ast.ClassDef) and node.name == "MainDialog"
-        )
-        handler = next(
-            node
-            for node in dialog_class.body
-            if isinstance(node, ast.FunctionDef)
-            and node.name == "show_human_review_decision_draft"
-        )
-        handler_source = ast.get_source_segment(source, handler) or ""
 
-        self.assertIn("run_full_mock_pipeline_with_status", handler_source)
-        self.assertIn("build_card_candidate_preview_items", handler_source)
-        self.assertIn("HumanReviewDecisionDraftDialog", handler_source)
-        for forbidden in (
-            "self.cards",
-            "add_to_anki",
-            "add_cards_to_deck",
-            "provider_combo",
-            "api_key_input",
-            "self.config",
-            "create_provider",
-            "writer",
-            "mw.col",
-        ):
-            self.assertNotIn(forbidden, handler_source)
+        self.assertNotIn("show_human_review_decision_draft", source)
+        self.assertNotIn("HumanReviewDecisionDraftDialog", source)
+        self.assertNotIn("run_full_mock_pipeline_with_status", source)
 
     @staticmethod
     def expected_safety_rows():

@@ -1,106 +1,94 @@
 # AnkiForge AI
 
-把学习材料变成可复习的 Anki 卡片。
+把自己的学习材料变成可审核、可安全写入的 Anki 卡片。
 
 [English](README.en.md)
 
-AnkiForge AI 是一个 Anki 插件，可以把 Markdown / 文本学习材料交给 AI，生成可审核、可写入 Anki 的卡片。
+> 这是 Anki 桌面端插件，不是共享牌组，也不是网页服务。它不提供现成卡组；请不要在 Shared Decks 中搜索。
 
-> 这是 Anki 桌面端插件，不是共享牌组，也不是网页服务。它不提供现成卡组，而是帮助你把自己的学习材料整理成卡片。请不要在 Shared Decks 里搜索。
+AnkiForge AI 是一个本地优先、中文优先的 AI 制卡工作台。你提供材料、选择学习目标，AI 只生成候选卡；本地质量检查和人工审核完成后，插件才会进入重复检查、写入预览和最终确认。
 
-## v0.12 核心能力
+当前候选版本：`v0.13.0-product-grade-preview`。
 
-- 四种卡片模式：`concept`、`definition`、`exam`、`quick_review`
-- 可选择卡片数量、答案长度和输出语言
-- 本地 deterministic card quality 检查，提示空内容、笼统问题、过长答案、多知识点和 Markdown 残留等问题
-- 生成后默认待审核；每张卡必须明确保留或丢弃
-- blocking 卡不能写入，warning 卡可在用户审核后保留
-- 写入前显示牌组、笔记类型、字段映射、来源、质量统计、重复策略和 Tags
-- 默认 Tags：`ankiforge`、`ankiforge-ai`、模式和来源类型
-- Source 只使用简短标签，不把完整本地路径写入卡片
+## 快速安装
 
-质量检查只是可解释的本地辅助规则，不能保证 AI 内容绝对正确。请逐张检查生成内容，并优先在测试牌组中验收。
+### 通过 AnkiWeb
 
-## 安装
+1. 打开 Anki Desktop。
+2. 选择 **工具 → 插件 → 获取插件**。
+3. 输入插件代码 `1227582295`。
+4. 安装后重启 Anki，再打开 AnkiForge AI。
 
-### 方式一：通过 AnkiWeb 安装
+[打开 AnkiWeb 页面](https://ankiweb.net/shared/info/1227582295) · [完整安装说明](docs/installation_ankiweb.md)
 
-插件代码：
-
-```text
-1227582295
-```
-
-在 Anki 中打开：
-
-**工具 → 插件 → 获取插件**
-
-输入插件代码 `1227582295`，安装完成后重启 Anki，再打开 AnkiForge AI。
-
-AnkiWeb 页面：[https://ankiweb.net/shared/info/1227582295](https://ankiweb.net/shared/info/1227582295)
-
-### 方式二：从源码安装
-
-1. 克隆仓库：
-
-   ```bash
-   git clone https://github.com/Gzx-070829/Ankiforge-ai.git
-   ```
-
-2. 将 `ankiforge_ai` 文件夹复制到 Anki 的 `addons21` 目录。
-3. 重启 Anki。
-
-## 功能
-
-- 粘贴 Markdown / 文本学习材料
-- 拖入或选择 `.md`、`.markdown`、`.txt`、`.docx` 文件
-- DOCX 文本导入（图片、公式和复杂排版不会保留）
-- 识别 `.pdf` 文件并安全提示；当前构建未内置 PDF 解析器
-- 调用 OpenAI-compatible / DeepSeek 生成卡片
-- 审核生成的卡片
-- 编辑卡片后重新运行本地 quality 检查
-- 选择牌组、笔记类型、字段映射
-- 重复检查
-- 写入前二次确认
-- 中英文界面
-
-## 文件导入说明
-
-- Markdown / TXT：保留原始文本结构，单个文件最大 5 MB。
-- DOCX：使用插件内置的纯 Python 文本提取，只读取段落和简单表格；不读取图片、公式、批注或复杂样式。
-- PDF：当前构建为 fallback-only。可以选择或拖入 `.pdf`，但会提示先复制可选文本，或转换为 TXT / Markdown。本版本不包含 OCR，也不承诺扫描版或复杂排版解析。
-- 拖入多个文件时只导入第一个并显示提示。
-- 输入框已有内容时，新文件会带文件名分隔线追加到末尾，不会静默覆盖。
-
-文件导入只更新学习材料文本框，不会自动调用 AI，也不会自动写入 Anki。详见[文件导入说明](docs/file_import.md)。
-
-## 安全说明
-
-- API key 只在本次窗口使用，不保存。
-- API key 保持 session-only；插件不会把它写入配置、日志或安装包。
-- 不会自动调用 AI；只有点击“生成卡片”才会向所选 Provider 发送当前材料。
-- 不会自动写入 Anki。
-- 写入前必须确认。
-- 可能重复的卡默认跳过。
-- 不修改已有卡片、牌组、笔记类型。
-- 完整 Undo 仍未开放；v0.12 只在当前窗口记录最后一次写入批次，不提供自动删除入口。
-
-详细说明：[卡片质量系统](docs/card_quality_system.md) · [审核工作台](docs/review_workbench.md) · [写入安全与来源追踪](docs/write_safety_and_traceability.md)
-
-## 开发
-
-运行单元测试：
+### 从源码安装
 
 ```bash
-python -m unittest discover -s tests
+git clone https://github.com/Gzx-070829/Ankiforge-ai.git
 ```
 
-编译检查全部 Python 源码：
+将 `ankiforge_ai` 文件夹复制到 Anki 的 `addons21` 目录，然后重启 Anki。
+
+## 第一次制卡
+
+1. 在右上角打开 **AI 设置**，选择 Provider 和 Model，输入自己的 API key。
+2. 粘贴材料，或导入 Markdown / TXT / DOCX；也可以先使用内置示例。
+3. 选择卡片模式和生成设置，主动点击生成。
+4. 逐张编辑、保留或丢弃候选卡。blocking 卡必须先修正或丢弃。
+5. 选择已有牌组、笔记类型和字段映射，执行重复检查。
+6. 查看写入摘要，并在最终确认后写入。建议第一次使用独立的测试牌组。
+
+[新手指南](docs/getting_started.md)
+
+## 产品能力
+
+- 粘贴文本，以及 Markdown / TXT / DOCX 选择和拖拽导入
+- PDF 安全 fallback：当前不做 OCR，也不提取 PDF 正文
+- DeepSeek 与 OpenAI-compatible Provider；AI 设置留在独立 Modal
+- `concept`、`definition`、`exam`、`quick_review`、`compare_contrast`、`process_steps`、`formula_rule`、`mistake_trap` 和受限 `cloze_candidate` 模式
+- 模板感知的生成提示，以及卡片数量、答案长度和输出语言控制
+- 完全本地、确定性的 card-quality 检查与多学科 benchmark
+- pending → 编辑/复制/还原 → 保留/丢弃的 Review 工作台
+- Front / Back / Source 字段建议；不自动新增字段或修改笔记类型
+- 重复检查、写入摘要、最终确认、来源标签、Tags 和最后写入批次摘要
+- 中英文界面、可复现 `.ankiaddon` 打包和 forbidden-file 审计
+
+## 安全与隐私
+
+- API key 仅在本次会话使用，保持 session-only，不写入 config、日志、文档或安装包。
+- 插件不会自动调用 AI；只有你点击生成后，当前材料才会发送给所选 Provider。
+- AI 生成的只是候选卡，必须经过人工审核。
+- 插件不会自动写入 Anki；写入前必须完成重复检查和最终确认。
+- 可能重复的卡默认跳过；不会自动修改或删除已有 notes/cards、牌组、笔记类型或字段。
+- 文件导入在本地完成；插件不上传文件，也不扫描 Obsidian vault。
+- 质量提示不能保证事实正确或学习效果，你需要对最终卡片负责。
+- 完整 Undo 仍未开放；当前只记录本次窗口的最后写入批次，不提供自动删除入口。
+
+[AI 设置与隐私](docs/ai_settings_and_privacy.md) · [写入安全与追踪](docs/write_safety_and_traceability.md) · [隐私政策](PRIVACY.md) · [安全报告](SECURITY.md)
+
+## 文档
+
+- [安装与首次使用](docs/getting_started.md)
+- [导入学习材料](docs/importing_materials.md)
+- [卡片模式与模板](docs/card_modes_and_templates.md)
+- [卡片质量系统](docs/card_quality_system.md)
+- [审核工作台](docs/review_workbench.md)
+- [字段映射](docs/field_mapping.md)
+- [常见问题与排错](docs/troubleshooting.md)
+- [人工 Anki 验收](docs/manual_anki_acceptance.md)
+- [未来路线图](docs/future_roadmap.md)
+
+## 开发与贡献
 
 ```bash
+python -m unittest discover
 python -m compileall .
+python scripts/build_ankiaddon.py
+git diff --check
 ```
 
-## 当前状态
+欢迎提交 bug、文档改进和脱敏的 card-quality fixture。请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 和 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)，安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
 
-早期自用/体验版本，欢迎反馈。
+## 状态
+
+这是面向真实用户验收的 product-grade preview，仍要求逐张审核，不能无人值守运行。公开发布前仍需真实 Anki 安装、重复检查、取消确认和测试牌组写入验收。

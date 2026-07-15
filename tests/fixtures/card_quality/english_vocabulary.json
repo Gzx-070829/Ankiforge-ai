@@ -1,0 +1,14 @@
+{
+  "fixture_id": "english-vocabulary",
+  "source_text": "Meticulous means showing great attention to detail. Concise means giving necessary information clearly in few words. The two adjectives describe different qualities of work or communication.",
+  "recommended_mode": "definition",
+  "expected_good_patterns": ["term named on front", "brief definition"],
+  "expected_bad_patterns": ["term omitted", "unrelated example"],
+  "expected_min_cards": 2,
+  "expected_max_cards": 4,
+  "notes": "English vocabulary definition fixture.",
+  "mock_cards": [
+    {"id": "vocab-meticulous", "front": "What does meticulous mean?", "back": "It means showing great attention to detail."},
+    {"id": "vocab-concise", "front": "What does concise mean?", "back": "It means giving necessary information clearly in few words."}
+  ]
+}

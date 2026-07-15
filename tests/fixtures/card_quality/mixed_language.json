@@ -1,0 +1,14 @@
+{
+  "fixture_id": "mixed-language",
+  "source_text": "A common mistake is to treat validation accuracy as test accuracy. 验证集用于模型选择，test set 应保留到最终评估；反复查看测试集会造成信息泄露。",
+  "recommended_mode": "mistake_trap",
+  "expected_good_patterns": ["指出误区", "给出纠正"],
+  "expected_bad_patterns": ["混淆 validation 与 test", "声称测试集可反复调参"],
+  "expected_min_cards": 2,
+  "expected_max_cards": 4,
+  "notes": "中英文混合机器学习笔记 fixture。",
+  "mock_cards": [
+    {"id": "mixed-validation-test", "front": "把 validation accuracy 当作 test accuracy 的误区是什么？", "back": "验证集用于模型选择，而测试集应留到最终评估。"},
+    {"id": "mixed-leakage", "front": "反复查看 test set 的常见风险是什么？", "back": "这会造成信息泄露，使最终评估不再独立。"}
+  ]
+}

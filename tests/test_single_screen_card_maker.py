@@ -63,16 +63,16 @@ class SingleScreenCardMakerTests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, rendered)
 
-    def test_advanced_debug_tools_are_hidden_by_default(self):
+    def test_advanced_debug_tools_are_absent_from_product_surface(self):
         build_ui = self.function_source(self.main_source(), "_build_ui")
 
-        self.assertIn('self.t("advanced_debug")', build_ui)
-        self.assertIn("self.advanced_tools_panel.setVisible(False)", build_ui)
-        self.assertIn("self.advanced_toggle_btn.setVisible(False)", build_ui)
-        self.assertIn("self.advanced_toggle_btn.setMaximumWidth(175)", build_ui)
+        self.assertNotIn('self.t("advanced_debug")', build_ui)
+        self.assertNotIn("advanced_tools_panel", build_ui)
+        self.assertNotIn("advanced_toggle_btn", build_ui)
         self.assertNotIn("Mock Pipeline", build_ui)
         self.assertNotIn("Human Review", build_ui)
         self.assertNotIn("添加到 Anki", build_ui)
+        self.assertIn("self.help_btn", build_ui)
 
     def test_compatible_provider_connection_settings_are_in_dialog(self):
         dialog = (

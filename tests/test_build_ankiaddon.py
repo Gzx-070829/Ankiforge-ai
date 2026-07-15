@@ -19,6 +19,7 @@ class BuildAnkiAddonTests(unittest.TestCase):
             "config.json",
             "__pycache__/module.pyc",
             "tests/test_example.py",
+            "eval/card_quality_benchmark.py",
             "docs/release.md",
             ".env.local",
             "addon_backup/file.py",

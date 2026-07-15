@@ -2,11 +2,38 @@
 
 from typing import Iterable, List
 
+from .card_quality import CardQualityResult
 from .models import CardCandidate, QualityGateResult, QualityIssue
 
 FRONT_MAX_LENGTH = 200
 BACK_MIN_LENGTH = 8
 VALID_SEVERITIES = {"warning", "error"}
+
+
+def canonical_quality_to_gate(
+    candidate_id: str,
+    quality: CardQualityResult,
+    language: str = "en",
+) -> QualityGateResult:
+    """Adapt the product quality result without changing legacy model contracts."""
+
+    if not isinstance(candidate_id, str) or not candidate_id.strip():
+        raise ValueError("candidate_id must be a non-empty string.")
+    if not isinstance(quality, CardQualityResult):
+        raise ValueError("quality must be a CardQualityResult.")
+    if language not in {"zh", "en"}:
+        raise ValueError("language must be zh or en.")
+    return QualityGateResult(
+        candidate_id=candidate_id,
+        issues=[
+            QualityIssue(
+                code=issue.rule_id,
+                message=issue.user_message(language),
+                severity="error" if issue.blocking else "warning",
+            )
+            for issue in quality.issues
+        ],
+    )
 
 
 def validate_quality_issue(issue: QualityIssue) -> QualityIssue:

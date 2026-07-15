@@ -2,6 +2,7 @@ import ast
 import unittest
 from pathlib import Path
 
+from ankiforge_ai.pipeline.generation_settings import GenerationSettings
 from ankiforge_ai.ui.product_i18n import PRODUCT_COPY, product_text
 
 
@@ -27,8 +28,17 @@ class V1CoreUIContractTests(unittest.TestCase):
         builder = self.function_source("_build_generation_section")
         handler = self.function_source("_generate_cards")
 
-        for value in ("concept", "balanced", "short", "auto"):
-            self.assertIn(f'"{value}"', builder)
+        self.assertEqual(
+            GenerationSettings(),
+            GenerationSettings(
+                card_mode="concept",
+                card_count="balanced",
+                answer_length="short",
+                language="auto",
+            ),
+        )
+        self.assertIn("selectable_card_mode_profiles", builder)
+        self.assertIn("self.card_count_combo.setCurrentIndex(2)", builder)
         self.assertIn("self._current_generation_settings()", handler)
         self.assertIn("generation_settings=", handler)
         self.assertNotIn(".generate(", self.function_source("__init__"))
@@ -46,7 +56,9 @@ class V1CoreUIContractTests(unittest.TestCase):
 
         self.assertIn("quality_for_candidate", render)
         self.assertNotIn('"quality_score"', render)
-        self.assertIn("warning_id", render)
+        self.assertNotIn("warning_id", render)
+        self.assertIn("issue.user_message(self.language)", render)
+        self.assertIn("issue.suggestion(self.language)", render)
         self.assertIn("replace_candidate_content", edit)
         self.assertIn("_clear_duplicate_state", edit)
 
@@ -57,6 +69,18 @@ class V1CoreUIContractTests(unittest.TestCase):
         self.assertIn("self.quality_summary_label", builder)
         self.assertIn("self.discard_blocking_btn", builder)
         self.assertIn("discard_blocking_candidates", handler)
+
+    def test_final_confirmation_is_followed_by_a_fresh_duplicate_gate(self):
+        handler = self.function_source("_confirm_and_write")
+
+        self.assertIn("confirmed_snapshot_id = command.snapshot_id", handler)
+        self.assertIn("self._check_duplicates()", handler)
+        self.assertIn("fresh_command = self.write_command", handler)
+        self.assertIn('self._set_write_message("duplicate_state_changed")', handler)
+        self.assertLess(
+            handler.index("self._check_duplicates()"),
+            handler.index("execute_beginner_write_if_confirmed"),
+        )
 
     def test_write_section_contains_compact_summary(self):
         builder = self.function_source("_build_write_section")
@@ -75,6 +99,28 @@ class V1CoreUIContractTests(unittest.TestCase):
             "tags",
         ):
             self.assertIn(value, prepare)
+
+    def test_field_mapping_ui_uses_bilingual_suggestions_and_assessment(self):
+        populate = self.function_source("_populate_field_options")
+        update = self.function_source("_update_mapping")
+
+        self.assertIn("self.session.suggest_anki_field_mapping()", populate)
+        self.assertIn("suggestion.front_field", populate)
+        self.assertIn("suggestion.back_field", populate)
+        self.assertIn("suggestion.source_field", populate)
+        self.assertIn("self.session.assess_anki_field_mapping()", update)
+        self.assertIn("if not assessment.complete", update)
+
+    def test_postwrite_ui_uses_safe_traceability_metadata(self):
+        handler = self.function_source("_confirm_and_write")
+        renderer = self.function_source("_render_write_summary")
+
+        self.assertIn("create_last_write_batch_record", handler)
+        for field in ("batch_id", "timestamp_utc", "note_type", "source_label"):
+            self.assertIn(f"{field}=", handler)
+        self.assertIn("result.batch_id", renderer)
+        self.assertIn("result.timestamp_utc", renderer)
+        self.assertNotIn("created_note_ids", renderer)
 
     def test_first_run_copy_is_a_lightweight_test_deck_tip(self):
         self.assertEqual(

@@ -33,6 +33,7 @@ class ProviderFormLayoutHotfixTests(unittest.TestCase):
         builder = self.function_source(self.dialog_source(), "_build_ui")
 
         self.assertEqual(builder.count('QLabel(self.t("api_key_help"))'), 1)
+        self.assertNotIn("session_note_label", builder)
         self.assertIn('self.api_key_help_label.setProperty("role", "muted")', builder)
         self.assertIn("api_key_layout.setSpacing(HINT_TOP_MARGIN)", builder)
         self.assertLess(
@@ -87,8 +88,8 @@ class ProviderFormLayoutHotfixTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(ankiforge_ai.__version__, "0.12.5")
-        self.assertEqual(manifest["version"], "0.12.5")
+        self.assertEqual(ankiforge_ai.__version__, "0.13.0")
+        self.assertEqual(manifest["version"], "0.13.0")
 
     @staticmethod
     def function_source(source, name):

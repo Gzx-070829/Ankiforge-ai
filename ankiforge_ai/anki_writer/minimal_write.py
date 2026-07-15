@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Optional
 
 from ..pipeline.write_traceability import validate_tags
+from ..pipeline.write_safety import WriteSafetySnapshot
 
 
 WRITE_TARGET_ERROR_COPY = (
@@ -72,6 +73,10 @@ class BeginnerWriteCommand:
     cards: tuple[BeginnerWriteCardCommand, ...] = field(repr=False)
     skipped_count: int = 0
     tags: tuple[str, ...] = field(default_factory=tuple)
+    safety_snapshot: Optional[WriteSafetySnapshot] = field(
+        default=None,
+        repr=False,
+    )
 
     def __post_init__(self) -> None:
         if not isinstance(self.snapshot_id, str) or not self.snapshot_id.strip():
@@ -112,6 +117,11 @@ class BeginnerWriteCommand:
             raise ValueError("candidate ids must be unique.")
         _validate_count(self.skipped_count, "skipped_count")
         validate_tags(self.tags, allow_empty=True)
+        if self.safety_snapshot is not None and not isinstance(
+            self.safety_snapshot,
+            WriteSafetySnapshot,
+        ):
+            raise ValueError("safety_snapshot must be a WriteSafetySnapshot or None.")
 
     @property
     def requested_count(self) -> int:
@@ -139,6 +149,7 @@ class BeginnerWriteCommand:
             "requested_count": self.requested_count,
             "skipped_count": self.skipped_count,
             "tag_count": len(self.tags),
+            "safety_snapshot_present": self.safety_snapshot is not None,
         }
 
 

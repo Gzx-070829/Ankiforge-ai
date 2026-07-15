@@ -1,9 +1,11 @@
 """Safe source labels, tags, write summaries, and last-batch tracking."""
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import Enum
 import re
 from typing import Iterable
+import uuid
 
 from .generation_settings import GenerationSettings, coerce_generation_settings
 
@@ -14,6 +16,8 @@ _SECRET_MARKER = re.compile(
     re.IGNORECASE,
 )
 _WINDOWS_PATH = re.compile(r"^[a-zA-Z]:[\\/]")
+_TRACE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+_UTC_TIMESTAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
 
 class SourceType(str, Enum):
@@ -153,6 +157,10 @@ class WriteResultSummary:
     failed_count: int
     target_deck: str = field(repr=False)
     tags: tuple[str, ...]
+    note_type: str = field(default="", repr=False)
+    source_label: str = field(default="", repr=False)
+    timestamp_utc: str = field(default="", repr=False)
+    batch_id: str = field(default="", repr=False)
 
     def __post_init__(self) -> None:
         _validate_counts(
@@ -162,6 +170,12 @@ class WriteResultSummary:
         )
         _validate_nonempty(self.target_deck, "target_deck")
         _validate_tags(self.tags)
+        _validate_optional_trace_metadata(
+            batch_id=self.batch_id,
+            timestamp_utc=self.timestamp_utc,
+            note_type=self.note_type,
+            source_label=self.source_label,
+        )
 
     def __repr__(self) -> str:
         return (
@@ -170,6 +184,18 @@ class WriteResultSummary:
             f"skipped_duplicate_count={self.skipped_duplicate_count}, "
             f"failed_count={self.failed_count}, tag_count={len(self.tags)})"
         )
+
+    def to_safe_dict(self) -> dict:
+        return {
+            "written_count": self.written_count,
+            "skipped_duplicate_count": self.skipped_duplicate_count,
+            "failed_count": self.failed_count,
+            "tag_count": len(self.tags),
+            "batch_id": self.batch_id or None,
+            "timestamp_utc": self.timestamp_utc or None,
+            "note_type": self.note_type or None,
+            "source_label": self.source_label or None,
+        }
 
 
 @dataclass(frozen=True, repr=False)
@@ -182,6 +208,10 @@ class LastWriteBatchRecord:
     target_deck: str = field(repr=False)
     tags: tuple[str, ...]
     source_type: SourceType
+    batch_id: str = field(default="", repr=False)
+    timestamp_utc: str = field(default="", repr=False)
+    note_type: str = field(default="", repr=False)
+    source_label: str = field(default="", repr=False)
 
     def __post_init__(self) -> None:
         _validate_nonempty(self.snapshot_id, "snapshot_id")
@@ -203,6 +233,12 @@ class LastWriteBatchRecord:
         _validate_tags(self.tags)
         if not isinstance(self.source_type, SourceType):
             raise ValueError("source_type must be SourceType.")
+        _validate_optional_trace_metadata(
+            batch_id=self.batch_id,
+            timestamp_utc=self.timestamp_utc,
+            note_type=self.note_type,
+            source_label=self.source_label,
+        )
 
     @property
     def written_count(self) -> int:
@@ -225,6 +261,10 @@ class LastWriteBatchRecord:
             "failed_count": self.failed_count,
             "tag_count": len(self.tags),
             "source_type": self.source_type.value,
+            "batch_id": self.batch_id or None,
+            "timestamp_utc": self.timestamp_utc or None,
+            "note_type": self.note_type or None,
+            "source_label": self.source_label or None,
         }
 
 
@@ -239,6 +279,47 @@ def build_write_result_summary(**values) -> WriteResultSummary:
     normalized = dict(values)
     normalized["tags"] = _normalized_tags(normalized.get("tags", ()))
     return WriteResultSummary(**normalized)
+
+
+def create_last_write_batch_record(
+    *,
+    snapshot_id: str,
+    created_note_ids: tuple[int, ...],
+    requested_count: int,
+    skipped_count: int,
+    failed_count: int,
+    target_deck: str,
+    note_type: str,
+    tags: tuple[str, ...],
+    source_type: SourceType,
+    source_label: str | None = None,
+    language: str = "en",
+    batch_id: str | None = None,
+    timestamp_utc: str | None = None,
+) -> LastWriteBatchRecord:
+    """Create one in-memory write trace with safe UTC and batch metadata."""
+
+    resolved_batch_id = batch_id or f"batch-{uuid.uuid4().hex}"
+    resolved_timestamp = timestamp_utc or _current_utc_timestamp()
+    resolved_source_label = (
+        safe_source_label(source_type, language)
+        if source_label is None
+        else source_label
+    )
+    return LastWriteBatchRecord(
+        snapshot_id=snapshot_id,
+        created_note_ids=created_note_ids,
+        requested_count=requested_count,
+        skipped_count=skipped_count,
+        failed_count=failed_count,
+        target_deck=target_deck,
+        tags=tags,
+        source_type=source_type,
+        batch_id=resolved_batch_id,
+        timestamp_utc=resolved_timestamp,
+        note_type=note_type,
+        source_label=resolved_source_label,
+    )
 
 
 def _normalized_tags(values: Iterable[object]) -> tuple[str, ...]:
@@ -269,6 +350,68 @@ def _validate_source_label(value: str) -> None:
         or _SECRET_MARKER.search(value)
     ):
         raise ValueError("source_label must be a short non-sensitive label.")
+
+
+def _validate_optional_trace_metadata(
+    *,
+    batch_id: str,
+    timestamp_utc: str,
+    note_type: str,
+    source_label: str,
+) -> None:
+    for value, name in (
+        (batch_id, "batch_id"),
+        (timestamp_utc, "timestamp_utc"),
+        (note_type, "note_type"),
+        (source_label, "source_label"),
+    ):
+        if not isinstance(value, str):
+            raise ValueError(f"{name} must be a string.")
+    if batch_id:
+        if (
+            not _TRACE_ID.fullmatch(batch_id)
+            or _SECRET_MARKER.search(batch_id)
+            or "/" in batch_id
+            or "\\" in batch_id
+        ):
+            raise ValueError("batch_id must be a short non-sensitive identifier.")
+    if timestamp_utc:
+        _validate_utc_timestamp(timestamp_utc)
+    if note_type:
+        _validate_safe_display_label(note_type, "note_type")
+    if source_label:
+        _validate_source_label(source_label)
+
+
+def _validate_safe_display_label(value: str, name: str) -> None:
+    _validate_nonempty(value, name)
+    if (
+        _WINDOWS_PATH.search(value)
+        or "/" in value
+        or "\\" in value
+        or _SECRET_MARKER.search(value)
+    ):
+        raise ValueError(f"{name} must be a short non-sensitive label.")
+
+
+def _validate_utc_timestamp(value: str) -> None:
+    if not _UTC_TIMESTAMP.fullmatch(value):
+        raise ValueError("timestamp_utc must be an ISO-8601 UTC timestamp ending in Z.")
+    try:
+        parsed = datetime.fromisoformat(value.removesuffix("Z") + "+00:00")
+    except ValueError:
+        raise ValueError(
+            "timestamp_utc must be an ISO-8601 UTC timestamp ending in Z."
+        ) from None
+    if parsed.utcoffset() != timezone.utc.utcoffset(parsed):
+        raise ValueError("timestamp_utc must use UTC.")
+
+
+def _current_utc_timestamp() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace(
+        "+00:00",
+        "Z",
+    )
 
 
 def _validate_nonempty(value: object, name: str) -> None:
