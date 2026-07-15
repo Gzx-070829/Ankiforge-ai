@@ -141,15 +141,14 @@ class UIRescueV0122Tests(unittest.TestCase):
         self.assertIn("self.generate_btn.setToolTip(", refresh)
         self.assertIn('self.t("generation_requirements")', refresh)
 
-    def test_runtime_version_and_bilingual_catalog_are_ready_for_0130(self):
+    def test_runtime_and_manifest_versions_match_and_catalog_is_bilingual(self):
         manifest = json.loads(
             (self.root() / "ankiforge_ai" / "manifest.json").read_text(
                 encoding="utf-8"
             )
         )
 
-        self.assertEqual(ankiforge_ai.__version__, "0.13.0")
-        self.assertEqual(manifest["version"], "0.13.0")
+        self.assertEqual(ankiforge_ai.__version__, manifest["version"])
         self.assertEqual(set(PRODUCT_COPY["zh"]), set(PRODUCT_COPY["en"]))
 
     @staticmethod

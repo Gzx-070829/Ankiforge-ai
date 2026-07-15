@@ -12,7 +12,6 @@
 | `process_steps` | `process_steps` | 流程、顺序 | 顺序与条件清楚 |
 | `formula_rule` | `formula_rule` | 公式、规则 | 变量与适用条件 |
 | `mistake_trap` | `mistake_trap` | 常见误区、易混点 | 指出错误与纠正 |
-| `cloze_candidate` | `cloze_candidate` | 简单填空候选 | 仅在兼容时启用 |
 
 `basic_qa` 是通用基础模板，可用于兼容或内部映射；它不会改变选定 mode 的安全要求。
 
@@ -22,7 +21,7 @@
 
 ## Cloze 边界
 
-`cloze_candidate` 不是“自动修改为 Cloze”。只有语法有效、当前笔记类型和字段兼容，并且用户完成审核时才能进入写入准备。插件不会自动创建 Cloze 笔记类型、字段或模板；不兼容时应阻止写入并提示选择合适目标。
+当前公共 UI 不开放 `cloze_candidate`，用户无法从模式列表选择它。内部注册表仅保留不可选择的 Cloze 模板和 fail-closed 语法/字段兼容检查，用于阻止 legacy 或内部候选进入不兼容写入。插件不会自动创建或修改 Cloze 笔记类型、字段或模板；公开 Cloze 支持延期到完成真实 Anki 验收之后。
 
 ## 选择建议
 
@@ -35,4 +34,4 @@
 
 ## English summary
 
-Modes express the learning goal; templates define front/back shape and quality priorities. The registry is deterministic Python and never mutates Anki schemas. `cloze_candidate` is restricted to compatible note types and valid syntax. Changing a mode or template invalidates stale candidates, and every result still requires review.
+Modes express the learning goal; templates define front/back shape and quality priorities. The registry is deterministic Python and never mutates Anki schemas. Cloze remains an internal, non-selectable, fail-closed compatibility check in v0.13.2; it is not a public card mode. Changing a mode or template invalidates stale candidates, and every result still requires review.

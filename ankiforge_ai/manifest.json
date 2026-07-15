@@ -2,7 +2,8 @@
     "name": "AnkiForge AI",
     "package": "ankiforge_ai",
     "author": "Chengduo Xuan",
-    "version": "0.13.0",
+    "version": "0.13.2",
+    "human_version": "0.13.2",
     "homepage": "https://github.com/Gzx-070829/Ankiforge-ai",
     "conflicts": [],
     "mod": 0

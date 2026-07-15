@@ -1,6 +1,10 @@
 # Legacy configuration reference
 
-The current product does not read or save an API key here. Enter credentials only in the AI Settings Modal for the active window; any legacy `api_key` field on disk is ignored and removed on save.
+This module exists only for compatibility with legacy, non-sensitive preferences. The current product does not read or save an API key here, and the active product does not read AI Settings from this file. Enter credentials only in the AI Settings Modal for the active window.
+
+Legacy files are read defensively: credential-shaped fields such as API keys, tokens, secrets, bearer/authorization values, and passwords are ignored. Saving refuses any such field, even when it is empty, instead of silently pretending it was persisted. `config.json` remains forbidden in the `.ankiaddon` package.
+
+If non-sensitive preferences need persistence in a future release, they may be designed around Anki add-on config or `user_files` after compatibility review. API keys will remain unsupported for persistence.
 
 ```json
 {

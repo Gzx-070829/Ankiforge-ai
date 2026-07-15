@@ -1,7 +1,16 @@
-"""Configuration loading for AnkiForge AI."""
+"""Legacy preference compatibility for AnkiForge AI.
+
+The active UI keeps Provider credentials in memory for the current window and
+does not use this module to persist them.  This loader remains only for legacy
+non-sensitive preferences; sensitive field names are scrubbed while reading
+old files and are rejected when callers attempt to save them.
+"""
 
 import json
 import os
+import re
+import unicodedata
+from collections.abc import Mapping
 from typing import Dict, Optional
 
 from .ai.providers.base import AIProviderConfig
@@ -34,25 +43,42 @@ PROVIDER_PRESETS = {
     },
 }
 
+_SENSITIVE_FIELD_MARKERS = (
+    "apikey",
+    "token",
+    "secret",
+    "bearer",
+    "password",
+    "authorization",
+)
+
+
+class SensitiveConfigFieldError(ValueError):
+    """Raised when legacy preference persistence receives credential fields."""
+
 
 def config_path() -> str:
     return os.path.join(os.path.dirname(__file__), "config.json")
 
 
 def load_config(path: Optional[str] = None) -> Dict:
-    """Load config.json and merge it over stable defaults."""
+    """Load legacy non-sensitive preferences over stable defaults.
+
+    Any credential-like keys in an existing file are ignored for backward
+    compatibility.  The returned empty ``api_key`` is a runtime-only sentinel
+    for old callers and is never persisted by :func:`save_config`.
+    """
     target = path or config_path()
     data = {}
     try:
         with open(target, "r", encoding="utf-8") as f:
             loaded = json.load(f)
         if isinstance(loaded, dict):
-            data = dict(loaded)
+            data = _scrub_sensitive_fields(loaded)
     except (OSError, ValueError):
         data = {}
 
     config = dict(DEFAULT_CONFIG)
-    data.pop("api_key", None)
     config.update(data)
     config["api_key"] = ""
     config["max_cards_per_chunk"] = _normalize_positive_int(
@@ -85,12 +111,18 @@ def load_provider_config(path: Optional[str] = None) -> AIProviderConfig:
 
 
 def save_config(config: Dict, path: Optional[str] = None) -> None:
-    """Persist non-secret legacy preferences; API keys are always discarded."""
+    """Persist legacy preferences only when no sensitive field is present.
+
+    Credential-shaped fields are refused even when empty so callers cannot
+    mistake silent discarding for successful persistence.
+    """
+    if not isinstance(config, Mapping):
+        raise TypeError("legacy config must be a mapping")
+    _assert_no_sensitive_fields(config)
+
     target = path or config_path()
     normalized = dict(load_config(path))
-    normalized.update(
-        {key: value for key, value in config.items() if key != "api_key"}
-    )
+    normalized.update(config)
     normalized.pop("api_key", None)
     normalized["max_cards_per_chunk"] = _normalize_positive_int(
         normalized.get("max_cards_per_chunk"),
@@ -104,9 +136,10 @@ def save_config(config: Dict, path: Optional[str] = None) -> None:
         normalized.get("temperature"),
         DEFAULT_CONFIG["temperature"],
     )
+    _assert_no_sensitive_fields(normalized)
+    serialized = json.dumps(normalized, ensure_ascii=False, indent=4) + "\n"
     with open(target, "w", encoding="utf-8") as f:
-        json.dump(normalized, f, ensure_ascii=False, indent=4)
-        f.write("\n")
+        f.write(serialized)
 
 
 def default_deck_name(path: Optional[str] = None) -> str:
@@ -144,3 +177,53 @@ def _apply_provider_defaults(config: Dict) -> None:
     api_base_url = str(config.get("api_base_url") or "").strip()
     if not api_base_url and preset["api_base_url"]:
         config["api_base_url"] = preset["api_base_url"]
+
+
+def _compact_field_name(field_name: str) -> str:
+    normalized = unicodedata.normalize("NFKC", field_name).casefold()
+    return re.sub(r"[^a-z0-9]", "", normalized)
+
+
+def _is_sensitive_field_name(field_name: str) -> bool:
+    compact = _compact_field_name(field_name)
+    return any(marker in compact for marker in _SENSITIVE_FIELD_MARKERS)
+
+
+def _assert_no_sensitive_fields(value, seen=None) -> None:
+    if seen is None:
+        seen = set()
+
+    if isinstance(value, Mapping):
+        object_id = id(value)
+        if object_id in seen:
+            return
+        seen.add(object_id)
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise TypeError("legacy config field names must be strings")
+            if _is_sensitive_field_name(key):
+                raise SensitiveConfigFieldError(
+                    "Refusing to persist sensitive fields in legacy configuration."
+                )
+            _assert_no_sensitive_fields(item, seen)
+        return
+
+    if isinstance(value, (list, tuple)):
+        object_id = id(value)
+        if object_id in seen:
+            return
+        seen.add(object_id)
+        for item in value:
+            _assert_no_sensitive_fields(item, seen)
+
+
+def _scrub_sensitive_fields(value):
+    if isinstance(value, Mapping):
+        return {
+            key: _scrub_sensitive_fields(item)
+            for key, item in value.items()
+            if isinstance(key, str) and not _is_sensitive_field_name(key)
+        }
+    if isinstance(value, list):
+        return [_scrub_sensitive_fields(item) for item in value]
+    return value
