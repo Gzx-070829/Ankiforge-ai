@@ -144,6 +144,14 @@ class ProductGradeReleaseAssetTests(unittest.TestCase):
     @staticmethod
     def sha256(path):
         digest = hashlib.sha256()
+        if path.suffix.casefold() in {".html", ".css", ".js", ".json", ".md"}:
+            # Release manifests bind canonical repository text, independent of
+            # Git's platform-specific checkout line endings.
+            content = path.read_bytes().replace(b"\r\n", b"\n").replace(
+                b"\r", b"\n"
+            )
+            digest.update(content)
+            return digest.hexdigest().upper()
         with path.open("rb") as handle:
             for chunk in iter(lambda: handle.read(65_536), b""):
                 digest.update(chunk)

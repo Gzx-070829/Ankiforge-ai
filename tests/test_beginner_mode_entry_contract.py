@@ -35,7 +35,8 @@ class BeginnerModeEntryContractTests(unittest.TestCase):
 
         self.assertNotIn("只读演练", entry_source)
         self.assertIn("generate_btn.clicked.connect", product_source)
-        self.assertIn("BeginnerAICardDraftGenerator().generate", product_source)
+        self.assertIn("self._generation_controller.submit", product_source)
+        self.assertNotIn("BeginnerAICardDraftGenerator().generate", product_source)
         self.assertIn("打开窗口不会联网", safety_copy)
         self.assertIn("主动点击 AI 生成按钮", safety_copy)
         self.assertIn("二次确认才会创建 Anki note", safety_copy)

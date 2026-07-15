@@ -6,9 +6,14 @@ from ankiforge_ai.ai.providers.base import AIProviderConfig
 from ankiforge_ai.ai.providers.mock_provider import MockAIProvider, format_source_display
 from ankiforge_ai.ai.providers.openai_compatible import (
     OpenAICompatibleProvider,
+    ProviderError,
     _chat_completions_url,
     build_chat_completions_payload,
     extract_assistant_content,
+    post_chat_completions,
+)
+from ankiforge_ai.pipeline.openai_compatible_provider import (
+    OpenAICompatibleTransportResponse,
 )
 from ankiforge_ai.ai.schemas import mock_generate_cards
 from ankiforge_ai.importers.md_importer import MarkdownChunk
@@ -82,6 +87,32 @@ class ProviderTests(unittest.TestCase):
 
 
 class OpenAICompatibleProviderTests(unittest.TestCase):
+    def test_legacy_http_failure_never_exposes_transport_detail_or_key(self):
+        secret = "legacy-provider-secret"
+        config = AIProviderConfig(
+            ai_provider="deepseek",
+            model="deepseek-chat",
+            api_base_url="https://api.deepseek.com",
+            api_key=secret,
+        )
+        response = OpenAICompatibleTransportResponse(
+            status_code=401,
+            json_body=None,
+            error_detail=f"Bearer {secret} private material",
+        )
+
+        with patch(
+            "ankiforge_ai.ai.providers.openai_compatible."
+            "OpenAICompatibleHTTPTransport.post_json",
+            return_value=response,
+        ):
+            with self.assertRaises(ProviderError) as context:
+                post_chat_completions({}, config)
+
+        rendered = repr(config) + str(context.exception)
+        self.assertNotIn(secret, rendered)
+        self.assertNotIn("private material", rendered)
+
     def test_chat_completions_url_appends_endpoint(self):
         self.assertEqual(
             _chat_completions_url("https://api.deepseek.com"),

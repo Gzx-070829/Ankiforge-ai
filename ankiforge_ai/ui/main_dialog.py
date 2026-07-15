@@ -28,6 +28,7 @@ class MainDialog(QDialog):
                 "provider_preview must be ReadOnlyProviderPreview or None."
             )
         self._provider_preview = provider_preview
+        self._session_torn_down = False
         self.setWindowTitle(self.t("title"))
         self.resize(1280, 960)
         self._build_ui()
@@ -104,18 +105,30 @@ class MainDialog(QDialog):
             parent=self,
             language=self.ui_language,
             settings=self.card_maker_panel.ai_runtime_settings(),
+            confirmed_endpoint_keys=(
+                self.card_maker_panel.confirmed_endpoint_keys()
+            ),
         )
         accepted = (
             QDialog.DialogCode.Accepted
             if hasattr(QDialog, "DialogCode")
             else QDialog.Accepted
         )
-        if dialog.exec() != accepted:
-            return
-        settings = dialog.runtime_settings()
+        settings = None
+        confirmation_key = None
+        try:
+            if dialog.exec() == accepted:
+                settings = dialog.runtime_settings()
+                confirmation_key = dialog.endpoint_confirmation_key()
+        finally:
+            dialog.clear_sensitive_data()
+            dialog.deleteLater()
         if settings is None:
             return
-        self.card_maker_panel.set_ai_runtime_settings(settings)
+        self.card_maker_panel.set_ai_runtime_settings(
+            settings,
+            confirmed_endpoint_key=confirmation_key,
+        )
         self._refresh_ai_status()
 
     def _open_help(self):
@@ -136,6 +149,16 @@ class MainDialog(QDialog):
         self.ai_status_label.style().unpolish(self.ai_status_label)
         self.ai_status_label.style().polish(self.ai_status_label)
 
-    def closeEvent(self, event):
+    def _teardown_session(self):
+        if self._session_torn_down:
+            return
+        self._session_torn_down = True
         self.card_maker_panel.discard_session()
+
+    def reject(self):
+        self._teardown_session()
+        super().reject()
+
+    def closeEvent(self, event):
+        self._teardown_session()
         super().closeEvent(event)

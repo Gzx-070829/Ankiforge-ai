@@ -1,7 +1,7 @@
 """Base types for AI card generation providers."""
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -14,7 +14,7 @@ class AIProviderConfig:
     ai_provider: str = "mock"
     model: str = "mock-v0.2"
     api_base_url: str = ""
-    api_key: str = ""
+    api_key: str = field(default="", repr=False)
     max_cards_per_chunk: int = 3
     timeout_seconds: int = 60
     temperature: float = 0.2

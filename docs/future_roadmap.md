@@ -47,3 +47,7 @@ Cloud services、账号、远端存储和支付都不是当前插件的隐含路
 ## 当前明确 deferred
 
 完整 Undo、OCR、PDF parser、Obsidian vault 扫描、后台 clipboard 监听、账号、云数据库、协作和商业化全部不属于本轮实现。
+
+高级 HTML/Markdown 卡片渲染同样延期。当前 writer 将生成和编辑后的字段视为纯文本，只转义 HTML 一次并安全保留换行。未来如增加富文本模式，必须单独设计 allowlist/parser、查重语义、迁移行为并通过真实 Anki 安全验收。
+
+高级 HTML/Markdown 卡片渲染同样延期。当前 writer 将生成和编辑后的字段视为纯文本，只转义 HTML 一次并安全保留换行。未来如增加富文本模式，必须单独设计 allowlist/parser、查重语义、迁移行为并通过真实 Anki 安全验收。

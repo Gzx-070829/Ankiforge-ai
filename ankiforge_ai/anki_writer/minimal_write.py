@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
+from .field_content import render_plain_text_anki_html
 from ..pipeline.write_traceability import validate_tags
 from ..pipeline.write_safety import WriteSafetySnapshot
 
@@ -247,10 +248,12 @@ class MinimalAnkiWriter:
         for card in command.cards:
             try:
                 note = self._collection.new_note(note_type)
-                note[command.front_field] = card.front
-                note[command.back_field] = card.back
+                note[command.front_field] = render_plain_text_anki_html(card.front)
+                note[command.back_field] = render_plain_text_anki_html(card.back)
                 if command.source_field:
-                    note[command.source_field] = card.source
+                    note[command.source_field] = render_plain_text_anki_html(
+                        card.source
+                    )
                 if command.tags:
                     add_tag = getattr(note, "add_tag", None)
                     if not callable(add_tag):

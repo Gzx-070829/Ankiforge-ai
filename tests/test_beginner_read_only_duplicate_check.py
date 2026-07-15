@@ -104,6 +104,27 @@ class BeginnerReadOnlyDuplicateCheckTests(unittest.TestCase):
             BeginnerDuplicateStatus.POSSIBLE_DUPLICATE,
         )
 
+    def test_adapter_matches_safe_escaped_html_and_anki_line_breaks(self):
+        cases = (
+            ("&lt;tag&gt;", "unrelated", "<tag>", "candidate back"),
+            ("unrelated", "Line 1<br>Line 2", "candidate front", "Line 1\nLine 2"),
+        )
+        for note_front, note_back, candidate_front, candidate_back in cases:
+            with self.subTest(note_front=note_front, note_back=note_back):
+                collection = FakeCollection(
+                    [FakeNote(105, note_front, note_back)]
+                )
+
+                preview = ReadOnlyDuplicateCheckAdapter(collection).check(
+                    (self.candidate(front=candidate_front, back=candidate_back),),
+                    self.mapping(),
+                )
+
+                self.assertEqual(
+                    preview.results[0].status,
+                    BeginnerDuplicateStatus.POSSIBLE_DUPLICATE,
+                )
+
     def test_no_match_returns_no_obvious_duplicate(self):
         collection = FakeCollection([FakeNote(103, "不同问题", "不同答案")])
 

@@ -8,6 +8,10 @@ from typing import Optional
 import urllib.error
 from urllib.parse import urlsplit
 
+from ..pipeline.ai_generation_limits import (
+    AIGenerationInputError,
+    validate_ai_material_text,
+)
 from ..pipeline.generation_settings import (
     GenerationSettings,
     card_limit_for_settings,
@@ -20,6 +24,10 @@ from ..pipeline.openai_compatible_http_transport import (
 from ..pipeline.openai_compatible_provider import (
     OpenAICompatibleTransport,
     build_chat_completions_url,
+)
+from ..pipeline.provider_endpoint_safety import (
+    DEFAULT_OFFICIAL_PROVIDER_HOSTS,
+    endpoint_is_authorized,
 )
 from .beginner_flow_models import (
     BeginnerAICardDraft,
@@ -86,7 +94,6 @@ Return a JSON array in this exact shape:
 Learning material:
 {material_text}"""
 
-
 class BeginnerAIDraftErrorCode(str, Enum):
     REQUEST_FAILED = "request_failed"
     TIMEOUT = "timeout"
@@ -94,6 +101,8 @@ class BeginnerAIDraftErrorCode(str, Enum):
     INVALID_CARD_PAYLOAD = "invalid_card_payload"
     EMPTY_OUTPUT = "empty_output"
     NO_CARDS = "no_cards"
+    MATERIAL_TOO_LONG = "material_too_long"
+    ENDPOINT_NOT_AUTHORIZED = "endpoint_not_authorized"
 
 
 @dataclass(frozen=True)
@@ -153,6 +162,8 @@ class BeginnerAICardDraftGenerationResult:
     )
     error_code: Optional[BeginnerAIDraftErrorCode] = None
     user_message: str = ""
+    http_status_code: Optional[int] = None
+    sanitized_detail: str = field(default="", repr=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.state, BeginnerAIGenerationState):
@@ -174,6 +185,13 @@ class BeginnerAICardDraftGenerationResult:
             raise ValueError("only successful results can contain drafts.")
         if not isinstance(self.user_message, str):
             raise ValueError("user_message must be a string.")
+        if self.http_status_code is not None and (
+            isinstance(self.http_status_code, bool)
+            or not isinstance(self.http_status_code, int)
+        ):
+            raise ValueError("http_status_code must be an integer or None.")
+        if not isinstance(self.sanitized_detail, str):
+            raise ValueError("sanitized_detail must be a string.")
 
     @property
     def success(self) -> bool:
@@ -190,7 +208,36 @@ class BeginnerAICardDraftGenerationResult:
             "draft_count": len(self.drafts),
             "error_code": self.error_code.value if self.error_code else None,
             "user_message": self.user_message,
+            "http_status_code": self.http_status_code,
+            "sanitized_detail_present": bool(self.sanitized_detail),
+            "sanitized_detail_chars": len(self.sanitized_detail),
         }
+
+
+def generation_error_message_key(
+    result: BeginnerAICardDraftGenerationResult,
+) -> str:
+    """Map a safe generation result to a stable, localized UI message key."""
+
+    if not isinstance(result, BeginnerAICardDraftGenerationResult):
+        raise ValueError("result must be a BeginnerAICardDraftGenerationResult.")
+    error_code = result.error_code.value if result.error_code else ""
+    if error_code == BeginnerAIDraftErrorCode.MATERIAL_TOO_LONG.value:
+        return "material_too_long"
+    if error_code == BeginnerAIDraftErrorCode.ENDPOINT_NOT_AUTHORIZED.value:
+        return "generation_endpoint_not_authorized"
+    status_code = result.http_status_code
+    if status_code in {401, 403}:
+        return "generation_http_auth"
+    if status_code == 404:
+        return "generation_http_not_found"
+    if status_code in {408, 504} or result.state is BeginnerAIGenerationState.TIMEOUT:
+        return "generation_http_timeout"
+    if status_code == 429:
+        return "generation_http_rate_limit"
+    if status_code in {500, 502, 503}:
+        return "generation_http_unavailable"
+    return "generation_failed"
 
 
 class BeginnerAICardDraftGenerator:
@@ -208,11 +255,25 @@ class BeginnerAICardDraftGenerator:
         material_text: str,
         max_cards: Optional[int] = None,
         generation_settings: Optional[GenerationSettings] = None,
+        endpoint_confirmation_key: Optional[str] = None,
     ) -> BeginnerAICardDraftGenerationResult:
         if not isinstance(settings, BeginnerAIProviderRuntimeSettings):
             raise ValueError("settings must be BeginnerAIProviderRuntimeSettings.")
         if not isinstance(material_text, str) or not material_text.strip():
             return _failure(BeginnerAIGenerationState.EMPTY_CARDS)
+        try:
+            validate_ai_material_text(material_text)
+        except AIGenerationInputError:
+            return _failure(BeginnerAIGenerationState.MATERIAL_TOO_LONG)
+        if not endpoint_is_authorized(
+            settings.base_url,
+            official_hosts=DEFAULT_OFFICIAL_PROVIDER_HOSTS,
+            confirmation_key=endpoint_confirmation_key,
+        ):
+            return _failure(
+                BeginnerAIGenerationState.PROVIDER_ERROR,
+                error_code=BeginnerAIDraftErrorCode.ENDPOINT_NOT_AUTHORIZED,
+            )
         resolved_generation_settings = coerce_generation_settings(
             generation_settings
         )
@@ -254,7 +315,16 @@ class BeginnerAICardDraftGenerator:
 
         status_code = getattr(response, "status_code", None)
         if not isinstance(status_code, int) or not 200 <= status_code < 300:
-            return _failure(BeginnerAIGenerationState.PROVIDER_ERROR)
+            state = (
+                BeginnerAIGenerationState.TIMEOUT
+                if status_code == 408
+                else BeginnerAIGenerationState.PROVIDER_ERROR
+            )
+            return _failure(
+                state,
+                status_code=status_code,
+                sanitized_detail=getattr(response, "error_detail", ""),
+            )
         content = _extract_assistant_content(response.json_body)
         if not content:
             return _failure(BeginnerAIGenerationState.EMPTY_OUTPUT)
@@ -325,6 +395,7 @@ def _build_payload(
     max_cards: Optional[int] = None,
     settings: Optional[GenerationSettings] = None,
 ) -> dict:
+    validate_ai_material_text(material_text)
     generation_settings = coerce_generation_settings(settings)
     resolved_max_cards = (
         card_limit_for_settings(generation_settings)
@@ -429,15 +500,25 @@ _ERROR_DETAILS = {
         BeginnerAIDraftErrorCode.NO_CARDS,
         BEGINNER_AI_EMPTY_CARDS_COPY,
     ),
+    BeginnerAIGenerationState.MATERIAL_TOO_LONG: (
+        BeginnerAIDraftErrorCode.MATERIAL_TOO_LONG,
+        "材料过长，请拆分后再生成。没有调用 AI Provider。",
+    ),
 }
 
 
 def _failure(
     state: BeginnerAIGenerationState,
+    *,
+    error_code: Optional[BeginnerAIDraftErrorCode] = None,
+    status_code: Optional[int] = None,
+    sanitized_detail: str = "",
 ) -> BeginnerAICardDraftGenerationResult:
     code, user_message = _ERROR_DETAILS[state]
     return BeginnerAICardDraftGenerationResult(
         state=state,
-        error_code=code,
+        error_code=error_code or code,
         user_message=user_message,
+        http_status_code=status_code,
+        sanitized_detail=sanitized_detail,
     )

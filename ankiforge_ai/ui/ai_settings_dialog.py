@@ -9,6 +9,7 @@ from aqt.qt import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QSpinBox,
     Qt,
@@ -16,6 +17,11 @@ from aqt.qt import (
     QWidget,
 )
 
+from ..pipeline.provider_endpoint_safety import (
+    DEFAULT_OFFICIAL_PROVIDER_HOSTS,
+    assess_provider_endpoint,
+    endpoint_confirmation_key,
+)
 from .beginner_ai_card_drafts import BeginnerAIProviderRuntimeSettings
 from .product_i18n import DEFAULT_PRODUCT_LANGUAGE, product_text
 from .style_tokens import (
@@ -98,11 +104,13 @@ class AiSettingsDialog(QDialog):
         parent=None,
         language=DEFAULT_PRODUCT_LANGUAGE,
         settings=None,
+        confirmed_endpoint_keys=(),
     ):
         super().__init__(parent)
         self.language = language
         self._accepted_settings = None
-        self._initial_settings = settings
+        self._accepted_endpoint_confirmation_key = None
+        self._confirmed_endpoint_keys = frozenset(confirmed_endpoint_keys)
         self.setObjectName("AiSettingsDialog")
         self.setModal(True)
         self.setFixedWidth(480)
@@ -299,10 +307,11 @@ class AiSettingsDialog(QDialog):
         provider_name, preset_url, _suggested_model = (
             self.provider_combo.currentData()
         )
+        base_url = (self.base_url_input.text() or preset_url).strip()
         try:
             settings = BeginnerAIProviderRuntimeSettings(
                 provider_name=provider_name,
-                base_url=(self.base_url_input.text() or preset_url).strip(),
+                base_url=base_url,
                 model=self.model_input.text().strip(),
                 api_key=self.api_key_input.text().strip(),
                 timeout_seconds=self.timeout_input.value(),
@@ -311,11 +320,56 @@ class AiSettingsDialog(QDialog):
             self.error_label.setText(self.t("ai_settings_invalid"))
             self.error_label.setVisible(True)
             return
+        decision = assess_provider_endpoint(
+            base_url,
+            official_hosts=DEFAULT_OFFICIAL_PROVIDER_HOSTS,
+        )
+        if decision.kind == "deny":
+            self.error_label.setText(
+                decision.user_message_zh
+                if self.language == "zh"
+                else decision.user_message_en
+            )
+            self.error_label.setVisible(True)
+            return
+        confirmation_key = None
+        if decision.kind == "confirm":
+            confirmation_key = endpoint_confirmation_key(base_url)
+            if confirmation_key not in self._confirmed_endpoint_keys:
+                buttons = getattr(QMessageBox, "StandardButton", QMessageBox)
+                message = (
+                    decision.user_message_zh
+                    if self.language == "zh"
+                    else decision.user_message_en
+                )
+                answer = QMessageBox.question(
+                    self,
+                    self.t("ai_settings"),
+                    f"{message}\n\n{decision.display_endpoint}",
+                    buttons.Yes | buttons.No,
+                    buttons.No,
+                )
+                confirmed = answer == buttons.Yes
+                if not confirmed:
+                    return
         self._accepted_settings = settings
+        self._accepted_endpoint_confirmation_key = confirmation_key
         self.accept()
 
     def runtime_settings(self):
         return self._accepted_settings
+
+    def endpoint_confirmation_key(self):
+        return self._accepted_endpoint_confirmation_key
+
+    def clear_sensitive_data(self):
+        self.api_key_input.clear()
+        self._accepted_settings = None
+        self._accepted_endpoint_confirmation_key = None
+
+    def reject(self):
+        self.clear_sensitive_data()
+        super().reject()
 
     def keyPressEvent(self, event):
         key_escape = (

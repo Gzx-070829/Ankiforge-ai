@@ -4,6 +4,10 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional, Sequence
 
+from ..anki_writer.field_content import (
+    duplicate_key_from_plain_text,
+    plain_text_from_anki_html,
+)
 from .beginner_flow_models import BeginnerCandidateCardPreview
 from .read_only_anki_targets import BeginnerFieldMappingPreview
 
@@ -26,6 +30,15 @@ class BeginnerDuplicatePreviewState(str, Enum):
     SUCCESS = "success"
     ERROR = "error"
     BLOCKED = "blocked"
+
+
+@dataclass(frozen=True, repr=False)
+class _ExistingNoteFields:
+    note_id: int
+    front_key: str
+    front_preview: str
+    back_key: str
+    back_preview: str
 
 
 @dataclass(frozen=True, repr=False)
@@ -173,11 +186,19 @@ class ReadOnlyDuplicateCheckAdapter:
         existing = []
         for note_id in note_ids:
             note = self._collection.get_note(note_id)
+            front_preview = plain_text_from_anki_html(
+                _note_field(note, mapping.front_field)
+            )
+            back_preview = plain_text_from_anki_html(
+                _note_field(note, mapping.back_field)
+            )
             existing.append(
-                (
-                    _note_id(note, note_id),
-                    _note_field(note, mapping.front_field),
-                    _note_field(note, mapping.back_field),
+                _ExistingNoteFields(
+                    note_id=_note_id(note, note_id),
+                    front_key=duplicate_key_from_plain_text(front_preview),
+                    front_preview=front_preview,
+                    back_key=duplicate_key_from_plain_text(back_preview),
+                    back_preview=back_preview,
                 )
             )
         return tuple(existing)
@@ -186,32 +207,28 @@ class ReadOnlyDuplicateCheckAdapter:
 def normalize_duplicate_preview_text(value: object) -> str:
     """Strip, case-fold, and collapse consecutive whitespace."""
 
-    return " ".join(str(value or "").split()).casefold()
+    return duplicate_key_from_plain_text(str(value or ""))
 
 
 def _match_candidate(candidate, existing, mapping):
-    candidate_front = normalize_duplicate_preview_text(candidate.front_preview)
-    candidate_back = normalize_duplicate_preview_text(candidate.back_preview)
-    for note_id, existing_front, existing_back in existing:
+    candidate_front = duplicate_key_from_plain_text(candidate.front_preview)
+    candidate_back = duplicate_key_from_plain_text(candidate.back_preview)
+    for note in existing:
         matched_fields = []
         preview = ""
-        if candidate_front and candidate_front == normalize_duplicate_preview_text(
-            existing_front
-        ):
+        if candidate_front and candidate_front == note.front_key:
             matched_fields.append(mapping.front_field)
-            preview = existing_front
-        if candidate_back and candidate_back == normalize_duplicate_preview_text(
-            existing_back
-        ):
+            preview = note.front_preview
+        if candidate_back and candidate_back == note.back_key:
             matched_fields.append(mapping.back_field)
             if not preview:
-                preview = existing_back
+                preview = note.back_preview
         if matched_fields:
             return BeginnerDuplicateCandidateResult(
                 candidate_id=candidate.id,
                 status=BeginnerDuplicateStatus.POSSIBLE_DUPLICATE,
                 matched_fields=tuple(matched_fields),
-                matched_note_id=note_id,
+                matched_note_id=note.note_id,
                 matched_field_preview=_short_preview(preview),
             )
     return BeginnerDuplicateCandidateResult(

@@ -10,7 +10,9 @@
 
 ## Provider 调用失败
 
-检查网络、endpoint、model 名称、配额和 Provider 状态。不要把 key、Authorization header、完整请求/响应或私人材料发到 issue。若怀疑泄露，先 rotate key。
+先看短状态：401/403 通常表示凭证或权限，404 表示 model/endpoint，408/timeout 表示超时，429 表示频率/额度，500/502/503 表示 Provider 暂时不可用。自定义、本机、私网或 HTTP endpoint 需要本次会话确认；改变 scheme、host 或 port 后需重新确认。不要把 key、Authorization header、完整请求/响应或私人材料发到 issue。若怀疑泄露，先 rotate key。
+
+超过 50,000 字符的材料会在请求前被拒绝。请按完整知识段落拆分；插件不会静默截断，也不会自动 retry。
 
 ## 文件无法导入
 

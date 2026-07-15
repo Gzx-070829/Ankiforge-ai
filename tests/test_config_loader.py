@@ -56,6 +56,22 @@ class ConfigLoaderTests(unittest.TestCase):
 
         self.assertEqual(config["api_key"], "")
 
+    def test_api_key_is_ignored_on_load_and_never_written(self):
+        secret = "legacy-secret-that-must-stay-session-only"
+        path = self._write_json({"api_key": secret, "model": "model-a"})
+
+        loaded = load_config(path)
+        provider_config = load_provider_config(path)
+        save_config({"api_key": secret, "model": "model-b"}, path)
+        with open(path, "r", encoding="utf-8") as file:
+            saved = json.load(file)
+
+        self.assertEqual(loaded["api_key"], "")
+        self.assertEqual(provider_config.api_key, "")
+        self.assertNotIn(secret, repr(provider_config))
+        self.assertNotIn("api_key", saved)
+        self.assertNotIn(secret, json.dumps(saved))
+
     def test_default_deck_name_uses_config(self):
         path = self._write_json({"default_deck": "Reading::Inbox"})
 

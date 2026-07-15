@@ -344,6 +344,7 @@ class BeginnerAIGenerationState(str, Enum):
     INVALID_JSON = "invalid_json"
     EMPTY_OUTPUT = "empty_output"
     EMPTY_CARDS = "empty_cards"
+    MATERIAL_TOO_LONG = "material_too_long"
 
 
 class BeginnerWriteState(str, Enum):
@@ -1160,6 +1161,7 @@ class BeginnerFlowSession:
             BeginnerAIGenerationState.INVALID_JSON,
             BeginnerAIGenerationState.EMPTY_OUTPUT,
             BeginnerAIGenerationState.EMPTY_CARDS,
+            BeginnerAIGenerationState.MATERIAL_TOO_LONG,
         }:
             raise ValueError("generation_state must describe a failed request.")
         if not isinstance(error_code, str) or not error_code.strip():
