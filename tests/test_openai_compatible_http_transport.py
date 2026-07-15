@@ -16,6 +16,7 @@ from ankiforge_ai.pipeline.ai_provider_contracts import (
 from ankiforge_ai.pipeline.models import SourceChunk
 from ankiforge_ai.pipeline.openai_compatible_http_transport import (
     OpenAICompatibleHTTPTransport,
+    _NoRedirectHandler,
 )
 from ankiforge_ai.pipeline.openai_compatible_provider import (
     OpenAICompatibleKnowledgePointProvider,
@@ -34,9 +35,9 @@ class FakeHTTPResponse:
     def getcode(self):
         return self.status_code
 
-    def read(self):
+    def read(self, size=-1):
         self.read_count += 1
-        return self.body
+        return self.body if size < 0 else self.body[:size]
 
     def __enter__(self):
         return self
@@ -62,10 +63,12 @@ class TrackingErrorBody(io.BytesIO):
     def __init__(self, value):
         super().__init__(value)
         self.read_count = 0
+        self.read_sizes = []
 
     def read(self, *args, **kwargs):
         self.read_count += 1
-        raise AssertionError("HTTP error body must not be read.")
+        self.read_sizes.append(args[0] if args else -1)
+        return super().read(*args, **kwargs)
 
 
 class OpenAICompatibleHTTPTransportTests(unittest.TestCase):
@@ -95,8 +98,8 @@ class OpenAICompatibleHTTPTransportTests(unittest.TestCase):
         self.assertEqual(response.read_count, 1)
         self.assertTrue(response.closed)
 
-    def test_http_error_returns_status_without_reading_body(self):
-        body = TrackingErrorBody(b"secret response body")
+    def test_http_error_returns_status_with_bounded_sanitized_detail(self):
+        body = TrackingErrorBody(b'{"error":{"message":"quota reached"}}')
         error = urllib.error.HTTPError(
             url="https://api.example.invalid/v1/chat/completions",
             code=429,
@@ -115,8 +118,52 @@ class OpenAICompatibleHTTPTransportTests(unittest.TestCase):
 
         self.assertEqual(result.status_code, 429)
         self.assertIsNone(result.json_body)
-        self.assertEqual(body.read_count, 0)
+        self.assertEqual(body.read_count, 1)
+        self.assertEqual(body.read_sizes, [8192])
+        self.assertEqual(result.error_detail, "quota reached")
         self.assertTrue(body.closed)
+
+    def test_non_raising_http_failure_is_also_bounded_and_sanitized(self):
+        secret = "response-secret-value"
+        response = FakeHTTPResponse(
+            status_code=500,
+            body=(
+                '{"error":{"message":"Authorization=Bearer '
+                + secret
+                + " "
+                + "private material " * 1000
+                + '"}}'
+            ).encode("utf-8"),
+        )
+        transport = OpenAICompatibleHTTPTransport(
+            FakeOpener(response=response)
+        )
+
+        result = transport.post_json(
+            "https://api.example.invalid/v1/chat/completions",
+            {"Authorization": f"Bearer {secret}"},
+            {},
+            3.0,
+        )
+
+        self.assertEqual(result.status_code, 500)
+        self.assertIsNone(result.json_body)
+        self.assertNotIn(secret, result.error_detail)
+        self.assertLessEqual(len(result.error_detail), 300)
+        self.assertTrue(response.closed)
+
+    def test_transport_blocks_denied_endpoint_before_opener(self):
+        opener = FakeOpener(response=FakeHTTPResponse())
+
+        with self.assertRaisesRegex(ValueError, "provider endpoint is denied"):
+            OpenAICompatibleHTTPTransport(opener).post_json(
+                "http://169.254.169.254/latest/meta-data",
+                {"Authorization": "Bearer fake-key"},
+                {},
+                1.0,
+            )
+
+        self.assertEqual(opener.calls, [])
 
     def test_malformed_json_returns_none_body_with_original_status(self):
         transport = OpenAICompatibleHTTPTransport(
@@ -196,7 +243,12 @@ class OpenAICompatibleHTTPTransportTests(unittest.TestCase):
 
     def test_default_opener_is_resolved_without_real_network(self):
         opener = FakeOpener(response=FakeHTTPResponse(200, b"{}"))
-        with patch.object(urllib.request, "urlopen", opener):
+        built_opener = type("BuiltOpener", (), {"open": staticmethod(opener)})()
+        with patch.object(
+            urllib.request,
+            "build_opener",
+            return_value=built_opener,
+        ) as build_opener:
             transport = OpenAICompatibleHTTPTransport()
             result = transport.post_json(
                 "https://api.example.invalid",
@@ -207,6 +259,26 @@ class OpenAICompatibleHTTPTransportTests(unittest.TestCase):
 
         self.assertEqual(result.status_code, 200)
         self.assertEqual(len(opener.calls), 1)
+        self.assertEqual(build_opener.call_count, 1)
+        handler = build_opener.call_args.args[0]
+        self.assertIsInstance(handler, _NoRedirectHandler)
+
+    def test_redirect_handler_never_forwards_the_authorized_request(self):
+        request = urllib.request.Request(
+            "https://api.deepseek.com/v1/chat/completions",
+            headers={"Authorization": "Bearer fake-session-key"},
+        )
+
+        redirected = _NoRedirectHandler().redirect_request(
+            request,
+            None,
+            302,
+            "Found",
+            {},
+            "https://unconfirmed.example/v1/chat/completions",
+        )
+
+        self.assertIsNone(redirected)
 
     def test_network_and_timeout_exceptions_are_not_caught(self):
         errors = (

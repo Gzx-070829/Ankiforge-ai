@@ -3,6 +3,8 @@
 from dataclasses import dataclass, field
 from typing import Mapping, Optional, Protocol, runtime_checkable
 
+from .http_error_sanitization import sanitize_provider_error_detail
+
 from .ai_provider_contracts import (
     AIProviderError,
     AIProviderMetadata,
@@ -57,11 +59,19 @@ class OpenAICompatibleProviderConfig:
 @dataclass(frozen=True)
 class OpenAICompatibleTransportResponse:
     status_code: int
-    json_body: object
+    json_body: object = field(repr=False)
+    error_detail: str = field(default="", repr=False)
 
     def __post_init__(self) -> None:
         if isinstance(self.status_code, bool) or not isinstance(self.status_code, int):
             raise ValueError("status_code must be an integer.")
+        if not isinstance(self.error_detail, str):
+            raise ValueError("error_detail must be a string.")
+        object.__setattr__(
+            self,
+            "error_detail",
+            sanitize_provider_error_detail(self.error_detail),
+        )
 
 
 @runtime_checkable

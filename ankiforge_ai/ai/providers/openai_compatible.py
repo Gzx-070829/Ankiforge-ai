@@ -1,13 +1,14 @@
 """OpenAI-compatible Chat Completions provider."""
 
-import json
 import urllib.error
-import urllib.request
 from typing import List
 
 from ..prompts import SYSTEM_PROMPT, build_user_prompt, response_format_payload
 from ..schemas import GeneratedCard
 from ..validators import CardValidationError, cards_from_json_text
+from ...pipeline.openai_compatible_http_transport import (
+    OpenAICompatibleHTTPTransport,
+)
 from .base import AIProvider
 
 
@@ -54,34 +55,25 @@ def build_chat_completions_payload(chunk, config) -> dict:
 
 def post_chat_completions(payload: dict, config) -> dict:
     url = _chat_completions_url(config.api_base_url)
-    data = json.dumps(payload).encode("utf-8")
-    request = urllib.request.Request(
-        url,
-        data=data,
-        headers={
-            "Authorization": f"Bearer {config.api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-
     try:
-        with urllib.request.urlopen(request, timeout=config.timeout_seconds) as response:
-            raw = response.read().decode("utf-8")
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode("utf-8", errors="replace")
-        raise ProviderError(f"AI API HTTP {e.code}: {detail}") from e
-    except urllib.error.URLError as e:
-        raise ProviderError(f"AI API 网络请求失败: {e.reason}") from e
-    except TimeoutError as e:
-        raise ProviderError("AI API 请求超时。") from e
-
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError as e:
-        raise ProviderError(f"AI API 响应不是合法 JSON: {e}") from e
+        response = OpenAICompatibleHTTPTransport().post_json(
+            url=url,
+            headers={
+                "Authorization": f"Bearer {config.api_key}",
+                "Content-Type": "application/json",
+            },
+            payload=payload,
+            timeout_seconds=config.timeout_seconds,
+        )
+    except urllib.error.URLError:
+        raise ProviderError("AI API 网络请求失败。") from None
+    except TimeoutError:
+        raise ProviderError("AI API 请求超时。") from None
+    if not 200 <= response.status_code < 300:
+        raise ProviderError(f"AI API HTTP {response.status_code}。")
+    parsed = response.json_body
     if not isinstance(parsed, dict):
-        raise ProviderError("AI API 响应顶层必须是 object。")
+        raise ProviderError("AI API 响应不是合法 JSON object。")
     return parsed
 
 

@@ -52,6 +52,7 @@ class BeginnerAIRetryAndOutputRepairTests(unittest.TestCase):
                 "invalid_json",
                 "empty_output",
                 "empty_cards",
+                "material_too_long",
             },
         )
 
@@ -234,7 +235,7 @@ class BeginnerAIRetryAndOutputRepairTests(unittest.TestCase):
     def settings(secret="temporary-session-key"):
         return BeginnerAIProviderRuntimeSettings(
             provider_name="OpenAI-compatible",
-            base_url="https://provider.invalid/v1",
+            base_url="https://api.deepseek.com",
             model="test-model",
             api_key=secret,
             timeout_seconds=10,

@@ -127,7 +127,14 @@ PRODUCT_COPY = {
         "regenerate_cards": "重新生成",
         "generation_running": "正在生成…",
         "generation_requirements": "请先添加材料并配置 AI。",
+        "material_too_long": "材料过长，请拆分后再生成。",
         "generation_failed": "生成失败，请检查 API key、模型或网络后重试。",
+        "generation_endpoint_not_authorized": "请重新检查并确认 Provider 地址。",
+        "generation_http_auth": "API key 可能无效或无权限。",
+        "generation_http_not_found": "模型或 Provider 地址可能不存在。",
+        "generation_http_timeout": "请求超时，请稍后重试。",
+        "generation_http_rate_limit": "请求过于频繁或额度不足。",
+        "generation_http_unavailable": "Provider 服务暂时不可用。",
         "model_failure_help": (
             "模型名称可能不正确。DeepSeek 可尝试 deepseek-v4-flash "
             "或 deepseek-v4-pro。"
@@ -384,9 +391,24 @@ PRODUCT_COPY = {
         "regenerate_cards": "Regenerate",
         "generation_running": "Generating…",
         "generation_requirements": "Add material and configure AI first.",
+        "material_too_long": (
+            "The material is too long. Please split it before generating cards."
+        ),
         "generation_failed": (
             "Generation failed. Check your API key, model, or network, "
             "then try again."
+        ),
+        "generation_endpoint_not_authorized": (
+            "Review and confirm the provider endpoint before generating."
+        ),
+        "generation_http_auth": "The API key may be invalid or lack permission.",
+        "generation_http_not_found": "The model or provider endpoint may not exist.",
+        "generation_http_timeout": "The request timed out. Try again later.",
+        "generation_http_rate_limit": (
+            "Requests may be too frequent, or the account may lack quota."
+        ),
+        "generation_http_unavailable": (
+            "The provider service is temporarily unavailable."
         ),
         "model_failure_help": (
             "The model name may be incorrect. For DeepSeek, try "

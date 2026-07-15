@@ -1,7 +1,9 @@
 """Single-screen product panel for turning study material into Anki cards."""
 
 from pathlib import Path
+import weakref
 
+from aqt import mw
 from aqt.qt import (
     QApplication,
     QButtonGroup,
@@ -31,6 +33,7 @@ from ..importers.source_import import (
     import_source_file,
     merge_imported_source_text,
 )
+from ..pipeline.ai_generation_limits import MAX_AI_MATERIAL_CHARS
 from ..pipeline.generation_settings import (
     GenerationSettings,
     get_card_mode_profile,
@@ -39,6 +42,12 @@ from ..pipeline.generation_settings import (
 from ..pipeline.example_materials import (
     all_example_materials,
     get_example_material,
+)
+from ..pipeline.provider_endpoint_safety import (
+    DEFAULT_OFFICIAL_PROVIDER_HOSTS,
+    EndpointConfirmationSession,
+    assess_provider_endpoint,
+    endpoint_confirmation_key,
 )
 from ..pipeline.write_traceability import (
     SourceType,
@@ -49,14 +58,15 @@ from ..pipeline.write_traceability import (
     source_type_from_path,
 )
 from .beginner_ai_card_drafts import (
-    BeginnerAICardDraftGenerator,
     BeginnerAIProviderRuntimeSettings,
+    generation_error_message_key,
 )
 from .beginner_final_confirmation import (
     build_beginner_final_confirmation_preview,
 )
 from .beginner_flow_models import (
     BeginnerAICardDraft,
+    BeginnerAIGenerationState,
     BeginnerFlowSession,
     BeginnerReviewDecision,
     BeginnerWriteState,
@@ -66,6 +76,7 @@ from .beginner_real_write import (
     prepare_beginner_write,
 )
 from .file_drop_text_edit import FileDropTextEdit
+from .generation_task_controller import GenerationTaskController
 from .read_only_anki_targets import (
     BeginnerAnkiReadState,
     ReadOnlyAnkiTargetAdapter,
@@ -124,6 +135,9 @@ class CardMakerPanel(QWidget):
         self.write_result = None
         self.card_button_groups = {}
         self._ai_runtime_settings = None
+        self._endpoint_confirmations = EndpointConfirmationSession()
+        self._generation_controller = GenerationTaskController(mw.taskman)
+        self._disposed = False
 
         self.setObjectName("CardMakerPanel")
         self.setMaximumWidth(1280)
@@ -138,11 +152,28 @@ class CardMakerPanel(QWidget):
     def ai_runtime_settings(self):
         return self._ai_runtime_settings
 
-    def set_ai_runtime_settings(self, settings):
+    def confirmed_endpoint_keys(self):
+        return self._endpoint_confirmations.keys
+
+    def set_ai_runtime_settings(self, settings, confirmed_endpoint_key=None):
         if not isinstance(settings, BeginnerAIProviderRuntimeSettings):
             raise TypeError(
                 "settings must be BeginnerAIProviderRuntimeSettings"
             )
+        decision = assess_provider_endpoint(
+            settings.base_url,
+            official_hosts=DEFAULT_OFFICIAL_PROVIDER_HOSTS,
+        )
+        if decision.kind == "deny":
+            raise ValueError("provider endpoint is denied")
+        if decision.kind == "confirm":
+            required_key = endpoint_confirmation_key(settings.base_url)
+            if confirmed_endpoint_key is not None:
+                if confirmed_endpoint_key != required_key:
+                    raise ValueError("provider endpoint confirmation does not match")
+                self._endpoint_confirmations.add_key(confirmed_endpoint_key)
+            if not self._endpoint_confirmations.is_confirmed(settings.base_url):
+                raise ValueError("provider endpoint requires confirmation")
         self._ai_runtime_settings = settings
         self.session.mark_ai_runtime_settings_changed()
         self._set_generation_message()
@@ -271,11 +302,20 @@ class CardMakerPanel(QWidget):
         message = self.t(key, **values)
         if key == "generation_failed":
             message += "\n" + self.t("model_failure_help")
+        error_keys = {
+            "generation_failed",
+            "generation_endpoint_not_authorized",
+            "generation_http_auth",
+            "generation_http_not_found",
+            "generation_http_timeout",
+            "generation_http_rate_limit",
+            "generation_http_unavailable",
+            "material_too_long",
+        }
         role = {
-            "generation_failed": "error",
             "generation_requirements": "warning",
             "generation_success": "success",
-        }.get(key, "status")
+        }.get(key, "error" if key in error_keys else "status")
         self._set_status_role(self.generation_status_label, role)
         self.generation_status_label.setText(message)
         self.generation_status_label.setVisible(True)
@@ -975,10 +1015,17 @@ class CardMakerPanel(QWidget):
         )
 
     def _generate_cards(self):
+        if self._generation_controller.running:
+            return
         if not self._ai_settings_are_ready():
             self._set_generation_message("generation_requirements")
             return
         settings = self._ai_runtime_settings
+        material_text = self.session.material_text
+        if len(material_text) > MAX_AI_MATERIAL_CHARS:
+            self._set_generation_message("material_too_long")
+            self._refresh_product_state()
+            return
 
         generation_settings = self._current_generation_settings()
         self.session.set_generation_settings(generation_settings)
@@ -988,18 +1035,46 @@ class CardMakerPanel(QWidget):
         self.generate_btn.setText(self.t("generation_running"))
         self.generate_btn.setEnabled(False)
         self._set_generation_message("generation_running")
-        QApplication.processEvents()
-        result = BeginnerAICardDraftGenerator().generate(
-            settings=settings,
-            material_text=self.session.material_text,
-            generation_settings=generation_settings,
+        confirmation_key = (
+            endpoint_confirmation_key(settings.base_url)
+            if self._endpoint_confirmations.is_confirmed(settings.base_url)
+            else None
         )
+        panel_reference = weakref.ref(self)
+
+        def handle_completion(completion):
+            panel = panel_reference()
+            if panel is None or panel._disposed:
+                return
+            panel._handle_generation_completion(completion)
+
+        self._generation_controller.submit(
+            material_text=material_text,
+            runtime_settings=settings,
+            generation_settings=generation_settings,
+            endpoint_confirmation_key=confirmation_key,
+            on_complete=handle_completion,
+        )
+        self._refresh_product_state()
+
+    def _handle_generation_completion(self, completion):
+        if self._disposed or self.session.closed:
+            return
+        result = completion.result
+        if result is None:
+            self.session.record_ai_card_draft_error(
+                BeginnerAIGenerationState.PROVIDER_ERROR,
+                completion.error_code or "background_task_failed",
+            )
+            self._set_generation_message("generation_failed")
+            self._refresh_product_state()
+            return
         if not result.success:
             self.session.record_ai_card_draft_error(
                 result.state,
                 result.error_code.value,
             )
-            self._set_generation_message("generation_failed")
+            self._set_generation_message(generation_error_message_key(result))
             self._refresh_product_state()
             return
 
@@ -1646,6 +1721,7 @@ class CardMakerPanel(QWidget):
         self._refresh_product_state()
 
     def _after_upstream_change(self, render_material_count=True):
+        self._generation_controller.invalidate()
         if render_material_count:
             self.material_count_label.setText(
                 self.t(
@@ -1680,16 +1756,21 @@ class CardMakerPanel(QWidget):
                 count=self.session.material_char_count,
             )
         )
-        self.generate_btn.setText(
-            self.t("regenerate_cards")
-            if self.session.candidate_card_previews
-            else self.t("generate_cards")
-        )
-        generation_ready = self._ai_settings_are_ready()
-        self.generate_btn.setEnabled(generation_ready)
-        self.generate_btn.setToolTip(
-            "" if generation_ready else self.t("generation_requirements")
-        )
+        if self._generation_controller.running:
+            self.generate_btn.setText(self.t("generation_running"))
+            self.generate_btn.setEnabled(False)
+            self.generate_btn.setToolTip("")
+        else:
+            self.generate_btn.setText(
+                self.t("regenerate_cards")
+                if self.session.candidate_card_previews
+                else self.t("generate_cards")
+            )
+            generation_ready = self._ai_settings_are_ready()
+            self.generate_btn.setEnabled(generation_ready)
+            self.generate_btn.setToolTip(
+                "" if generation_ready else self.t("generation_requirements")
+            )
         has_cards = bool(self.session.candidate_card_previews)
         self.duplicate_btn.setEnabled(
             has_cards and self.anki_mapping is not None
@@ -1739,6 +1820,9 @@ class CardMakerPanel(QWidget):
         )
 
     def discard_session(self):
+        self._disposed = True
+        self._generation_controller.close()
+        self._endpoint_confirmations.clear()
         self.material_input.blockSignals(True)
         self.material_input.clear()
         self.material_input.blockSignals(False)

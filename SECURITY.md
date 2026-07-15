@@ -29,6 +29,14 @@ The add-on does not claim that an AI provider is private or that AI-generated ca
 
 Full automatic Undo/delete is intentionally deferred. A report showing that the add-on edits or deletes existing notes/cards without narrow, explicit authorization should be treated as high priority.
 
+## Provider endpoint and diagnostic boundary
+
+The active product classifies Provider endpoints lexically before saving session settings and enforces the decision again before generation. Exact official DeepSeek/OpenAI HTTPS hosts are allowed. Other public HTTPS, HTTP, localhost, private, link-local, `.local`, and bare-host endpoints require explicit confirmation for the current window; known metadata endpoints, embedded credentials, query/fragment data, unsupported schemes, and invalid/unspecified/multicast addresses are denied. HTTP confirmation warns that material and the API key may travel unencrypted. Automatic authenticated redirects are disabled.
+
+This is risk classification, not complete SSRF protection. Classification itself performs no DNS lookup, but an approved real request necessarily uses the operating system's DNS, proxy, and network stack. Local Provider support is intentional. Saving or confirming settings does not contact the endpoint; only the user's explicit Generate action starts a request.
+
+For an HTTP failure, the shared transport reads at most 8,192 bytes. It extracts a short detail from `error.message`, top-level `message`, or `detail` when possible, or sanitizes a bounded text response. Authorization/Bearer/API-key-like values and the exact request credential are redacted, line breaks are collapsed, and the retained detail is limited to 300 characters. Raw bodies and headers are not retained in result objects, displayed, or logged. User-facing errors prefer stable status-code messages rather than Provider body text.
+
 ## Public bug reports
 
 Ordinary UI, installation, import, or card-quality bugs can use the issue templates. Redact API keys, personal material, complete local paths, note IDs, collection files, and provider request/response bodies first. Security reports should not use public issue templates.

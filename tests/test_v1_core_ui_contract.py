@@ -44,7 +44,7 @@ class V1CoreUIContractTests(unittest.TestCase):
         self.assertNotIn(".generate(", self.function_source("__init__"))
 
     def test_generated_cards_are_not_automatically_approved(self):
-        handler = self.function_source("_generate_cards")
+        handler = self.function_source("_handle_generation_completion")
 
         self.assertIn("self.session.apply_ai_candidate_card_drafts", handler)
         self.assertNotIn("set_candidate_review_decision", handler)

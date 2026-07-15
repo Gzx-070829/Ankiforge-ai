@@ -51,4 +51,20 @@
 - [ ] 重启 Anki 后新增 notes 正常、key 消失、UI 状态合理。
 - [ ] 卸载/禁用插件不修改已有 collection 内容。
 
+## PR25 运行时安全 hardening
+
+1. [ ] 点击生成后窗口仍可移动、滚动，Anki 不显示“未响应”。
+2. [ ] 生成中按钮禁用，重复操作不会提交第二个相同请求。
+3. [ ] 生成中关闭窗口，任务完成后不崩溃、不更新重开的界面，也不泄露凭证或错误细节。
+4. [ ] 发起新生成并让旧请求稍后完成，旧结果不会覆盖新状态。
+5. [ ] 生成中修改材料、生成设置或 Provider 设置，旧任务结果不会写回。
+6. [ ] 超过 50,000 字符的材料被 UI 阻止，并显示正确的中英文短提示。
+7. [ ] 超长材料不会启动后台任务，也不会调用 Provider。
+8. [ ] Endpoint：官方地址直接保存；localhost/private/http 要求确认；HTTP 警告材料/key 可能明文传输；取消后不保存；改变 scheme/host/port 或重启窗口后重新确认；metadata、内嵌凭证、query/fragment 地址被拒绝；redirect 不会把凭证自动带到新地址。
+9. [ ] 401、429 和其他 Provider error 只显示短提示，不包含 API key、Authorization、raw body 或私人材料。
+10. [ ] 写入包含 `<`、`>`、`&`、换行、`<script>`、`<img onerror>` 的卡片，确认它们以无害纯文本显示且换行稳定。
+11. [ ] 特殊字符写入后再次查重，等价的 escaped 字符与换行仍能识别为可能重复。
+12. [ ] 同一内容经过一次写入、审核和查重流程后不发生重复转义。
+13. [ ] 写入仍要求当前 duplicate check、完整 mapping、可写 kept cards 和 final confirmation。
+
 任一自动 AI 调用、未确认写入、结构 mutation、删除、key 持久化、私人数据泄露或错误报告不可信，都应阻止 merge 和公开发布。

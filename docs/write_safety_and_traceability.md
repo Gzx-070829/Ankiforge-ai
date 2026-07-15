@@ -22,6 +22,8 @@
 
 字段映射只选择已有字段。AnkiForge AI 不自动新增字段、修改笔记类型或重构牌组。
 
+Front、Back 和 Source 在审核/session/写入命令中保持纯文本，只在 writer 赋值边界统一换行、转义 HTML 一次并把换行转换为 `<br>`。重复检查把候选纯文本与已有 Anki HTML 都转换到同一 canonical plain-text key，因此 escaped 特殊字符和 `<br>` 不会造成漏判，也不会把已渲染字段再次送入 writer。高级 HTML/Markdown 渲染延期。
+
 ## 写入后报告
 
 报告记录 written、skipped duplicate 和 failed 数量，以及牌组、笔记类型、Tags、来源标签、时间和 batch ID。内部 note IDs 仅用于当前窗口的批次记录，不在普通 UI 中展示。
@@ -45,6 +47,8 @@
 
 **Full undo deferred.** 当前不提供自动删除按钮。安全 Undo 必须证明只针对本批次、逐条确认卡片未被后续编辑、二次确认并报告部分失败；绝不能按 tag 或 deck 批量删除历史卡。达到这些条件前，用户应使用 Anki 自身操作并先在测试牌组验收。
 
+写入仍在现有 Anki collection 约束内执行；PR25 不把 collection mutation 放进普通 Python 后台线程。AI 生成已后台化，但它使用 `uses_collection=False`，两条线程边界不能混为一谈。
+
 ## English summary
 
-Writing requires kept cards, no blocking entries, complete field mapping, a current duplicate check, a valid target, a finished generation task, and final confirmation. The add-on creates only the confirmed new notes and does not automatically modify or delete existing notes/cards, decks, note types, or fields. Reports expose counts and safe labels, not raw note IDs or full paths. Full Undo remains deferred.
+Writing requires kept cards, no blocking entries, complete field mapping, a current duplicate check, a valid target, a finished generation task, and final confirmation. Front, Back, and Source are rendered once as escaped plain-text Anki HTML; duplicate checking canonicalizes existing HTML and candidate text through the same rules. Collection mutation is not moved to an ordinary worker thread. The add-on creates only confirmed new notes and does not automatically modify or delete existing notes/cards, decks, note types, or fields. Full Undo and advanced HTML/Markdown rendering remain deferred.

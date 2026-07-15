@@ -47,12 +47,14 @@ def load_config(path: Optional[str] = None) -> Dict:
         with open(target, "r", encoding="utf-8") as f:
             loaded = json.load(f)
         if isinstance(loaded, dict):
-            data = loaded
+            data = dict(loaded)
     except (OSError, ValueError):
         data = {}
 
     config = dict(DEFAULT_CONFIG)
+    data.pop("api_key", None)
     config.update(data)
+    config["api_key"] = ""
     config["max_cards_per_chunk"] = _normalize_positive_int(
         config.get("max_cards_per_chunk"),
         DEFAULT_CONFIG["max_cards_per_chunk"],
@@ -83,10 +85,13 @@ def load_provider_config(path: Optional[str] = None) -> AIProviderConfig:
 
 
 def save_config(config: Dict, path: Optional[str] = None) -> None:
-    """Persist config JSON. API keys are user-local and never hard-coded."""
+    """Persist non-secret legacy preferences; API keys are always discarded."""
     target = path or config_path()
     normalized = dict(load_config(path))
-    normalized.update(config)
+    normalized.update(
+        {key: value for key, value in config.items() if key != "api_key"}
+    )
+    normalized.pop("api_key", None)
     normalized["max_cards_per_chunk"] = _normalize_positive_int(
         normalized.get("max_cards_per_chunk"),
         DEFAULT_CONFIG["max_cards_per_chunk"],
