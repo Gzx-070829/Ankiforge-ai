@@ -4,7 +4,7 @@
 
 ## 简体中文
 
-AnkiForge AI `v0.13.0-product-grade-preview`
+AnkiForge AI `v0.13.2-product-grade-preview`
 
 这是 Anki 插件，不是共享牌组。不要在 Shared Decks 里搜索；它也不是网页服务，不提供现成卡组。
 
@@ -24,6 +24,8 @@ v0.13 重点：
 - Front / Back / Source 字段建议；
 - 可解释的重复检查、写入摘要、来源/Tags 和写入报告；
 - 内置示例、帮助与中英文界面。
+- Provider 生成在 Anki 后台任务机制中执行，旧请求结果不会覆盖新会话；
+- 超过 50,000 字符的材料在请求前拒绝。
 
 安全边界：
 
@@ -33,13 +35,16 @@ v0.13 重点：
 - 不自动写入 Anki，查重和最终确认不可跳过；
 - 可能重复的卡默认跳过；
 - 不自动修改或删除已有卡片、牌组、笔记类型或字段；
+- 当前公共 UI 不开放 Cloze；
+- 失败请求不会自动 retry，只有你再次点击生成才开始新请求；
+- Endpoint 防护是风险分类和本次会话确认，不是完整 SSRF 证明；自定义、本机、私网或 HTTP 地址需要确认，HTTP 可能明文传输材料和 key；
 - 完整 Undo 暂不提供。
 
 本地质量规则只是辅助，不能保证内容正确或适合你的学习目标。你需要对最终卡片负责，建议先使用独立测试牌组。
 
 ## English
 
-AnkiForge AI `v0.13.0-product-grade-preview`
+AnkiForge AI `v0.13.2-product-grade-preview`
 
 This is an Anki add-on, not a shared deck. It runs inside Anki Desktop, is not a web app, and does not include pre-made decks.
 
@@ -59,6 +64,8 @@ Highlights:
 - Front / Back / optional Source field suggestions
 - Explainable duplicate checks, write summaries, source/tags, and reports
 - Built-in examples, help, and Chinese/English UI
+- Provider generation runs through Anki's background task mechanism; stale results do not replace a newer session
+- Material over 50,000 characters is rejected before a request
 
 Safety:
 
@@ -68,6 +75,9 @@ Safety:
 - No automatic Anki writes; duplicate checking and final confirmation are hard gates
 - Possible duplicates are skipped by default
 - Existing notes/cards, decks, note types, and fields are not automatically modified or deleted
+- Cloze is not selectable in the current public UI
+- Failed requests are not retried automatically; only another explicit Generate action starts a new request
+- Endpoint protection is risk classification plus per-session confirmation, not complete SSRF protection; custom, local, private, or HTTP endpoints require confirmation, and HTTP may expose material and the key in transit
 - Full Undo is not exposed
 
 Local quality checks are assistive heuristics, not a correctness guarantee. You are responsible for the final cards. Start with a separate test deck.

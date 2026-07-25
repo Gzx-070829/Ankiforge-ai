@@ -116,15 +116,14 @@ class LinearFlowSettingsModalTests(unittest.TestCase):
         self.assertNotIn("advanced_toggle_btn", main_builder)
         self.assertNotIn("advanced_tools_panel", main_builder)
 
-    def test_runtime_and_manifest_versions_are_0130(self):
+    def test_runtime_and_manifest_versions_match(self):
         manifest = json.loads(
             (self.root() / "ankiforge_ai" / "manifest.json").read_text(
                 encoding="utf-8"
             )
         )
 
-        self.assertEqual(ankiforge_ai.__version__, "0.13.0")
-        self.assertEqual(manifest["version"], "0.13.0")
+        self.assertEqual(ankiforge_ai.__version__, manifest["version"])
 
     @classmethod
     def dialog_source(cls):

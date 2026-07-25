@@ -13,8 +13,7 @@ class ProductGradeContractTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(ankiforge_ai.__version__, "0.13.0")
-        self.assertEqual(manifest["version"], "0.13.0")
+        self.assertEqual(ankiforge_ai.__version__, manifest["version"])
 
     def test_master_plan_covers_every_product_boundary(self):
         text = (

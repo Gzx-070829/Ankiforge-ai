@@ -8,7 +8,7 @@ Turn your own study material into reviewable, safely writable Anki cards.
 
 AnkiForge AI is a local-first AI card workbench. You provide the source and learning goal; AI produces candidates only. Local quality checks and manual review come before duplicate checking, a write preview, and final confirmation.
 
-Current candidate: `v0.13.0-product-grade-preview`.
+Current candidate: `v0.13.2-product-grade-preview`.
 
 ## Quick install
 
@@ -45,7 +45,7 @@ Copy the `ankiforge_ai` folder into Anki's `addons21` directory and restart Anki
 - Paste text or choose/drop Markdown, TXT, and DOCX files
 - Safe PDF fallback guidance; no OCR or full PDF text extraction
 - DeepSeek and OpenAI-compatible providers in a dedicated AI Settings dialog
-- `concept`, `definition`, `exam`, `quick_review`, `compare_contrast`, `process_steps`, `formula_rule`, `mistake_trap`, and restricted `cloze_candidate` modes
+- Eight public modes: `concept`, `definition`, `exam`, `quick_review`, `compare_contrast`, `process_steps`, `formula_rule`, and `mistake_trap`; Cloze remains an internal fail-closed compatibility check and is not selectable in the current UI
 - Template-aware prompts plus card-count, answer-length, and output-language controls
 - Fully local deterministic card-quality checks and a multidisciplinary benchmark
 - A pending → edit/copy/restore → keep/discard Review workbench

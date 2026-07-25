@@ -8,7 +8,7 @@
 
 AnkiForge AI 是一个本地优先、中文优先的 AI 制卡工作台。你提供材料、选择学习目标，AI 只生成候选卡；本地质量检查和人工审核完成后，插件才会进入重复检查、写入预览和最终确认。
 
-当前候选版本：`v0.13.0-product-grade-preview`。
+当前候选版本：`v0.13.2-product-grade-preview`。
 
 ## 快速安装
 
@@ -45,7 +45,7 @@ git clone https://github.com/Gzx-070829/Ankiforge-ai.git
 - 粘贴文本，以及 Markdown / TXT / DOCX 选择和拖拽导入
 - PDF 安全 fallback：当前不做 OCR，也不提取 PDF 正文
 - DeepSeek 与 OpenAI-compatible Provider；AI 设置留在独立 Modal
-- `concept`、`definition`、`exam`、`quick_review`、`compare_contrast`、`process_steps`、`formula_rule`、`mistake_trap` 和受限 `cloze_candidate` 模式
+- `concept`、`definition`、`exam`、`quick_review`、`compare_contrast`、`process_steps`、`formula_rule` 和 `mistake_trap` 八种公开模式；Cloze 仅保留内部 fail-closed 兼容检查，当前 UI 不开放
 - 模板感知的生成提示，以及卡片数量、答案长度和输出语言控制
 - 完全本地、确定性的 card-quality 检查与多学科 benchmark
 - pending → 编辑/复制/还原 → 保留/丢弃的 Review 工作台

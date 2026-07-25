@@ -164,7 +164,7 @@ class ProductGradeDocumentationTests(unittest.TestCase):
         combined = ankiweb + release
         self.assert_terms(
             combined,
-            "v0.13.0-product-grade-preview",
+            "v0.13.2-product-grade-preview",
             "1227582295",
             "这是 Anki 插件，不是共享牌组",
             "This is an Anki add-on, not a shared deck",
