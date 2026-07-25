@@ -3,7 +3,11 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from .card_templates import default_template_for_mode, get_card_template
+from .card_templates import (
+    default_template_for_mode,
+    get_card_template,
+    template_is_compatible_with_mode,
+)
 from .generation_settings import (
     GenerationSettings,
     card_limit_for_settings,
@@ -55,7 +59,7 @@ def build_prompt_profile(
         if template_id is None
         else get_card_template(template_id)
     )
-    if template.mode_id != resolved.card_mode:
+    if not template_is_compatible_with_mode(template, resolved.card_mode):
         raise ValueError(
             f"template {template.template_id!r} is not compatible with "
             f"card mode {resolved.card_mode!r}."

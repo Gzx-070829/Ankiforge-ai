@@ -19,6 +19,10 @@ class PromptProfileV4Tests(unittest.TestCase):
         "process_steps",
         "formula_rule",
         "mistake_trap",
+        "auto",
+        "code_understanding",
+        "table_relationship",
+        "transcript_summary_candidate",
         "cloze_candidate",
     )
 
@@ -55,6 +59,10 @@ class PromptProfileV4Tests(unittest.TestCase):
             "process_steps": "explicit order",
             "formula_rule": "applicable condition",
             "mistake_trap": "misconception",
+            "auto": "deterministic document recommendation",
+            "code_understanding": "code context",
+            "table_relationship": "repeated table header",
+            "transcript_summary_candidate": "timestamp context",
             "cloze_candidate": "cloze",
         }
         for mode_id, term in expected_terms.items():
