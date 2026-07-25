@@ -8,6 +8,7 @@ from .card_quality_benchmark import (
     evaluate_benchmark_suite,
     load_benchmark_fixture,
 )
+from .document_intelligence_benchmark import evaluate_document_intelligence_suite
 
 __all__ = (
     "BenchmarkCard",
@@ -15,5 +16,6 @@ __all__ = (
     "CardQualityBenchmarkFixture",
     "evaluate_benchmark_fixture",
     "evaluate_benchmark_suite",
+    "evaluate_document_intelligence_suite",
     "load_benchmark_fixture",
 )

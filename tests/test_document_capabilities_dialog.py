@@ -1,10 +1,13 @@
 import ast
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from ankiforge_ai.document import ImporterCapability, SupportLevel
 from ankiforge_ai.ui.document_capabilities_dialog import (
     build_document_capabilities_view,
+    default_document_capabilities,
+    probe_optional_backend_availability,
 )
 
 
@@ -115,7 +118,7 @@ class DocumentCapabilitiesDialogTests(unittest.TestCase):
             backend_availability={"pdf_advanced_internal": True},
         )
 
-        self.assertEqual(view.rows[1].status, "Optional backend ready")
+        self.assertEqual(view.rows[1].status, "Optional backend detected")
         self.assertEqual(view.rows[1].guidance, "")
 
     def test_view_models_do_not_expose_internal_ids_dependencies_or_rules(self):
@@ -154,6 +157,10 @@ class DocumentCapabilitiesDialogTests(unittest.TestCase):
         self.assertIn("QDialog", rendered)
         self.assertIn("build_document_capabilities_view", rendered)
         self.assertIn("view.rows", rendered)
+        self.assertIn("_native_only_button", rendered)
+        self.assertIn("_backend_status_labels", rendered)
+        self.assertIn("_backend_detail_labels", rendered)
+        self.assertIn("pandoc_invalid", rendered)
         for forbidden in (
             "detect_file_type",
             "import_document",
@@ -163,6 +170,40 @@ class DocumentCapabilitiesDialogTests(unittest.TestCase):
             "Provider",
         ):
             self.assertNotIn(forbidden, rendered)
+
+    def test_default_view_lists_each_optional_backend_and_pdf_fallback(self):
+        capabilities = default_document_capabilities()
+        view = build_document_capabilities_view(
+            capabilities,
+            language="en",
+            backend_availability={
+                "docling": True,
+                "markitdown": False,
+                "pandoc": False,
+            },
+        )
+        rendered = "\n".join(
+            f"{row.format_name} {row.extensions} {row.status}"
+            for row in view.rows
+        )
+
+        self.assertIn("Docling", rendered)
+        self.assertIn("MarkItDown", rendered)
+        self.assertIn("Pandoc", rendered)
+        self.assertIn("PDF copy-text fallback", rendered)
+        self.assertIn("Optional backend detected", rendered)
+
+    def test_optional_probe_is_detection_only_and_default_off(self):
+        with mock.patch(
+            "ankiforge_ai.document.backends.detection.importlib.util.find_spec",
+            return_value=None,
+        ):
+            availability = probe_optional_backend_availability()
+
+        self.assertEqual(
+            availability,
+            {"docling": False, "markitdown": False, "pandoc": False},
+        )
 
 
 if __name__ == "__main__":

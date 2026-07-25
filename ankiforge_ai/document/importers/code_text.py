@@ -6,7 +6,13 @@ from ..limits import DEFAULT_DOCUMENT_LIMITS
 from ..models import BlockKind, DocumentSection
 from ..source_labels import get_safe_source_label
 from .base import DocumentImporter, ImportInspection
-from .text import block, location, make_document, read_text_bounded
+from .text import (
+    DocumentParseBudget,
+    block,
+    location,
+    make_document,
+    read_text_bounded,
+)
 
 
 _TYPES = {
@@ -18,6 +24,7 @@ _TYPES = {
     ".h": "c",
     ".cpp": "cpp",
     ".cc": "cpp",
+    ".hpp": "cpp",
     ".rs": "rust",
     ".go": "go",
     ".sql": "sql",
@@ -51,6 +58,8 @@ class CodeTextImporter(DocumentImporter):
     def import_document(self, path, limits=DEFAULT_DOCUMENT_LIMITS):
         text, _ = read_text_bounded(path, limits)
         label = get_safe_source_label(path)
+        budget = DocumentParseBudget(limits)
+        budget.consume_section()
         lines = text.splitlines()
         groups = []
         start = None
@@ -61,6 +70,7 @@ class CodeTextImporter(DocumentImporter):
                     start = number
                 content.append(value)
             elif content:
+                budget.ensure_blocks(len(groups) + 1)
                 groups.append((start, number - 1, "\n".join(content)))
                 start = None
                 content = []
@@ -73,6 +83,7 @@ class CodeTextImporter(DocumentImporter):
                 line_start=start_line,
                 line_end=end_line,
                 metadata={"language": self.source_type},
+                budget=budget,
             )
             for index, (start_line, end_line, value) in enumerate(groups, 1)
         )

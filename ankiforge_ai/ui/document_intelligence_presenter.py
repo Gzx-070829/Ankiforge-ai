@@ -17,7 +17,7 @@ from ..intelligence import (
 _COPY = {
     "zh": {
         "summary": "{sections} 个章节 · {blocks} 个内容块 · {chars} 个字符",
-        "auto": "Auto 推荐",
+        "auto": "自动推荐",
         "mode_code_understanding": "代码理解",
         "mode_table_relationship": "表格关系",
         "mode_transcript_summary_candidate": "转录摘要",
@@ -56,10 +56,13 @@ _COPY = {
         "stage_failed": "生成未完成",
         "stage_superseded": "已被新任务替代",
         "progress": "{completed}/{total} 个分块完成",
-        "retry": "仅重试失败文件",
+        "retry": "仅重试失败分块",
     },
     "en": {
-        "summary": "{sections} section · {blocks} blocks · {chars} characters",
+        "summary": (
+            "{sections} {section_word} · {blocks} {block_word} · "
+            "{chars} {character_word}"
+        ),
         "auto": "Auto recommendation",
         "mode_code_understanding": "Code understanding",
         "mode_table_relationship": "Table relationships",
@@ -100,7 +103,7 @@ _COPY = {
         "stage_failed": "Generation incomplete",
         "stage_superseded": "Replaced by a newer request",
         "progress": "{completed}/{total} chunks complete",
-        "retry": "Retry failed files only",
+        "retry": "Retry failed chunks only",
     },
 }
 
@@ -159,6 +162,13 @@ def present_document_summary(
             sections=analysis.section_count,
             blocks=analysis.block_count,
             chars=analysis.char_count,
+            section_word=(
+                "section" if analysis.section_count == 1 else "sections"
+            ),
+            block_word="block" if analysis.block_count == 1 else "blocks",
+            character_word=(
+                "character" if analysis.char_count == 1 else "characters"
+            ),
         ),
         warning_count=len(document.warnings) + len(analysis.warnings),
     )

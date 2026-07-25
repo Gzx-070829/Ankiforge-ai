@@ -46,6 +46,7 @@ _TEXT_EXTENSIONS: Dict[str, str] = {
     ".h": "c",
     ".cpp": "cpp",
     ".cc": "cpp",
+    ".hpp": "cpp",
     ".rs": "rust",
     ".go": "go",
     ".sql": "sql",

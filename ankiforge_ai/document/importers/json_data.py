@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
 
@@ -7,7 +8,14 @@ from ..limits import DEFAULT_DOCUMENT_LIMITS
 from ..models import BlockKind, DocumentSection
 from ..source_labels import get_safe_source_label
 from .base import DocumentImporter, ImportInspection
-from .text import block, import_error, location, make_document, read_text_bounded
+from .text import (
+    DocumentParseBudget,
+    block,
+    import_error,
+    location,
+    make_document,
+    read_text_bounded,
+)
 
 
 def _load_json(value: str):
@@ -30,7 +38,7 @@ def _scalar_text(value):
     return str(value)
 
 
-def _walk_scalars(value, max_depth):
+def _walk_scalars(value, max_depth, max_scalars=None):
     result = []
     stack = [("$", value, 1)]
     while stack:
@@ -46,6 +54,8 @@ def _walk_scalars(value, max_depth):
             for index in range(len(current) - 1, -1, -1):
                 stack.append((f"{path}[{index}]", current[index], depth + 1))
         else:
+            if max_scalars is not None and len(result) >= max_scalars:
+                raise import_error("document_too_complex")
             result.append((path, _scalar_text(current)))
     return result
 
@@ -76,17 +86,25 @@ class JsonDataImporter(DocumentImporter):
     def import_document(self, path, limits=DEFAULT_DOCUMENT_LIMITS):
         text, _ = read_text_bounded(path, limits)
         label = get_safe_source_label(path)
+        budget = DocumentParseBudget(limits)
         if self.source_type == "jsonl":
-            records = []
-            for line_number, raw in enumerate(text.splitlines(), 1):
-                if raw.strip():
-                    records.append((line_number, _load_json(raw)))
+            records = (
+                (line_number, raw)
+                for line_number, raw in enumerate(io.StringIO(text), 1)
+                if raw.strip()
+            )
         else:
-            records = [(1, _load_json(text))]
+            records = ((1, text),)
         sections = []
         block_index = 0
-        for record_number, (line_number, value) in enumerate(records, 1):
-            values = _walk_scalars(value, limits.max_json_depth)
+        for record_number, (line_number, raw) in enumerate(records, 1):
+            budget.consume_section()
+            value = _load_json(raw)
+            values = _walk_scalars(
+                value,
+                limits.max_json_depth,
+                budget.remaining_blocks,
+            )
             blocks = []
             for path_value, scalar in values:
                 block_index += 1
@@ -99,6 +117,7 @@ class JsonDataImporter(DocumentImporter):
                         line_start=line_number,
                         line_end=line_number if self.source_type == "jsonl" else None,
                         section=path_value.rsplit(".", 1)[0],
+                        budget=budget,
                     )
                 )
             heading = f"Record {record_number}" if self.source_type == "jsonl" else None

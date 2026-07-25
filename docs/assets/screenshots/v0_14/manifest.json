@@ -1,0 +1,23 @@
+{
+  "offline_ui_preview_mock": true,
+  "real_anki_acceptance": false,
+  "network_used": false,
+  "anki_or_provider_called": false,
+  "preview": "docs/assets/ui_preview_v0_14.html",
+  "preview_sha256": "3B271ED62A9C958E9DA6BCE537AE4E86CE0D23D056F9239427FF19C0DA75A476",
+  "screenshots": {
+    "01_zh_default_main.png": {"state": "zh-default", "scenario": "Chinese default main screen", "width": 1440, "height": 900, "sha256": "19C0391FD1AD91ED27D30852F7A5C408446C3891D4FA5D646B41419390C97972"},
+    "02_multi_file_queue.png": {"state": "multi-file-queue", "scenario": "multi-file import queue", "width": 1440, "height": 900, "sha256": "617696DECC266A3336F5DEE604B44AD0945D0B1D98C375A75E439A015A82722B"},
+    "03_document_overview.png": {"state": "parsed-overview", "scenario": "parsed document overview", "width": 1440, "height": 900, "sha256": "663DEA9BA8360BA7B87BF59B4142122AAED1E725DCBFA7252DD8EDC89BD052CB"},
+    "04_capabilities_dialog.png": {"state": "capabilities", "scenario": "format and backend capabilities with session-only selection", "width": 1440, "height": 900, "sha256": "268CAE02F8AA7BA2FE46B61EE9F4DC63736CC5FC96DEA52C7A5C4AC80CEC86B5"},
+    "05_auto_mode_recommendation.png": {"state": "auto-recommendation", "scenario": "Auto recommendation", "width": 1440, "height": 900, "sha256": "533015DF21D67E70560A33710915979EDA77F1EB4280DF2A04A0DC17C8ACFD67"},
+    "06_standard_plan_estimate.png": {"state": "standard-plan", "scenario": "Standard estimate", "width": 1440, "height": 900, "sha256": "1D7D23D7034312AA0A7F3EDBA9C48ABE88AA39A182F9631F4D0C49A9646621F2"},
+    "07_deep_call_confirmation.png": {"state": "deep-confirmation", "scenario": "Deep call confirmation", "width": 1440, "height": 900, "sha256": "6FB01774B02051E7E62DFB5EB9D79FBF2ECE825EDE7820CE12F695BC98EFF48B"},
+    "08_stage_progress.png": {"state": "staged-progress", "scenario": "Mock visualization of live request-safe stage labels", "width": 1440, "height": 900, "sha256": "D74391D422CCB1BCB9CC18A2F1CB440AF08A7FA9973DEC215DC6FBA4690DA9A5"},
+    "09_review_source_chips.png": {"state": "review-source-chips", "scenario": "Review source chips", "width": 1440, "height": 900, "sha256": "0FBF5FC3E77D041B074DAA3D35CF888E154CBDD405E0FE32CEF0C95C9C108578"},
+    "10_partial_failure_retry.png": {"state": "partial-failure-retry", "scenario": "partial failure and explicit retry", "width": 1440, "height": 900, "sha256": "443E525B08A4B41A0ABE8BC040666D647716FA720033B76887FBB3E44D86F1D2"},
+    "11_en_default_main.png": {"state": "en-default", "scenario": "English main screen", "width": 1440, "height": 900, "sha256": "E4E3590CDE48C7B189AF38204292DE043CAD7D7E9476E6A003AE2964DFE8E243"},
+    "12_backend_missing.png": {"state": "backend-missing", "scenario": "optional backend missing", "width": 1440, "height": 900, "sha256": "EDB9E10281D025E146D3EA8C04E9CFFE17DEC7BEDB6EF29B8812372361455F56"},
+    "13_backend_available.png": {"state": "backend-available", "scenario": "optional backend detected but not auto-enabled", "width": 1440, "height": 900, "sha256": "9EED80655DD32296801CC1E0FC0A090FF62DBB235ABD343C7B1C10FD4ACC3AD4"}
+  }
+}

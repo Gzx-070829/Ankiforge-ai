@@ -14,10 +14,6 @@ from .companion_protocol import (
     CompanionResponse,
 )
 from .command_runner import SafeCommandRunner
-from .docling_adapter import DoclingBackend
-from .markitdown_adapter import MarkItDownBackend
-from .pandoc_adapter import PandocBackend
-
 __all__ = [
     "BackendCapability",
     "BackendCommand",
@@ -35,3 +31,21 @@ __all__ = [
     "PandocBackend",
     "SafeCommandRunner",
 ]
+
+
+def __getattr__(name):
+    """Load optional adapter modules only after an explicit attribute request."""
+
+    if name == "DoclingBackend":
+        from .docling_adapter import DoclingBackend
+
+        return DoclingBackend
+    if name == "MarkItDownBackend":
+        from .markitdown_adapter import MarkItDownBackend
+
+        return MarkItDownBackend
+    if name == "PandocBackend":
+        from .pandoc_adapter import PandocBackend
+
+        return PandocBackend
+    raise AttributeError(name)

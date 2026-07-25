@@ -150,7 +150,11 @@ def create_native_importer_registry() -> DocumentImporterRegistry:
             lambda: CodeTextImporter("c"),
         ),
         (
-            _capability("cpp", (".cpp", ".cc"), structured=False),
+            _capability(
+                "cpp",
+                (".cpp", ".cc", ".hpp"),
+                structured=False,
+            ),
             lambda: CodeTextImporter("cpp"),
         ),
         (

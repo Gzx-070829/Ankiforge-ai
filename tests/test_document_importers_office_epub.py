@@ -3,6 +3,7 @@ import unittest
 import zipfile
 from dataclasses import replace
 from pathlib import Path
+from unittest import mock
 
 from ankiforge_ai.document import (
     DEFAULT_DOCUMENT_LIMITS,
@@ -10,6 +11,7 @@ from ankiforge_ai.document import (
     DocumentImportError,
 )
 from ankiforge_ai.document.importers.epub import EpubImporter
+from ankiforge_ai.document.importers import epub, office_open_xml
 from ankiforge_ai.document.importers.office_open_xml import (
     DocxImporter,
     PptxImporter,
@@ -133,6 +135,29 @@ class DocumentOfficeEpubImporterTests(unittest.TestCase):
         )
         self.assertEqual(combined, "Second\nChapter two.\nFirst\nChapter one.")
         self.assertNotIn("example.invalid", combined)
+
+    def test_epub_and_office_stop_building_blocks_at_the_shared_limit(self):
+        limits = replace(DEFAULT_DOCUMENT_LIMITS, max_document_blocks=2)
+        with mock.patch.object(
+            epub,
+            "block",
+            wraps=epub.block,
+        ) as epub_block:
+            with self.assertRaises(DocumentImportError) as raised:
+                EpubImporter().import_document(FIXTURES / "book.epub", limits)
+        self.assertEqual(raised.exception.code, "document_too_complex")
+        self.assertLessEqual(epub_block.call_count, 3)
+
+        limits = replace(DEFAULT_DOCUMENT_LIMITS, max_document_blocks=1)
+        with mock.patch.object(
+            office_open_xml,
+            "block",
+            wraps=office_open_xml.block,
+        ) as office_block:
+            with self.assertRaises(DocumentImportError) as raised:
+                DocxImporter().import_document(FIXTURES / "lesson.docx", limits)
+        self.assertEqual(raised.exception.code, "document_too_complex")
+        self.assertLessEqual(office_block.call_count, 2)
 
     def test_fake_office_archive_and_malformed_epub_fail_with_safe_errors(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -2,7 +2,9 @@ import builtins
 import dataclasses
 import importlib
 import sys
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 
@@ -78,6 +80,19 @@ class DocumentBackendCapabilityTests(unittest.TestCase):
                 any(token in name for token in forbidden for name in names),
                 (model.__name__, names),
             )
+
+    def test_pandoc_probe_rejects_a_regular_non_executable_file(self):
+        from ankiforge_ai.document.backends.detection import (
+            probe_absolute_executable,
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            candidate = Path(directory) / "pandoc.txt"
+            candidate.write_text("not an executable", encoding="utf-8")
+            probe = probe_absolute_executable("pandoc", candidate)
+
+        self.assertFalse(probe.available)
+        self.assertEqual(probe.reason_code, "invalid_executable")
 
 
 if __name__ == "__main__":

@@ -53,6 +53,14 @@ class _CoverageSourceUnavailable(ValueError):
     pass
 
 
+def failed_generation_retry_is_available(run: GenerationRun) -> bool:
+    """Return whether one failed-only retry can still add a card safely."""
+
+    if not failed_chunk_retry_is_available(run):
+        return False
+    return _remaining_card_slots(run) > 0
+
+
 @dataclass(frozen=True, repr=False)
 class IntelligentGenerationRequestSnapshot:
     request_id: int
@@ -112,6 +120,35 @@ class IntelligentGenerationTaskCompletion:
 class _WorkerResult:
     run: GenerationRun
     error_code: Optional[str] = None
+
+
+@dataclass(frozen=True, repr=False)
+class IntelligentGenerationProgress:
+    request_id: int
+    run: GenerationRun
+    completed_groups: int = 0
+    total_groups: int = 0
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.run, GenerationRun):
+            raise TypeError("run must be a GenerationRun")
+        if self.request_id != self.run.request_id:
+            raise ValueError("request_id must match the run")
+        for value, name in (
+            (self.completed_groups, "completed_groups"),
+            (self.total_groups, "total_groups"),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError(f"{name} must be a non-negative integer")
+        if self.completed_groups > self.total_groups:
+            raise ValueError("completed_groups must not exceed total_groups")
+
+    def __repr__(self) -> str:
+        return (
+            "IntelligentGenerationProgress("
+            f"request_id={self.request_id}, stage={self.run.stage.value!r}, "
+            f"groups={self.completed_groups}/{self.total_groups})"
+        )
 
 
 class IntelligentGenerationTaskController:
@@ -178,6 +215,7 @@ class IntelligentGenerationTaskController:
         *,
         run_snapshot: GenerationRun,
         generator_callback=None,
+        on_progress=None,
         on_complete: Callable[[IntelligentGenerationTaskCompletion], None],
         planner_callback=None,
         critic_callback=None,
@@ -223,6 +261,8 @@ class IntelligentGenerationTaskController:
                 raise TypeError(f"{name} must be callable")
         if not callable(on_complete):
             raise TypeError("on_complete must be callable")
+        if on_progress is not None and not callable(on_progress):
+            raise TypeError("on_progress must be callable or None")
         snapshot = IntelligentGenerationRequestSnapshot(
             request_id=run_snapshot.request_id,
             run=run_snapshot,
@@ -242,6 +282,19 @@ class IntelligentGenerationTaskController:
                     supersede_run(snapshot.run),
                     "request_superseded",
                 )
+            def emit_progress(run, completed_groups=0, total_groups=0):
+                if on_progress is None:
+                    return
+                self._schedule_progress(
+                    IntelligentGenerationProgress(
+                        request_id=snapshot.request_id,
+                        run=run,
+                        completed_groups=completed_groups,
+                        total_groups=total_groups,
+                    ),
+                    on_progress,
+                )
+
             return _execute_lifecycle(
                 snapshot.run,
                 planner_callback=planner,
@@ -249,6 +302,7 @@ class IntelligentGenerationTaskController:
                 critic_callback=critic,
                 repair_callback=repair,
                 supplement_callback=supplement,
+                progress_callback=emit_progress,
                 continue_if_current=lambda: self._is_current(
                     snapshot.request_id
                 ),
@@ -300,6 +354,7 @@ class IntelligentGenerationTaskController:
         *,
         run_snapshot: GenerationRun,
         retry_generator_callback,
+        on_progress=None,
         on_complete: Callable[[IntelligentGenerationTaskCompletion], None],
     ):
         if not isinstance(run_snapshot, GenerationRun):
@@ -308,6 +363,8 @@ class IntelligentGenerationTaskController:
             raise TypeError("retry_generator_callback must be callable")
         if not callable(on_complete):
             raise TypeError("on_complete must be callable")
+        if on_progress is not None and not callable(on_progress):
+            raise TypeError("on_progress must be callable or None")
         with self._lock:
             if not self._alive:
                 return None
@@ -315,7 +372,7 @@ class IntelligentGenerationTaskController:
                 return None
             if run_snapshot.request_id != self._highest_request_id:
                 raise ValueError("retry run is stale")
-            if not failed_chunk_retry_is_available(run_snapshot):
+            if not failed_generation_retry_is_available(run_snapshot):
                 return None
             retry = create_failed_chunk_retry(
                 run_snapshot,
@@ -328,10 +385,24 @@ class IntelligentGenerationTaskController:
             self._running = True
 
         def background_task():
+            def emit_progress(run, completed_groups=0, total_groups=0):
+                if on_progress is None:
+                    return
+                self._schedule_progress(
+                    IntelligentGenerationProgress(
+                        request_id=run_snapshot.request_id,
+                        run=run,
+                        completed_groups=completed_groups,
+                        total_groups=total_groups,
+                    ),
+                    on_progress,
+                )
+
             return _execute_failed_retry_lifecycle(
                 run_snapshot,
                 retry,
                 retry_generator_callback=retry_generator_callback,
+                progress_callback=emit_progress,
                 continue_if_current=lambda: self._is_current(
                     run_snapshot.request_id
                 ),
@@ -406,6 +477,24 @@ class IntelligentGenerationTaskController:
             # controller owns cleanup; callback exceptions never escape.
             return
 
+    def _schedule_progress(self, progress, on_progress) -> None:
+        run_on_main = getattr(self._taskman, "run_on_main", None)
+        if not callable(run_on_main):
+            return
+
+        def deliver():
+            if not self._is_current(progress.request_id):
+                return
+            try:
+                on_progress(progress)
+            except Exception:
+                return
+
+        try:
+            run_on_main(deliver)
+        except Exception:
+            return
+
 
 def _execute_lifecycle(
     run: GenerationRun,
@@ -415,9 +504,11 @@ def _execute_lifecycle(
     critic_callback,
     repair_callback=None,
     supplement_callback=None,
+    progress_callback=None,
     continue_if_current=lambda: True,
 ) -> _WorkerResult:
     current = transition_run(run, GenerationStage.PLANNING)
+    _emit_worker_progress(progress_callback, current)
     if (
         planner_callback is not None
         and current.level in {IntelligenceLevel.STANDARD, IntelligenceLevel.DEEP}
@@ -447,6 +538,7 @@ def _execute_lifecycle(
                 "request_superseded",
             )
     current = transition_run(current, GenerationStage.GENERATING)
+    _emit_worker_progress(progress_callback, current)
     if not continue_if_current():
         return _WorkerResult(
             supersede_run(current),
@@ -457,6 +549,7 @@ def _execute_lifecycle(
             current,
             generator_callback,
             continue_if_current=continue_if_current,
+            progress_callback=progress_callback,
         )
     except _GenerationSuperseded as error:
         return _WorkerResult(
@@ -486,6 +579,7 @@ def _execute_lifecycle(
             "request_superseded",
         )
     current = transition_run(current, GenerationStage.REVIEWING)
+    _emit_worker_progress(progress_callback, current)
     critic_output = None
     if (
         critic_callback is not None
@@ -521,6 +615,7 @@ def _execute_lifecycle(
             critic_output,
             repair_callback=repair_callback,
             continue_if_current=continue_if_current,
+            progress_callback=progress_callback,
         )
     except _LifecycleSuperseded as error:
         return _WorkerResult(
@@ -538,6 +633,7 @@ def _execute_lifecycle(
             "request_superseded",
         )
     current = transition_run(current, GenerationStage.CHECKING_COVERAGE)
+    _emit_worker_progress(progress_callback, current)
     try:
         deduplication = deduplicate_cards(current.cards)
         current = _retain_candidate_ids(
@@ -586,7 +682,9 @@ def _execute_lifecycle(
             "postprocessing_failed",
         )
     current = transition_run(current, GenerationStage.DEDUPLICATING)
+    _emit_worker_progress(progress_callback, current)
     current = complete_run(current)
+    _emit_worker_progress(progress_callback, current)
     return _WorkerResult(current)
 
 
@@ -617,13 +715,21 @@ def _dispatch_generation_calls(
     generator_callback,
     *,
     continue_if_current,
+    progress_callback=None,
 ) -> tuple[GenerationRun, object]:
     if not _is_grouped_generator(generator_callback):
         current = reserve_run_call(run, CallPurpose.GENERATE)
         if not continue_if_current():
             raise _GenerationSuperseded(current)
         try:
-            return current, generator_callback(current)
+            generated = generator_callback(current)
+            _emit_worker_progress(
+                progress_callback,
+                current,
+                completed_groups=1,
+                total_groups=1,
+            )
+            return current, generated
         except Exception:
             raise _GenerationDispatchFailed(current) from None
     try:
@@ -635,7 +741,13 @@ def _dispatch_generation_calls(
         raise _GenerationDispatchFailed(run) from None
     current = run
     generated = {}
-    for batch in batches:
+    _emit_worker_progress(
+        progress_callback,
+        current,
+        completed_groups=0,
+        total_groups=len(batches),
+    )
+    for batch_index, batch in enumerate(batches, 1):
         if not continue_if_current():
             raise _GenerationSuperseded(current)
         current = reserve_run_call(current, CallPurpose.GENERATE)
@@ -650,6 +762,12 @@ def _dispatch_generation_calls(
                     for chunk_id in batch
                 }
             )
+            _emit_worker_progress(
+                progress_callback,
+                current,
+                completed_groups=batch_index,
+                total_groups=len(batches),
+            )
             continue
         try:
             outcome_by_chunk = _bounded_mapping_for_ids(outcome, batch)
@@ -660,13 +778,40 @@ def _dispatch_generation_calls(
                     for chunk_id in batch
                 }
             )
+            _emit_worker_progress(
+                progress_callback,
+                current,
+                completed_groups=batch_index,
+                total_groups=len(batches),
+            )
             continue
         for chunk_id in batch:
             generated[chunk_id] = outcome_by_chunk.get(
                 chunk_id,
                 {"error_code": "generation_result_missing"},
             )
+        _emit_worker_progress(
+            progress_callback,
+            current,
+            completed_groups=batch_index,
+            total_groups=len(batches),
+        )
     return current, generated
+
+
+def _emit_worker_progress(
+    callback,
+    run: GenerationRun,
+    *,
+    completed_groups: int = 0,
+    total_groups: int = 0,
+) -> None:
+    if callback is None:
+        return
+    try:
+        callback(run, completed_groups, total_groups)
+    except Exception:
+        return
 
 
 def _validated_generation_batches(
@@ -731,15 +876,38 @@ def _execute_failed_retry_lifecycle(
     retry,
     *,
     retry_generator_callback,
+    progress_callback=None,
     continue_if_current=lambda: True,
 ) -> _WorkerResult:
     current = apply_failed_chunk_retry(run, retry)
-    for chunk_id in retry.chunk_ids:
+    total_groups = len(retry.chunk_ids)
+    _emit_worker_progress(
+        progress_callback,
+        current,
+        completed_groups=0,
+        total_groups=total_groups,
+    )
+    for completed_groups, chunk_id in enumerate(retry.chunk_ids, 1):
         if not continue_if_current():
             return _WorkerResult(
                 supersede_run(current),
                 "request_superseded",
             )
+        remaining_card_slots = _remaining_card_slots(current)
+        if remaining_card_slots < 1:
+            current = start_chunk(current, chunk_id)
+            current = fail_chunk(
+                current,
+                chunk_id,
+                reason_code="card_limit_reached",
+            )
+            _emit_worker_progress(
+                progress_callback,
+                current,
+                completed_groups=completed_groups,
+                total_groups=total_groups,
+            )
+            continue
         current = start_failed_chunk_retry(current, retry, chunk_id)
         if not continue_if_current():
             return _WorkerResult(
@@ -754,6 +922,12 @@ def _execute_failed_retry_lifecycle(
                 retry,
                 chunk_id,
             )
+            _emit_worker_progress(
+                progress_callback,
+                current,
+                completed_groups=completed_groups,
+                total_groups=total_groups,
+            )
             continue
         if isinstance(outcome, Mapping) and set(outcome).issubset(
             {"cards", "error_code"}
@@ -766,9 +940,19 @@ def _execute_failed_retry_lifecycle(
                     chunk_id,
                     reason_code=error_code,
                 )
+                _emit_worker_progress(
+                    progress_callback,
+                    current,
+                    completed_groups=completed_groups,
+                    total_groups=total_groups,
+                )
                 continue
             outcome = outcome.get("cards", ())
         try:
+            outcome = _bounded_retry_cards(
+                outcome,
+                remaining_card_slots,
+            )
             current = succeed_failed_chunk_retry(
                 current,
                 retry,
@@ -782,9 +966,17 @@ def _execute_failed_retry_lifecycle(
                 chunk_id,
                 reason_code="generation_output_invalid",
             )
+        _emit_worker_progress(
+            progress_callback,
+            current,
+            completed_groups=completed_groups,
+            total_groups=total_groups,
+        )
     current = transition_run(current, GenerationStage.REVIEWING)
+    _emit_worker_progress(progress_callback, current)
     current = _apply_critic_decisions(current, None)
     current = transition_run(current, GenerationStage.CHECKING_COVERAGE)
+    _emit_worker_progress(progress_callback, current)
     try:
         deduplication = deduplicate_cards(current.cards)
         current = _retain_candidate_ids(
@@ -801,12 +993,33 @@ def _execute_failed_retry_lifecycle(
             deduplication_result=deduplication,
         )
     except Exception:
+        failed = _failed_run(current, "postprocessing_failed")
+        _emit_worker_progress(progress_callback, failed)
         return _WorkerResult(
-            _failed_run(current, "postprocessing_failed"),
+            failed,
             "postprocessing_failed",
         )
     current = transition_run(current, GenerationStage.DEDUPLICATING)
-    return _WorkerResult(complete_run(current))
+    _emit_worker_progress(progress_callback, current)
+    current = complete_run(current)
+    _emit_worker_progress(progress_callback, current)
+    return _WorkerResult(current)
+
+
+def _bounded_retry_cards(cards, remaining_card_slots: int) -> tuple:
+    if (
+        isinstance(remaining_card_slots, bool)
+        or not isinstance(remaining_card_slots, int)
+        or remaining_card_slots < 1
+    ):
+        raise ValueError("remaining_card_slots must be positive")
+    if isinstance(cards, (str, bytes, bytearray, Mapping)):
+        raise TypeError("retry cards must be an iterable of card values")
+    try:
+        bounded = tuple(islice(iter(cards), remaining_card_slots + 1))
+    except TypeError:
+        raise TypeError("retry cards must be iterable") from None
+    return bounded[:remaining_card_slots]
 
 
 def _apply_generated_chunks(run: GenerationRun, generated: object) -> GenerationRun:
@@ -926,6 +1139,7 @@ def _apply_review_and_repairs(
     *,
     repair_callback,
     continue_if_current,
+    progress_callback=None,
 ) -> GenerationRun:
     cards = run.cards
     per_candidate = _critic_output_by_candidate(cards, critic_output)
@@ -978,6 +1192,7 @@ def _apply_review_and_repairs(
     if run.level is IntelligenceLevel.STANDARD:
         repair_items = repair_items[:1]
     current = transition_run(run, GenerationStage.REPAIRING)
+    _emit_worker_progress(progress_callback, current)
     replacements = {}
     for card, point_id, source_text, generation_settings in repair_items:
         if not continue_if_current():
@@ -1234,6 +1449,14 @@ def _generation_settings_from_run(run: GenerationRun) -> GenerationSettings:
         return GenerationSettings(**values)
     except ValueError:
         return defaults
+
+
+def _remaining_card_slots(run: GenerationRun) -> int:
+    return max(
+        0,
+        card_limit_for_settings(_generation_settings_from_run(run))
+        - len(run.cards),
+    )
 
 
 def _source_text_for_chunk(run: GenerationRun, chunk_id: str) -> str:

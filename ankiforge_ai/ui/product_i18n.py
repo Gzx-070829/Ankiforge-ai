@@ -47,7 +47,7 @@ PRODUCT_COPY = {
             "支持的文档 (*.txt *.log *.md *.markdown *.html *.htm *.xhtml "
             "*.csv *.tsv *.json *.jsonl *.xml *.ipynb *.srt *.vtt *.docx "
             "*.pptx *.xlsx *.epub *.yaml *.yml *.rst *.org *.tex *.latex "
-            "*.py *.js *.ts *.java *.c *.h *.cpp *.cc *.rs *.go *.sql *.sh "
+            "*.py *.js *.ts *.java *.c *.h *.cpp *.cc *.hpp *.rs *.go *.sql *.sh "
             "*.ps1 *.pdf);;所有文件 (*)"
         ),
         "document_capabilities": "支持能力",
@@ -66,6 +66,11 @@ PRODUCT_COPY = {
         "move_document_down": "下移",
         "retry_failed_imports": "仅重试失败文件",
         "retry_failed_generation": "仅重试失败分块",
+        "retry_generation_confirmation_title": "确认重试失败分块",
+        "retry_generation_confirmation_body": (
+            "本次最多再调用 AI {calls} 次，并且最多补充 {cards} 张卡片。"
+            "只会重试失败分块，继续吗？"
+        ),
         "document_imported_batch": "已解析 {count} 个文档；不会自动调用 AI。",
         "document_queue_error_too_many_files": "一次最多选择 20 个文件。",
         "document_queue_error_batch_too_large": "所选文件总大小超过 25 MiB。",
@@ -165,8 +170,9 @@ PRODUCT_COPY = {
         "regenerate_cards": "重新生成",
         "generation_running": "正在生成…",
         "document_run_in_progress": (
-            "文档有界运行进行中；规划、生成与检查阶段将在完成时汇总。"
+            "文档有界运行进行中；这里会显示规划、生成与本地检查阶段。"
         ),
+        "generation_group_progress": "生成分组 {completed}/{total}",
         "document_import_in_progress": (
             "请等待队列中的全部文档完成导入，再生成卡片。"
         ),
@@ -331,7 +337,7 @@ PRODUCT_COPY = {
             "Supported documents (*.txt *.log *.md *.markdown *.html *.htm "
             "*.xhtml *.csv *.tsv *.json *.jsonl *.xml *.ipynb *.srt *.vtt "
             "*.docx *.pptx *.xlsx *.epub *.yaml *.yml *.rst *.org *.tex "
-            "*.latex *.py *.js *.ts *.java *.c *.h *.cpp *.cc *.rs *.go "
+            "*.latex *.py *.js *.ts *.java *.c *.h *.cpp *.cc *.hpp *.rs *.go "
             "*.sql *.sh *.ps1 *.pdf);;All files (*)"
         ),
         "document_capabilities": "Capabilities",
@@ -350,6 +356,11 @@ PRODUCT_COPY = {
         "move_document_down": "Move down",
         "retry_failed_imports": "Retry failed files only",
         "retry_failed_generation": "Retry failed generation chunks only",
+        "retry_generation_confirmation_title": "Confirm failed-chunk retry",
+        "retry_generation_confirmation_body": (
+            "This can make up to {calls} more AI calls and add at most "
+            "{cards} cards. Only failed chunks are retried. Continue?"
+        ),
         "document_imported_batch": (
             "Parsed {count} documents; AI will not start automatically."
         ),
@@ -486,8 +497,9 @@ PRODUCT_COPY = {
         "generation_running": "Generating…",
         "document_run_in_progress": (
             "Bounded document run in progress; planning, generation, and "
-            "quality stages are summarized on completion."
+            "local quality stages appear here."
         ),
+        "generation_group_progress": "Generation group {completed}/{total}",
         "document_import_in_progress": (
             "Wait for every queued document to finish importing before "
             "generating cards."

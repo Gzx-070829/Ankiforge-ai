@@ -12,7 +12,7 @@ from ..limits import DEFAULT_DOCUMENT_LIMITS, DocumentLimits
 from ..models import BlockKind, DocumentIR, DocumentSection
 from ..source_labels import get_safe_source_label
 from .base import DocumentImporter, ImportInspection
-from .text import block, location, make_document
+from .text import DocumentParseBudget, block, location, make_document
 
 
 _HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
@@ -105,11 +105,13 @@ def document_from_backend_markdown(
     heading_path = []
     current_path = ()
     block_index = 0
+    budget = DocumentParseBudget(limits)
 
     def flush_section():
         nonlocal current_blocks
         if not current_blocks:
             return
+        budget.consume_section()
         sections.append(
             DocumentSection(
                 section_id=f"section-{len(sections) + 1:05d}",
@@ -146,6 +148,7 @@ def document_from_backend_markdown(
                     line_start=line_number,
                     line_end=line_number,
                     metadata={"level": level},
+                    budget=budget,
                 )
             )
             index += 1
@@ -171,6 +174,7 @@ def document_from_backend_markdown(
                     line_start=start,
                     line_end=index,
                     metadata={"language": language},
+                    budget=budget,
                 )
             )
             continue
@@ -193,6 +197,7 @@ def document_from_backend_markdown(
                     label,
                     line_start=start,
                     line_end=index,
+                    budget=budget,
                 )
             )
             continue
@@ -225,6 +230,7 @@ def document_from_backend_markdown(
                     label,
                     line_start=start,
                     line_end=index,
+                    budget=budget,
                 )
             )
             continue
@@ -256,12 +262,14 @@ def document_from_backend_markdown(
                     label,
                     line_start=start,
                     line_end=start + len(values) - 1,
+                    budget=budget,
                 )
             )
             continue
         index += 1
     flush_section()
     if not sections:
+        budget.consume_section()
         sections.append(
             DocumentSection(
                 section_id="section-00001",

@@ -20,12 +20,20 @@ class BuildAnkiAddonTests(unittest.TestCase):
             "__pycache__/module.pyc",
             "tests/test_example.py",
             "eval/card_quality_benchmark.py",
+            "fixtures/intelligence/python.md",
+            "screenshots/v0_14/01_zh_default_main.png",
+            "models/downloaded.bin",
+            "cache/model.bin",
+            "temp/conversion.html",
+            "tools/pandoc.exe",
             "docs/release.md",
             ".env.local",
             "addon_backup/file.py",
             "collection.anki2",
             "export.apkg",
             "debug.log",
+            "credentials.json",
+            "certificate.pem",
         )
 
         for path in paths:

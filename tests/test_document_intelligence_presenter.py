@@ -90,7 +90,7 @@ class DocumentIntelligencePresenterTests(unittest.TestCase):
         zh = present_auto_recommendation(analysis, language="zh")
         en = present_auto_recommendation(analysis, language="en")
 
-        self.assertEqual(zh.label, "Auto 推荐")
+        self.assertEqual(zh.label, "自动推荐")
         self.assertEqual(en.label, "Auto recommendation")
         self.assertTrue(zh.modes)
         self.assertTrue(en.modes)
@@ -245,7 +245,7 @@ class DocumentIntelligencePresenterTests(unittest.TestCase):
         self.assertEqual(view.stage_label, "Generating cards")
         self.assertEqual(view.failed_chunks, 1)
         self.assertTrue(view.show_retry_failed)
-        self.assertEqual(view.retry_label, "Retry failed files only")
+        self.assertEqual(view.retry_label, "Retry failed chunks only")
         for forbidden in (
             "chunk_generation_failed",
             chunks[0].chunk_id,

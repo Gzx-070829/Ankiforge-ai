@@ -1,5 +1,9 @@
 # AnkiForge AI
 
+## v0.14.0: Universal Document & Intelligence Engine
+
+v0.14.0 turns explicitly selected local study files into DocumentIR before local structure analysis, chunking, knowledge planning, and reviewable candidates. Core supports common text, Office Open XML, tables, HTML, JSON/XML, notebooks, EPUB, subtitles, and safe code text. PDF remains fallback-only or uses a separately installed local backend. Nothing is automatically installed, downloaded, or uploaded. A configured Provider receives selected generation material only after Generate; every candidate still requires review, duplicate checking, and final confirmation.
+
 Turn your own study material into reviewable, safely writable Anki cards.
 
 [简体中文](README.md)
@@ -8,7 +12,7 @@ Turn your own study material into reviewable, safely writable Anki cards.
 
 AnkiForge AI is a local-first AI card workbench. You provide the source and learning goal; AI produces candidates only. Local quality checks and manual review come before duplicate checking, a write preview, and final confirmation.
 
-Current candidate: `v0.13.2-product-grade-preview`.
+Current candidate: `v0.14.0` feature branch / release candidate (not released to AnkiWeb).
 
 ## Quick install
 
@@ -32,7 +36,7 @@ Copy the `ankiforge_ai` folder into Anki's `addons21` directory and restart Anki
 ## Make your first cards
 
 1. Open **AI Settings** in the header, choose a provider and model, and enter your own API key.
-2. Paste material, import Markdown / TXT / DOCX, or start with a built-in example.
+2. Paste material, import a locally supported v0.14 document, or start with a built-in example.
 3. Choose a card mode and generation settings, then explicitly click Generate.
 4. Edit, keep, or discard every candidate. A blocking card must be fixed or discarded.
 5. Select an existing deck, note type, and field mapping, then run duplicate checking.
@@ -42,8 +46,8 @@ Copy the `ankiforge_ai` folder into Anki's `addons21` directory and restart Anki
 
 ## Product capabilities
 
-- Paste text or choose/drop Markdown, TXT, and DOCX files
-- Safe PDF fallback guidance; no OCR or full PDF text extraction
+- Paste text or choose/drop Markdown/TXT, Office, tabular, HTML/JSON/XML, Notebook, EPUB, subtitle, and safe code files
+- Safe PDF fallback; an installed Docling / MarkItDown local backend can be explicitly selected for the current session in Document capabilities, with no built-in OCR
 - DeepSeek and OpenAI-compatible providers in a dedicated AI Settings dialog
 - Eight public modes: `concept`, `definition`, `exam`, `quick_review`, `compare_contrast`, `process_steps`, `formula_rule`, and `mistake_trap`; Cloze remains an internal fail-closed compatibility check and is not selectable in the current UI
 - Template-aware prompts plus card-count, answer-length, and output-language controls
@@ -70,6 +74,8 @@ Copy the `ankiforge_ai` folder into Anki's `addons21` directory and restart Anki
 
 - [Installation and first run](docs/getting_started.md)
 - [Importing study material](docs/importing_materials.md)
+- [Native formats and limits](docs/native_supported_formats.md)
+- [Optional local document backends](docs/optional_document_backends.md)
 - [Card modes and templates](docs/card_modes_and_templates.md)
 - [Card quality system](docs/card_quality_system.md)
 - [Review workbench](docs/review_workbench.md)

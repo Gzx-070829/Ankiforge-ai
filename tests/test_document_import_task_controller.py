@@ -1,8 +1,19 @@
 import unittest
+import tempfile
+import importlib
 from concurrent.futures import Future
 from dataclasses import FrozenInstanceError
+from pathlib import Path
+from unittest import mock
 
-from ankiforge_ai.document import DocumentIR
+from ankiforge_ai.document import (
+    BlockKind,
+    DocumentBlock,
+    DocumentImportError,
+    DocumentIR,
+    DocumentSection,
+)
+from ankiforge_ai.document.importers.base import DocumentImporter, ImportInspection
 from ankiforge_ai.ui.document_import_queue import (
     DocumentImportRequestSnapshot,
     DocumentImportWorkerResult,
@@ -11,6 +22,7 @@ from ankiforge_ai.ui.document_import_queue import (
 from ankiforge_ai.ui.document_import_task_controller import (
     DocumentImportTaskController,
     build_bounded_import_material,
+    build_bounded_import_material_preview,
     import_document_path_token,
 )
 
@@ -111,6 +123,143 @@ class DocumentImportTaskControllerTests(unittest.TestCase):
         self.assertIn("first.txt", material)
         self.assertIn("second.txt", material)
         self.assertLessEqual(len(material), 80)
+
+    def test_material_preview_explicitly_reports_truncation(self):
+        result = DocumentImportWorkerResult(
+            document=DocumentIR(
+                schema_version=1,
+                document_id="doc-preview",
+                title="Preview",
+                language_hint="en",
+                source_type="text",
+                source_label="preview.txt",
+                sections=(
+                    DocumentSection(
+                        section_id="section-preview",
+                        heading=None,
+                        blocks=(
+                            DocumentBlock(
+                                "block-preview",
+                                BlockKind.PARAGRAPH,
+                                "preview body " * 20,
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            file_type="text",
+            importer_name="TXT",
+        )
+
+        preview = build_bounded_import_material_preview(
+            (result,),
+            max_chars=40,
+        )
+
+        self.assertTrue(preview.truncated)
+        self.assertEqual(len(preview.text), 40)
+        self.assertGreater(preview.original_char_count, len(preview.text))
+
+    def test_pdf_backend_is_default_off_and_only_used_after_explicit_selection(self):
+        class FakeDoclingImporter(DocumentImporter):
+            importer_id = "docling"
+            supported_extensions = (".pdf",)
+
+            def availability(self):
+                return True
+
+            def inspect(self, path, limits):
+                return ImportInspection(
+                    importer_id=self.importer_id,
+                    source_label=Path(path).name,
+                    detected_file_type="pdf",
+                )
+
+            def import_document(self, path, limits):
+                return DocumentIR(
+                    schema_version=1,
+                    document_id="doc-pdf",
+                    title="PDF",
+                    language_hint="en",
+                    source_type="docling",
+                    source_label=Path(path).name,
+                    sections=(
+                        DocumentSection(
+                            section_id="section-pdf",
+                            heading="PDF",
+                            blocks=(
+                                DocumentBlock(
+                                    "block-pdf",
+                                    BlockKind.PARAGRAPH,
+                                    "Locally extracted PDF text.",
+                                ),
+                            ),
+                        ),
+                    ),
+                    original_char_count=27,
+                    extracted_char_count=27,
+                )
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "lesson.pdf"
+            path.write_bytes(b"%PDF-1.4\nlocal fixture")
+            token = PrivatePathToken.from_path(
+                path,
+                byte_size=path.stat().st_size,
+            )
+            with self.assertRaises(DocumentImportError) as raised:
+                import_document_path_token(token)
+            optional_backends = importlib.import_module(
+                "ankiforge_ai.document.importers.optional_backends"
+            )
+            with mock.patch.object(
+                optional_backends,
+                "create_optional_backend_importers",
+                return_value=(FakeDoclingImporter(),),
+            ):
+                result = import_document_path_token(
+                    token,
+                    enabled_backend_ids=("docling",),
+                )
+
+        self.assertEqual(raised.exception.code, "optional_backend_missing")
+        self.assertEqual(result.importer_name, "DOCLING")
+        self.assertEqual(result.document.source_type, "docling")
+
+    def test_optional_backend_probe_failure_becomes_actionable_missing_error(self):
+        class BrokenBackendImporter(DocumentImporter):
+            importer_id = "docling"
+            supported_extensions = (".pdf",)
+
+            def availability(self):
+                raise RuntimeError("private backend probe detail")
+
+            def inspect(self, path, limits):
+                raise AssertionError("not reached")
+
+            def import_document(self, path, limits):
+                raise AssertionError("not reached")
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "lesson.pdf"
+            path.write_bytes(b"%PDF-1.4\nlocal fixture")
+            token = PrivatePathToken.from_path(path, byte_size=path.stat().st_size)
+            optional_backends = importlib.import_module(
+                "ankiforge_ai.document.importers.optional_backends"
+            )
+            with mock.patch.object(
+                optional_backends,
+                "create_optional_backend_importers",
+                return_value=(BrokenBackendImporter(),),
+            ):
+                with self.assertRaises(DocumentImportError) as raised:
+                    import_document_path_token(
+                        token,
+                        enabled_backend_ids=("docling",),
+                    )
+
+        self.assertEqual(raised.exception.code, "optional_backend_missing")
+        self.assertNotIn("private", repr(raised.exception).casefold())
 
     def test_submit_uses_collection_false_and_captures_an_immutable_snapshot(self):
         taskman = FakeTaskman()

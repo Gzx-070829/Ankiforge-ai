@@ -20,6 +20,41 @@ from ..source_labels import get_safe_source_label
 from .base import DocumentImporter, ImportInspection
 
 
+class DocumentParseBudget:
+    """Shared per-document object budget enforced while parsing."""
+
+    def __init__(
+        self,
+        limits: DocumentLimits = DEFAULT_DOCUMENT_LIMITS,
+    ) -> None:
+        self._limit = limits.max_document_blocks
+        self.block_count = 0
+        self.section_count = 0
+
+    @property
+    def remaining_blocks(self) -> int:
+        return max(0, self._limit - self.block_count)
+
+    def ensure_blocks(self, count: int = 1) -> None:
+        if (
+            isinstance(count, bool)
+            or not isinstance(count, int)
+            or count < 0
+        ):
+            raise TypeError("block budget count must be non-negative")
+        if count > self.remaining_blocks:
+            raise import_error("document_too_complex")
+
+    def consume_block(self) -> None:
+        self.ensure_blocks()
+        self.block_count += 1
+
+    def consume_section(self) -> None:
+        if self.section_count >= self._limit:
+            raise import_error("document_too_complex")
+        self.section_count += 1
+
+
 def import_error(code: str, action: str = "choose_another_file") -> DocumentImportError:
     return DocumentImportError(
         code=code,
@@ -97,8 +132,11 @@ def block(
     line_start: Optional[int] = None,
     line_end: Optional[int] = None,
     metadata=None,
+    budget: Optional[DocumentParseBudget] = None,
     **location_kwargs,
 ) -> DocumentBlock:
+    if budget is not None:
+        budget.consume_block()
     return DocumentBlock(
         block_id=f"block-{index:05d}",
         kind=kind,
@@ -165,7 +203,12 @@ def make_document(
     return document
 
 
-def paragraph_blocks(text: str, label: str) -> tuple[DocumentBlock, ...]:
+def paragraph_blocks(
+    text: str,
+    label: str,
+    *,
+    budget: Optional[DocumentParseBudget] = None,
+) -> tuple[DocumentBlock, ...]:
     lines = text.splitlines()
     result = []
     start = None
@@ -184,6 +227,7 @@ def paragraph_blocks(text: str, label: str) -> tuple[DocumentBlock, ...]:
                     label,
                     line_start=start,
                     line_end=number - 1,
+                    budget=budget,
                 )
             )
             start = None
@@ -210,12 +254,14 @@ class TextImporter(DocumentImporter):
     def import_document(self, path, limits=DEFAULT_DOCUMENT_LIMITS) -> DocumentIR:
         text, _ = read_text_bounded(path, limits)
         label = get_safe_source_label(path)
+        budget = DocumentParseBudget(limits)
+        budget.consume_section()
         section = DocumentSection(
             section_id="section-00001",
             heading=None,
             heading_path=(),
             location=location(label, line_start=1),
-            blocks=paragraph_blocks(text, label),
+            blocks=paragraph_blocks(text, label, budget=budget),
         )
         return make_document(path, "text", text, (section,), limits=limits)
 
@@ -243,6 +289,8 @@ class TextMarkupImporter(TextImporter):
     def import_document(self, path, limits=DEFAULT_DOCUMENT_LIMITS) -> DocumentIR:
         text, _ = read_text_bounded(path, limits)
         label = get_safe_source_label(path)
+        budget = DocumentParseBudget(limits)
+        budget.consume_section()
         lines = text.splitlines()
         heading = None
         heading_end = 0
@@ -274,10 +322,11 @@ class TextMarkupImporter(TextImporter):
                     label,
                     line_start=1,
                     line_end=heading_end,
+                    budget=budget,
                 )
             )
         remainder = "\n".join(lines[heading_end:])
-        for item in paragraph_blocks(remainder, label):
+        for item in paragraph_blocks(remainder, label, budget=budget):
             parsed_blocks.append(
                 block(
                     len(parsed_blocks) + 1,

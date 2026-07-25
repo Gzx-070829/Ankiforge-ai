@@ -10,7 +10,14 @@ from ..models import BlockKind, DocumentSection
 from ..source_labels import get_safe_source_label
 from ..xml_safety import local_name, parse_xml_bounded
 from .base import DocumentImporter, ImportInspection
-from .text import block, import_error, location, make_document, warning
+from .text import (
+    DocumentParseBudget,
+    block,
+    import_error,
+    location,
+    make_document,
+    warning,
+)
 
 
 CONTENT_TYPES_NAMESPACE = (
@@ -258,6 +265,8 @@ class DocxImporter(_OfficeImporter):
 
     def import_document(self, path, limits=DEFAULT_DOCUMENT_LIMITS):
         label = get_safe_source_label(path)
+        budget = DocumentParseBudget(limits)
+        budget.consume_section()
         with open_validated_archive(path, limits) as archive:
             _validate_content_types(
                 archive,
@@ -319,6 +328,7 @@ class DocxImporter(_OfficeImporter):
                             value,
                             label,
                             section="word/document.xml",
+                            budget=budget,
                         )
                     )
                 elif name == "tbl":
@@ -369,6 +379,7 @@ class DocxImporter(_OfficeImporter):
                                 "\n".join(rows),
                                 label,
                                 section="word/document.xml",
+                                budget=budget,
                             )
                         )
         section = DocumentSection(
@@ -389,7 +400,7 @@ class DocxImporter(_OfficeImporter):
         )
 
 
-def _ppt_tables(slide, limits):
+def _ppt_tables(slide, limits, budget):
     tables = []
     table_paragraph_ids = set()
     for table in (
@@ -429,6 +440,7 @@ def _ppt_tables(slide, limits):
             if cells:
                 rows.append("\t".join(cells))
         if rows:
+            budget.ensure_blocks(len(tables) + 1)
             tables.append("\n".join(rows))
     return tables, table_paragraph_ids
 
@@ -439,6 +451,7 @@ class PptxImporter(_OfficeImporter):
 
     def import_document(self, path, limits=DEFAULT_DOCUMENT_LIMITS):
         label = get_safe_source_label(path)
+        budget = DocumentParseBudget(limits)
         with open_validated_archive(path, limits) as archive:
             required = "ppt/presentation.xml"
             content_types = _validate_content_types(
@@ -472,6 +485,7 @@ class PptxImporter(_OfficeImporter):
             sections = []
             block_index = 0
             for slide_number, relation_id in enumerate(slide_ids, 1):
+                budget.consume_section()
                 member = relations.get(relation_id)
                 if member is None:
                     raise _invalid_office()
@@ -485,7 +499,11 @@ class PptxImporter(_OfficeImporter):
                     expected_namespace=PRESENTATION_NAMESPACE,
                     expected_root="sld",
                 )
-                tables, table_paragraph_ids = _ppt_tables(slide, limits)
+                tables, table_paragraph_ids = _ppt_tables(
+                    slide,
+                    limits,
+                    budget,
+                )
                 paragraphs = []
                 for paragraph in (
                     item for item in slide.iter() if local_name(item.tag) == "p"
@@ -494,6 +512,9 @@ class PptxImporter(_OfficeImporter):
                         continue
                     value = _element_text(paragraph)
                     if value:
+                        budget.ensure_blocks(
+                            len(tables) + len(paragraphs) + 1
+                        )
                         paragraphs.append(value)
                 blocks = []
                 for paragraph_index, value in enumerate(paragraphs):
@@ -508,6 +529,7 @@ class PptxImporter(_OfficeImporter):
                             label,
                             slide=slide_number,
                             section=member,
+                            budget=budget,
                         )
                     )
                 for value in tables:
@@ -520,6 +542,7 @@ class PptxImporter(_OfficeImporter):
                             label,
                             slide=slide_number,
                             section=member,
+                            budget=budget,
                         )
                     )
                 heading = paragraphs[0] if paragraphs else f"Slide {slide_number}"
@@ -589,6 +612,7 @@ class XlsxImporter(_OfficeImporter):
 
     def import_document(self, path, limits=DEFAULT_DOCUMENT_LIMITS):
         label = get_safe_source_label(path)
+        budget = DocumentParseBudget(limits)
         warnings = []
         with open_validated_archive(path, limits) as archive:
             required = "xl/workbook.xml"
@@ -642,6 +666,7 @@ class XlsxImporter(_OfficeImporter):
                 if attrs.get("state", "visible").casefold() != "visible":
                     warnings.append(warning("hidden_sheet_skipped", label, sheet=sheet_name))
                     continue
+                budget.consume_section()
                 root = _office_xml(
                     archive,
                     member,
@@ -733,6 +758,7 @@ class XlsxImporter(_OfficeImporter):
                             raise import_error("table_too_large")
                         cells.append(value)
                         if formula is not None:
+                            budget.ensure_blocks(2 + len(formulas))
                             formulas.append((reference, formula, raw))
                     rows.append("\t".join(cells))
                 blocks = []
@@ -749,6 +775,7 @@ class XlsxImporter(_OfficeImporter):
                             row_end=len(rows),
                             section=member,
                             metadata={"column_count": maximum_columns},
+                            budget=budget,
                         )
                     )
                 for reference, formula, cached in formulas:
@@ -763,6 +790,7 @@ class XlsxImporter(_OfficeImporter):
                             sheet=sheet_name,
                             cell_range=reference,
                             section=member,
+                            budget=budget,
                         )
                     )
                 sections.append(

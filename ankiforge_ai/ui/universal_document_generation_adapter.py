@@ -488,14 +488,19 @@ class BoundedProviderGenerationAdapter:
     ) -> int:
         batches = self.generation_batches(run)
         total = card_limit_for_settings(self.generation_settings)
+        remaining = total - len(run.cards)
+        if remaining < 1:
+            raise ValueError("card limit reached")
         if selected_ids not in batches:
-            return max(
+            quota = max(
                 1,
                 min(total, (total + len(run.chunks) - 1) // len(run.chunks)),
             )
-        batch_index = batches.index(selected_ids)
-        base, remainder = divmod(total, len(batches))
-        return max(1, base + (1 if batch_index < remainder else 0))
+        else:
+            batch_index = batches.index(selected_ids)
+            base, remainder = divmod(total, len(batches))
+            quota = max(1, base + (1 if batch_index < remainder else 0))
+        return min(remaining, quota)
 
     def _complete(self, **kwargs):
         validate_ai_material_text(

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import importlib.util
+import os
 import re
 from pathlib import Path
 from typing import Optional, Union
@@ -68,11 +69,16 @@ def probe_absolute_executable(
             reason_code="invalid_executable",
         )
     candidate = Path(raw)
+    expected_names = {backend_id.casefold()}
+    if os.name == "nt":
+        expected_names.add(f"{backend_id.casefold()}.exe")
     try:
         if (
             not candidate.is_absolute()
             or not candidate.is_file()
             or candidate.is_symlink()
+            or candidate.name.casefold() not in expected_names
+            or (os.name != "nt" and not os.access(candidate, os.X_OK))
         ):
             raise OSError
     except OSError:

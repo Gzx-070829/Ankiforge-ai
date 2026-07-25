@@ -7,6 +7,7 @@ from ..models import BlockKind, DocumentSection
 from ..source_labels import get_safe_source_label
 from .base import DocumentImporter, ImportInspection
 from .text import (
+    DocumentParseBudget,
     block,
     import_error,
     location,
@@ -24,9 +25,15 @@ class _SafeHTMLParser(HTMLParser):
         "pre": BlockKind.CODE,
     }
 
-    def __init__(self, limits=DEFAULT_DOCUMENT_LIMITS):
+    def __init__(
+        self,
+        limits=DEFAULT_DOCUMENT_LIMITS,
+        *,
+        budget=None,
+    ):
         super().__init__(convert_charrefs=True)
         self.limits = limits
+        self.budget = budget or DocumentParseBudget(limits)
         self.title = ""
         self._title_depth = 0
         self._ignored = 0
@@ -92,7 +99,14 @@ class _SafeHTMLParser(HTMLParser):
         elif tag == "img":
             alt = dict(attrs).get("alt", "").strip()
             if alt:
-                self.items.append((BlockKind.CAPTION, alt, self.getpos()[0], self.getpos()[0]))
+                self._append_item(
+                    (
+                        BlockKind.CAPTION,
+                        alt,
+                        self.getpos()[0],
+                        self.getpos()[0],
+                    )
+                )
 
     def handle_startendtag(self, tag, attrs):
         self.handle_starttag(tag, attrs)
@@ -147,7 +161,7 @@ class _SafeHTMLParser(HTMLParser):
             if self._current is BlockKind.CODE:
                 text = "".join(self._pieces).strip()
             if text:
-                self.items.append(
+                self._append_item(
                     (self._current, text, self._start_line, self.getpos()[0])
                 )
         self._current = None
@@ -220,7 +234,7 @@ class _SafeHTMLParser(HTMLParser):
             if output_chars > self.limits.max_text_chars:
                 raise import_error("document_too_complex")
             self._table_output_chars = output_chars
-            self.items.append(
+            self._append_item(
                 (
                     BlockKind.TABLE,
                     value,
@@ -241,6 +255,10 @@ class _SafeHTMLParser(HTMLParser):
             ) = self._table_stack.pop()
             return
         self._table_rows = None
+
+    def _append_item(self, item):
+        self.budget.consume_block()
+        self.items.append(item)
 
     def close(self):
         super().close()
@@ -284,6 +302,7 @@ class HtmlImporter(DocumentImporter):
             )
             for index, (kind, value, start, end) in enumerate(parser.items, 1)
         )
+        parser.budget.consume_section()
         section = DocumentSection(
             section_id="section-00001",
             heading=next(

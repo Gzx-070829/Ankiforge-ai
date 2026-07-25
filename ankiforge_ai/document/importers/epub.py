@@ -7,7 +7,13 @@ from ..source_labels import get_safe_source_label
 from ..xml_safety import local_name, parse_xml_bounded
 from .base import DocumentImporter, ImportInspection
 from .html import _SafeHTMLParser
-from .text import block, import_error, location, make_document
+from .text import (
+    DocumentParseBudget,
+    block,
+    import_error,
+    location,
+    make_document,
+)
 
 
 def _attrs(element):
@@ -32,6 +38,7 @@ class EpubImporter(DocumentImporter):
 
     def import_document(self, path, limits=DEFAULT_DOCUMENT_LIMITS):
         label = get_safe_source_label(path)
+        budget = DocumentParseBudget(limits)
         with open_validated_archive(path, limits) as archive:
             if not archive.contains("mimetype") or not archive.contains(
                 "META-INF/container.xml"
@@ -87,6 +94,7 @@ class EpubImporter(DocumentImporter):
             sections = []
             block_index = 0
             for item_id in spine:
+                budget.consume_section()
                 manifest_item = manifest.get(item_id)
                 if manifest_item is None or manifest_item[0] is None:
                     raise import_error("malformed_file")
@@ -103,7 +111,7 @@ class EpubImporter(DocumentImporter):
                         chapter_text = chapter_payload.decode("utf-8-sig")
                 except UnicodeDecodeError:
                     raise import_error("malformed_file") from None
-                parser = _SafeHTMLParser(limits)
+                parser = _SafeHTMLParser(limits, budget=budget)
                 parser.feed(chapter_text)
                 parser.close()
                 blocks = []

@@ -157,9 +157,10 @@ acceptance proves the operation safe.
 
 Create gains a compact file queue, document summary, capability dialog, Auto
 recommendation, intelligence selector, plan estimate, and bounded-run status.
-The current Qt integration deliberately shows coarse in-progress copy and the
-terminal stage only; live per-stage main-thread events are deferred until their
-request-ID and window-lifetime delivery can be proven safe.
+Optional backends are detected but remain disabled until the user selects one
+for the current window. Qt progress is delivered through Anki's main-thread
+dispatcher and rechecks request ID/window lifetime before showing planning,
+generation-group, review/repair, coverage, deduplication, or terminal stages.
 Advanced details remain progressively disclosed. Queue rows show safe labels,
 parser/status/counts/warnings and remove/reorder/retry actions, never absolute
 paths.

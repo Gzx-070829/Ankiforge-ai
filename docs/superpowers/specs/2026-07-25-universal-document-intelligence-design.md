@@ -409,8 +409,9 @@ Create remains progressively disclosed:
 - one explicit Generate action and bounded-run progress.
 
 The immutable run records every internal stage. The v0.14 Qt integration shows
-coarse in-progress copy and the terminal stage; live per-stage delivery is
-deferred rather than sending worker-thread callbacks directly to widgets.
+request-safe per-stage progress through Anki's main-thread dispatcher. Every
+delivery rechecks the active request and window lifetime; worker threads never
+touch widgets directly.
 
 Each queue row shows safe filename, detected type, importer, status, structural
 counts, extracted characters, warning, remove, reorder, and retry. It never
@@ -430,22 +431,27 @@ snippet” shows only the already extracted bounded block text.
 
 ## 16. Errors and i18n
 
-The required stable error codes are implemented with complete Chinese and
-English text:
+Production keeps bounded internal reason codes for diagnostics and maps them
+through a stable bilingual presentation layer. The public UI categories are:
+unavailable/empty, size limit, structure limit, unsafe archive, malformed
+document, unsupported type, optional-backend setup, backend failure, unsafe
+XML, extension mismatch, hidden-sheet skip, Notebook-output skip, truncated
+preview, and generic safe fallback.
 
-`unsupported_file_type`, `importer_unavailable`,
+Internal codes are intentionally more specific—for example
+`unsupported_type`, `optional_importer_unavailable`,
 `optional_backend_missing`, `file_too_large`, `batch_too_large`,
-`too_many_files`, `archive_too_large`, `suspicious_archive`,
-`invalid_office_archive`, `xml_not_safe`, `document_empty`,
-`document_too_complex`, `table_too_large`, `notebook_output_too_large`,
-`external_backend_timeout`, `external_backend_failed`,
-`backend_output_invalid`, `planning_failed`,
-`generation_budget_exceeded`, `chunk_generation_failed`,
-`coverage_incomplete`, `stale_generation_result`, and
-`deck_style_unavailable`.
+`too_many_files`, `archive_too_large`,
+`suspicious_archive_compression`, `invalid_office_archive`,
+`xml_not_safe`, `document_empty`, `document_too_complex`,
+`table_too_large`, `notebook_output_too_large`, `backend_timeout`,
+`external_backend_failed`, and `backend_invalid_output`. Generation lifecycle
+failures use their own safe reason codes. The earlier proposal vocabulary is
+not promised as a one-for-one public API; the tested presenter mapping is the
+compatibility boundary.
 
 User copy names actions and remediation, never internal class names, rule IDs,
-raw prompts, tracebacks, or arbitrary backend stderr.
+raw prompts, tracebacks, absolute paths, or arbitrary backend stderr.
 
 ## 17. Tests, fixtures, and benchmark
 
@@ -459,9 +465,12 @@ deterministically by a committed fixture builder so their contents are
 reviewable and reproducible.
 
 The offline benchmark reports parse pass rate, structure preservation, source
-location coverage, chunk distribution, planning coverage, duplicate/warning/
-blocking rates, template-routing accuracy, and per-fixture failure reasons. It
-uses deterministic planning and fake Provider outputs only.
+location coverage, separate per-document chunk-count and per-chunk character
+size distributions, planning coverage, duplicate/warning/blocking rates,
+template-routing accuracy, and per-fixture failure reasons. Its quality rates
+are explicitly synthetic local-rule smoke diagnostics, not a score for AI
+output or factual correctness. It uses deterministic planning and fake cards
+only.
 
 ## 18. Version, package, docs, and screenshots
 

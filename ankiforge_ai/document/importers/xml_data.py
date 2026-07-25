@@ -5,7 +5,13 @@ from ..models import BlockKind, DocumentSection
 from ..source_labels import get_safe_source_label
 from ..xml_safety import local_name, parse_xml_bounded
 from .base import DocumentImporter, ImportInspection
-from .text import block, location, make_document, read_text_bounded
+from .text import (
+    DocumentParseBudget,
+    block,
+    location,
+    make_document,
+    read_text_bounded,
+)
 
 
 class XmlDataImporter(DocumentImporter):
@@ -26,12 +32,15 @@ class XmlDataImporter(DocumentImporter):
     def import_document(self, path, limits=DEFAULT_DOCUMENT_LIMITS):
         text, _ = read_text_bounded(path, limits)
         label = get_safe_source_label(path)
+        budget = DocumentParseBudget(limits)
+        budget.consume_section()
         root = parse_xml_bounded(text.encode("utf-8"), limits)
         values = []
         stack = [(root, f"/{local_name(root.tag)}")]
         while stack:
             element, path_value = stack.pop()
             for name, value in element.attrib.items():
+                budget.ensure_blocks(len(values) + 1)
                 values.append(
                 (
                     f"{path_value}/@{local_name(name)} = {value}",
@@ -40,6 +49,7 @@ class XmlDataImporter(DocumentImporter):
                 )
             content = (element.text or "").strip()
             if content:
+                budget.ensure_blocks(len(values) + 1)
                 values.append(
                     (f"{path_value} = {content}", path_value.lstrip("/"))
                 )
@@ -53,6 +63,7 @@ class XmlDataImporter(DocumentImporter):
                 value,
                 label,
                 section=section_path,
+                budget=budget,
             )
             for index, (value, section_path) in enumerate(values, 1)
         )

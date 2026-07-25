@@ -24,6 +24,7 @@ from ankiforge_ai.intelligence.generation_run import (
 from ankiforge_ai.intelligence.models import IntelligenceLevel
 from ankiforge_ai.pipeline.generation_settings import GenerationSettings
 from ankiforge_ai.ui.intelligent_generation_task_controller import (
+    IntelligentGenerationProgress,
     IntelligentGenerationTaskController,
     IntelligentGenerationTaskCompletion,
     _apply_coverage_supplement,
@@ -47,6 +48,30 @@ class DeferredTaskman:
         except Exception as error:
             future.set_exception(error)
         on_done(future)
+
+
+class ProgressTaskman(DeferredTaskman):
+    def run_on_main(self, callback):
+        callback()
+
+
+class QueuedProgressTaskman(DeferredTaskman):
+    def __init__(self):
+        super().__init__()
+        self.main_callbacks = []
+
+    def run_on_main(self, callback):
+        self.main_callbacks.append(callback)
+
+    def run_background_only(self, index=0):
+        task, _on_done, future, _uses_collection = self.pending[index]
+        future.set_result(task())
+
+    def flush_main(self):
+        callbacks = tuple(self.main_callbacks)
+        self.main_callbacks.clear()
+        for callback in callbacks:
+            callback()
 
 
 class IntelligentGenerationTaskControllerTests(unittest.TestCase):
@@ -178,6 +203,71 @@ class IntelligentGenerationTaskControllerTests(unittest.TestCase):
         self.assertEqual(completed.cards[0]["candidate_id"], "card-1")
         self.assertNotIn("planner output", repr(completed))
         self.assertNotIn("critic output", repr(completions[0]))
+
+    def test_live_progress_reports_safe_stages_and_generation_group_counts(self):
+        taskman = ProgressTaskman()
+        progress = []
+        completions = []
+        controller = IntelligentGenerationTaskController(taskman)
+
+        controller.submit(
+            run_snapshot=self.make_run(level=IntelligenceLevel.FAST),
+            generator_callback=self.generator,
+            on_progress=progress.append,
+            on_complete=completions.append,
+        )
+        taskman.complete()
+
+        self.assertTrue(
+            all(isinstance(item, IntelligentGenerationProgress) for item in progress)
+        )
+        stages = tuple(item.run.stage for item in progress)
+        for stage in (
+            GenerationStage.PLANNING,
+            GenerationStage.GENERATING,
+            GenerationStage.REVIEWING,
+            GenerationStage.CHECKING_COVERAGE,
+            GenerationStage.DEDUPLICATING,
+            GenerationStage.COMPLETED,
+        ):
+            self.assertIn(stage, stages)
+        generation_events = tuple(
+            item
+            for item in progress
+            if item.run.stage is GenerationStage.GENERATING
+            and item.total_groups
+        )
+        self.assertEqual(generation_events[-1].completed_groups, 1)
+        self.assertEqual(generation_events[-1].total_groups, 1)
+        self.assertEqual(len(completions), 1)
+
+    def test_queued_progress_from_a_superseded_request_is_discarded(self):
+        taskman = QueuedProgressTaskman()
+        progress = []
+        controller = IntelligentGenerationTaskController(taskman)
+        controller.submit(
+            run_snapshot=self.make_run(level=IntelligenceLevel.FAST),
+            generator_callback=self.generator,
+            on_progress=progress.append,
+            on_complete=lambda _completion: None,
+        )
+        taskman.run_background_only()
+        self.assertTrue(taskman.main_callbacks)
+
+        replacement = replace(
+            self.make_run(level=IntelligenceLevel.FAST),
+            request_id=2,
+            run_id="run-controller-2",
+        )
+        controller.submit(
+            run_snapshot=replacement,
+            generator_callback=self.generator,
+            on_progress=progress.append,
+            on_complete=lambda _completion: None,
+        )
+        taskman.flush_main()
+
+        self.assertEqual(progress, [])
 
     def test_local_reject_overrides_callback_accept_and_removes_card(self):
         taskman = DeferredTaskman()
@@ -725,6 +815,178 @@ class IntelligentGenerationTaskControllerTests(unittest.TestCase):
         self.assertEqual(
             failed_retry.retry_scheduled_chunk_ids,
             failed_retry.failed_chunk_ids,
+        )
+
+    def test_failed_chunk_retries_share_the_remaining_full_run_card_limit(self):
+        chunk_ids = tuple(
+            f"chunk-{index:016x}" for index in range(1, 5)
+        )
+        points = tuple(
+            KnowledgePointPlan(
+                point_id=f"point-{index:016x}",
+                title=f"Grounded concept {index}",
+                point_type="concept",
+                priority="high",
+                section_id=f"section-{index}",
+                source_chunk_ids=(chunk_id,),
+                source_locations=(),
+                recommended_template="concept",
+                rationale="Bounded retry fixture",
+            )
+            for index, chunk_id in enumerate(chunk_ids, start=1)
+        )
+        retry_points = (
+            KnowledgePointPlan(
+                point_id="point-0000000000000005",
+                title="Grounded beta fact",
+                point_type="concept",
+                priority="high",
+                section_id="section-retry-beta",
+                source_chunk_ids=(chunk_ids[0],),
+                source_locations=(),
+                recommended_template="concept",
+                rationale="Bounded retry fixture",
+            ),
+            KnowledgePointPlan(
+                point_id="point-0000000000000006",
+                title="Grounded gamma fact",
+                point_type="concept",
+                priority="high",
+                section_id="section-retry-gamma",
+                source_chunk_ids=(chunk_ids[0],),
+                source_locations=(),
+                recommended_template="concept",
+                rationale="Bounded retry fixture",
+            ),
+        )
+        plan = KnowledgePlan(
+            plan_id="plan-1111111111111111",
+            document_id="doc-retry-full-run-limit",
+            source="local",
+            chunk_ids=chunk_ids,
+            points=(*points, *retry_points),
+        )
+        run = create_generation_run(
+            run_id="run-retry-full-run-limit",
+            request_id=1,
+            document_id=plan.document_id,
+            document_hash="f" * 64,
+            document_snapshot={
+                "chunk_text_by_id": {
+                    chunk_id: (
+                        "Alpha is first. Beta is second. Gamma is third."
+                        if index == 1
+                        else f"Grounded source concept {index}."
+                    )
+                    for index, chunk_id in enumerate(chunk_ids, start=1)
+                }
+            },
+            settings_snapshot={
+                "card_mode": "concept",
+                "card_count": "balanced",
+                "answer_length": "short",
+                "language": "en",
+            },
+            level=IntelligenceLevel.FAST,
+            chunk_ids=chunk_ids,
+        )
+        run = replace(run, plan=plan)
+
+        def card(index, suffix):
+            return {
+                "candidate_id": f"card-{index}-{suffix}",
+                "point_id": points[index - 1].point_id,
+                "section_id": points[index - 1].section_id,
+                "front": f"What is grounded concept {index} ({suffix})?",
+                "back": f"Grounded source concept {index}.",
+            }
+
+        taskman = ProgressTaskman()
+        initial = []
+        retries = []
+        retry_calls = []
+        retry_progress = []
+        controller = IntelligentGenerationTaskController(taskman)
+        controller.submit(
+            run_snapshot=run,
+            generator_callback=lambda _run: {
+                chunk_ids[0]: {"error_code": "generation_call_failed"},
+                chunk_ids[1]: {"error_code": "generation_call_failed"},
+                chunk_ids[2]: (card(3, "a"),),
+                chunk_ids[3]: (card(4, "a"),),
+            },
+            on_complete=initial.append,
+        )
+        taskman.complete()
+        partial = initial[0].run
+        self.assertEqual(len(partial.cards), 2)
+        self.assertEqual(partial.failed_chunk_ids, chunk_ids[:2])
+
+        def retry_generator(_run, chunk_id):
+            retry_calls.append(chunk_id)
+            return (
+                {
+                    "candidate_id": "card-retry-alpha",
+                    "point_id": points[0].point_id,
+                    "section_id": points[0].section_id,
+                    "front": "What is Alpha?",
+                    "back": "Alpha is first.",
+                },
+                {
+                    "candidate_id": "card-retry-beta",
+                    "point_id": retry_points[0].point_id,
+                    "section_id": retry_points[0].section_id,
+                    "front": "What is Beta?",
+                    "back": "Beta is second.",
+                },
+                {
+                    "candidate_id": "card-retry-gamma",
+                    "point_id": retry_points[1].point_id,
+                    "section_id": retry_points[1].section_id,
+                    "front": "What is Gamma?",
+                    "back": "Gamma is third.",
+                },
+            )
+
+        controller.retry_failed(
+            run_snapshot=partial,
+            retry_generator_callback=retry_generator,
+            on_progress=retry_progress.append,
+            on_complete=retries.append,
+        )
+        taskman.complete(1)
+        completed = retries[0].run
+
+        self.assertEqual(len(completed.cards), 5)
+        self.assertEqual(retry_calls, [chunk_ids[0]])
+        self.assertEqual(completed.call_budget.call_count, 2)
+        self.assertEqual(completed.failed_chunk_ids, (chunk_ids[1],))
+        self.assertEqual(
+            completed.chunks[1].reason_code,
+            "card_limit_reached",
+        )
+        generating_progress = tuple(
+            item
+            for item in retry_progress
+            if item.run.stage is GenerationStage.GENERATING
+        )
+        self.assertEqual(
+            (
+                generating_progress[0].completed_groups,
+                generating_progress[0].total_groups,
+            ),
+            (0, 2),
+        )
+        self.assertEqual(
+            (
+                generating_progress[-1].completed_groups,
+                generating_progress[-1].total_groups,
+            ),
+            (2, 2),
+        )
+        self.assertEqual(
+            retry_progress[-1].run.stage,
+            GenerationStage.COMPLETED,
         )
 
     def test_taskman_submit_exception_becomes_safe_current_completion(self):

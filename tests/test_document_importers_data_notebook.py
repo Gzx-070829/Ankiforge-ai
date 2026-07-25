@@ -2,12 +2,14 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from unittest import mock
 
 from ankiforge_ai.document import (
     DEFAULT_DOCUMENT_LIMITS,
     BlockKind,
     DocumentImportError,
 )
+from ankiforge_ai.document.importers import json_data
 from ankiforge_ai.document.importers.json_data import JsonDataImporter
 from ankiforge_ai.document.importers.notebook import NotebookImporter
 from ankiforge_ai.document.importers.registry import create_native_importer_registry
@@ -78,6 +80,26 @@ class DocumentDataNotebookImporterTests(unittest.TestCase):
             with self.assertRaises(DocumentImportError) as raised:
                 JsonDataImporter().import_document(path, limits)
         self.assertEqual(raised.exception.code, "document_too_complex")
+
+    def test_jsonl_stops_parsing_when_the_shared_document_budget_is_exhausted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "many-records.jsonl"
+            path.write_text("\n".join("0" for _ in range(20)), encoding="utf-8")
+            limits = replace(DEFAULT_DOCUMENT_LIMITS, max_document_blocks=2)
+            with mock.patch.object(
+                json_data,
+                "_load_json",
+                wraps=json_data._load_json,
+            ) as load_json, mock.patch.object(
+                json_data.io,
+                "StringIO",
+                wraps=json_data.io.StringIO,
+            ) as string_io:
+                with self.assertRaises(DocumentImportError) as raised:
+                    JsonDataImporter.for_path(path).import_document(path, limits)
+        self.assertEqual(raised.exception.code, "document_too_complex")
+        string_io.assert_called_once()
+        self.assertLessEqual(load_json.call_count, 2)
 
     def test_safe_xml_has_tag_paths_and_locations(self):
         document = XmlDataImporter().import_document(FIXTURES / "safe.xml")

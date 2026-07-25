@@ -6,6 +6,7 @@ from ..source_labels import get_safe_source_label
 from .base import DocumentImporter, ImportInspection
 from .json_data import _load_json, _walk_scalars
 from .text import (
+    DocumentParseBudget,
     block,
     import_error,
     location,
@@ -42,7 +43,11 @@ class NotebookImporter(DocumentImporter):
         text, _ = read_text_bounded(path, limits)
         label = get_safe_source_label(path)
         value = _load_json(text)
-        _walk_scalars(value, limits.max_json_depth)
+        _walk_scalars(
+            value,
+            limits.max_json_depth,
+            limits.max_document_blocks,
+        )
         if not isinstance(value, dict) or not isinstance(value.get("cells"), list):
             raise import_error("malformed_file")
         sections = []
@@ -50,7 +55,9 @@ class NotebookImporter(DocumentImporter):
         warning_codes = set()
         block_index = 0
         output_chars = 0
+        budget = DocumentParseBudget(limits)
         for cell_number, cell in enumerate(value["cells"], 1):
+            budget.consume_section()
             if not isinstance(cell, dict):
                 raise import_error("malformed_file")
             kind = cell.get("cell_type")
@@ -65,6 +72,7 @@ class NotebookImporter(DocumentImporter):
                         source,
                         label,
                         notebook_cell=cell_number,
+                        budget=budget,
                     )
                 )
             if kind == "code":
@@ -95,6 +103,7 @@ class NotebookImporter(DocumentImporter):
                                 output_text,
                                 label,
                                 notebook_cell=cell_number,
+                                budget=budget,
                             )
                         )
                     elif "data" in output:

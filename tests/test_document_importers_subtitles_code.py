@@ -1,8 +1,10 @@
 import unittest
+import tempfile
 from pathlib import Path
 
-from ankiforge_ai.document import BlockKind
+from ankiforge_ai.document import BlockKind, detect_file_type
 from ankiforge_ai.document.importers.code_text import CodeTextImporter
+from ankiforge_ai.document.importers.registry import create_native_importer_registry
 from ankiforge_ai.document.importers.subtitles import SubtitleImporter
 
 
@@ -62,6 +64,18 @@ class DocumentSubtitleCodeImporterTests(unittest.TestCase):
                     blocks[-1].location.line_end,
                     len((FIXTURES / filename).read_text(encoding="utf-8").splitlines()),
                 )
+
+    def test_hpp_is_detected_and_imported_as_native_cpp(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "lesson.hpp"
+            path.write_text("struct Lesson {};\n", encoding="utf-8")
+            detected = detect_file_type(path)
+            importer = create_native_importer_registry().select_importer(path)
+            document = importer.import_document(path)
+
+        self.assertEqual(detected.file_type, "cpp")
+        self.assertEqual(importer.importer_id, "cpp")
+        self.assertEqual(document.source_type, "cpp")
 
 
 if __name__ == "__main__":

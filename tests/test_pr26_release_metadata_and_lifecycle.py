@@ -10,8 +10,7 @@ import ankiforge_ai
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_VERSION = "0.13.2"
-EXPECTED_TAG = f"v{EXPECTED_VERSION}-product-grade-preview"
+EXPECTED_VERSION = "0.14.0"
 
 
 class RecordingDialog:
@@ -50,14 +49,12 @@ class Pr26ReleaseMetadataAndLifecycleTests(unittest.TestCase):
         for relative_path in (
             "README.md",
             "README.en.md",
-            "docs/release_notes_v0_13_product_grade.md",
-            "docs/ankiweb_description_v0_13.md",
+            "docs/release_notes_v0_14.md",
+            "docs/ankiweb_description_v0_14.md",
         ):
             with self.subTest(path=relative_path):
                 content = (REPOSITORY_ROOT / relative_path).read_text(encoding="utf-8")
-                self.assertIn(EXPECTED_TAG, content)
-                self.assertNotIn("v0.13.0-product-grade-preview", content)
-                self.assertNotIn("v0.13.1-product-grade-preview", content)
+                self.assertIn(EXPECTED_VERSION, content)
 
     def test_tracked_package_uses_the_same_runtime_version(self):
         package_path = REPOSITORY_ROOT / "dist" / "ankiforge_ai.ankiaddon"
@@ -164,7 +161,7 @@ class Pr26ReleaseMetadataAndLifecycleTests(unittest.TestCase):
 
         self.assertIn("当前公共 UI 不开放 `cloze_candidate`", modes)
         self.assertIn("not a public card mode", modes)
-        self.assertIn("v0.13.2 当前不开放 Cloze 选择", getting_started)
+        self.assertIn("v0.14.0 当前不开放 Cloze 选择", getting_started)
         self.assertNotIn("Cloze 只在模板和笔记类型均兼容时使用", getting_started)
 
 

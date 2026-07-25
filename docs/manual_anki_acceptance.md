@@ -1,4 +1,4 @@
-# v0.13.2 Manual Anki Acceptance / 真实 Anki 人工验收
+# v0.14.0 Manual Anki Acceptance / 真实 Anki 人工验收
 
 自动测试不能证明 PyQt 布局、Anki 版本兼容性或真实写入行为。候选包必须在独立 profile 或测试牌组中验收；不要使用私人主 collection 作为首测环境。
 
@@ -25,6 +25,23 @@
 - [ ] DOCX 不完整提取有清晰提示。
 - [ ] PDF 只显示 fallback，不 OCR、不联网解析。
 - [ ] 每个示例能填入材料并推荐 mode，但不自动生成。
+
+### v0.14 native-format matrix
+
+- [ ] Structured: TXT, Markdown, DOCX, PPTX, XLSX, CSV, TSV, HTML, JSON, JSONL, safe XML, IPYNB, EPUB, SRT, and VTT all import only after explicit local selection and preserve the documented bounded structure/source hints.
+- [ ] Safe text/code: YAML, RST, Org, TeX/LaTeX, logs, SQL, Python, JavaScript, TypeScript, Java, C/C++, Rust, Go, Shell, and PowerShell import as text/code without execution, include expansion, macro execution, or remote reads.
+- [ ] For native Office/EPUB/XML inputs, test malformed/suspicious files and verify clear safe errors; formulas/notebook code/macros never execute, hidden XLSX sheets remain excluded by default, and one bad queue item does not remove successful ones.
+- [ ] PDF is fallback-only in Core: no native parsing/OCR/upload. If a user has separately installed and explicitly enabled a local backend, test its capability indication and local conversion path independently; it is not a bundled feature.
+- [ ] “支持能力 / Document capabilities” starts on native Core only. Detection alone must not enable Docling/MarkItDown/Pandoc; enable at most one backend, then select “仅使用原生 Core / Use native Core only” and confirm the optional selection is cleared.
+- [ ] Choose an invalid Pandoc path and confirm the dialog reports rejection without exposing the path; choose an installed `pandoc`/`pandoc.exe` and confirm the accepted status is visible and disappears after closing the main window.
+- [ ] Treat Docling and MarkItDown as optional adapter implementations until they pass a real Anki embedded-runtime launch/import test. A Python package being detected is not by itself proof that `sys.executable -I -m ...` can run in that Anki build.
+
+## PR27 document acceptance
+
+- [ ] 在独立 profile/test deck 中确认 v0.14.0 的原生格式、多文件队列、独立失败、可选 backend 缺失提示和 PDF fallback。
+- [ ] 确认导入不会调用 Provider；手工粘贴仍是 legacy one-call 路径，导入文档才使用有界 intelligence。
+- [ ] 确认实际进度依次显示规划、生成分组、质量/修复、覆盖检查、去重与终态；新 run 或关闭窗口后旧进度不得覆盖 UI。
+- [ ] 确认 Fast/Standard/Deep 预算、显式确认、失败 chunk 的显式 retry、source chips、review/duplicate/final-write gates；retry 期间也应显示分组与后处理阶段，并继续受同一调用/卡片上限约束。
 
 ## Generate 与 Review
 
@@ -69,7 +86,7 @@
 
 ## PR26 metadata / lifecycle polish
 
-1. [ ] Add-ons 列表、安装包 manifest、运行时版本、README、release draft 和 AnkiWeb draft 均显示 `0.13.2`。
+1. [ ] Add-ons 列表、安装包 manifest、运行时版本、README、release draft 和 AnkiWeb draft 均显示 `0.14.0`。
 2. [ ] 连续执行打开 → X/Esc/关闭 → 重开，旧材料、审核结果、API key 和 Endpoint 确认均不恢复。
 3. [ ] 关闭生成中的窗口后，晚到结果不更新新窗口；重复打开关闭不会累积隐藏窗口或出现 callback 错误。
 4. [ ] 重启 Anki、禁用再启用插件后，Tools 菜单中不出现重复入口。

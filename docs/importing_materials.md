@@ -1,14 +1,13 @@
-# Importing Materials / 导入学习材料
+# Importing Materials / 导入学习材料（v0.14.0）
 
 导入只把用户主动选择的内容放入当前学习材料区域，不会自动生成、调用 Provider 或写入 Anki。
 
 | 类型 | 行为 | 边界 |
 | --- | --- | --- |
 | 粘贴文本 | 保留用户输入 | 不监听剪贴板 |
-| `.md` / `.markdown` | 保留 Markdown 结构 | 单文件、无 vault 扫描 |
-| `.txt` | 保留换行 | 按安全编码读取 |
-| `.docx` | 提取段落和简单表格文本 | 图片、公式、批注、修订和复杂样式不保留 |
-| `.pdf` | 显示 fallback 指引 | 不解析、不 OCR、不联网上传 |
+| 原生结构格式 | TXT/Markdown、DOCX/PPTX/XLSX、CSV/TSV、HTML、JSON/JSONL/XML、IPYNB、EPUB、SRT/VTT | 最多 20 个明确选择的本地文件，无目录/vault 扫描 |
+| 安全文本/代码 | YAML、RST、Org、TeX、日志、SQL、Python/JS/TS/Java/C/C++/Rust/Go/Shell/PowerShell | 不执行代码、include、宏或公式 |
+| `.pdf` | fallback 或明确启用的本地 optional backend | Core 不解析、不 OCR、不联网上传 |
 
 ## Markdown and Obsidian
 
@@ -16,7 +15,7 @@ Markdown frontmatter 中的 `title` 可以作为安全显示标签，生成正�
 
 ## Import result
 
-成功提示应包含安全文件名、类型、字符数和必要 warning，不显示完整本地路径。多文件拖入时只处理明确支持的第一项并提示。已有材料不得被静默覆盖；追加行为必须可见。
+成功提示包含安全文件名、类型、字符数和必要 warning，不显示完整本地路径。多文件拖入时分别保留成功、warning 和失败结果；一个失败不清除其他已解析项目。导入失败会显示安全原因与转换/配置后端/复制文本等下一步。编辑框最多显示 50,000 字符并明确标记为本地预览；智能文档运行使用已解析的完整文档，同时继续受分块、卡片与调用上限约束。生成进度通过 Anki 主线程回调显示分析/规划、分组生成、质量检查、覆盖检查和去重阶段；离线截图仍明确标记为 Mock，不代表真实 Provider 响应。
 
 DOCX 只能做基础文本提取。如果内容可能不完整，应提示用户核对。PDF 提示为：请复制可选文本，或转换为 Markdown / TXT / DOCX。
 
@@ -30,4 +29,4 @@ DOCX 只能做基础文本提取。如果内容可能不完整，应提示用户
 
 ## English summary
 
-Paste, Markdown, TXT, and basic DOCX extraction are local and user-initiated. PDF is fallback-only with no OCR or network parsing. A single Obsidian Markdown file is treated as ordinary Markdown; the vault is never scanned. Import does not automatically call AI or write to Anki, and user-facing summaries avoid full local paths.
+All v0.14.0 imports are local and user-initiated. Native structured formats are TXT/Markdown, DOCX/PPTX/XLSX, CSV/TSV, HTML, JSON/JSONL/safe XML, IPYNB, EPUB, and SRT/VTT. Safe text/code formats are YAML, RST, Org, TeX/LaTeX, logs, SQL, Python, JavaScript/TypeScript, Java, C/C++, Rust, Go, Shell, and PowerShell; none executes. PDF is fallback-only in Core, with no OCR or network parsing; a separately installed explicit local backend is optional. A single Obsidian Markdown file is ordinary Markdown and its vault is never scanned. Import does not automatically call AI or write to Anki, and user-facing summaries avoid full local paths.

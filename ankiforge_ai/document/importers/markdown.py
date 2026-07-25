@@ -6,7 +6,13 @@ from ..limits import DEFAULT_DOCUMENT_LIMITS
 from ..models import BlockKind, DocumentSection
 from ..source_labels import get_safe_source_label
 from .base import DocumentImporter, ImportInspection
-from .text import block, location, make_document, read_text_bounded
+from .text import (
+    DocumentParseBudget,
+    block,
+    location,
+    make_document,
+    read_text_bounded,
+)
 
 
 _HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
@@ -90,6 +96,7 @@ class MarkdownImporter(DocumentImporter):
     def import_document(self, path, limits=DEFAULT_DOCUMENT_LIMITS):
         text, _ = read_text_bounded(path, limits)
         label = get_safe_source_label(path)
+        budget = DocumentParseBudget(limits)
         lines = text.splitlines()
         body_start, title, tags = _frontmatter(lines)
         sections = []
@@ -102,6 +109,7 @@ class MarkdownImporter(DocumentImporter):
         def flush_section():
             nonlocal current_blocks
             if current_blocks:
+                budget.consume_section()
                 sections.append(
                     DocumentSection(
                         section_id=f"section-{len(sections) + 1:05d}",
@@ -137,6 +145,7 @@ class MarkdownImporter(DocumentImporter):
                         line_start=number,
                         line_end=number,
                         metadata={"level": level},
+                        budget=budget,
                     )
                 )
                 index += 1
@@ -163,6 +172,7 @@ class MarkdownImporter(DocumentImporter):
                         line_start=start,
                         line_end=end,
                         metadata={"language": language[:64]},
+                        budget=budget,
                     )
                 )
                 continue
@@ -181,6 +191,7 @@ class MarkdownImporter(DocumentImporter):
                         label,
                         line_start=start,
                         line_end=index,
+                        budget=budget,
                     )
                 )
                 continue
@@ -206,6 +217,7 @@ class MarkdownImporter(DocumentImporter):
                         label,
                         line_start=start,
                         line_end=index,
+                        budget=budget,
                     )
                 )
                 continue
@@ -231,12 +243,14 @@ class MarkdownImporter(DocumentImporter):
                         label,
                         line_start=start,
                         line_end=start + len(values) - 1,
+                        budget=budget,
                     )
                 )
                 continue
             index += 1
         flush_section()
         if not sections:
+            budget.consume_section()
             sections.append(
                 DocumentSection(
                     section_id="section-00001",

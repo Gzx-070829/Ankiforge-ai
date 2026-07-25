@@ -1,6 +1,6 @@
 from dataclasses import replace
+import os
 from pathlib import Path
-import sys
 import tempfile
 import unittest
 
@@ -45,6 +45,10 @@ class DocumentBackendAdapterTests(unittest.TestCase):
         self.pdf.write_bytes(b"%PDF-1.4\nlocal fixture\n")
         self.markdown = self.root / "lesson.md"
         self.markdown.write_text("# Source\n\nbody", encoding="utf-8")
+        self.pandoc = self.root / ("pandoc.exe" if os.name == "nt" else "pandoc")
+        self.pandoc.write_bytes(b"local test executable placeholder")
+        if os.name != "nt":
+            self.pandoc.chmod(0o700)
 
     def tearDown(self):
         self.temporary.cleanup()
@@ -129,7 +133,7 @@ class DocumentBackendAdapterTests(unittest.TestCase):
         from ankiforge_ai.document.backends import PandocBackend
 
         runner = LiteralRunner("# Pandoc\n\nConverted body.")
-        backend = PandocBackend(executable=sys.executable, runner=runner)
+        backend = PandocBackend(executable=self.pandoc, runner=runner)
         document = backend.convert_local_file(self.markdown)
 
         self.assertEqual(document.source_type, "pandoc")

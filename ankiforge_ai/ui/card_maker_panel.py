@@ -74,6 +74,7 @@ from .file_drop_text_edit import FileDropTextEdit
 from .document_capabilities_dialog import (
     DocumentCapabilitiesDialog,
     default_document_capabilities,
+    probe_optional_backend_availability,
 )
 from .document_import_queue import (
     DocumentImportStatus,
@@ -86,20 +87,26 @@ from .document_import_queue import (
     remove_import_item,
     retry_failed_imports,
 )
+from .document_import_error_presenter import (
+    present_document_import_issue,
+)
 from .document_import_task_controller import (
     DocumentImportTaskController,
-    build_bounded_import_material,
+    build_bounded_import_material_preview,
     import_document_path_token,
 )
 from .document_intelligence_presenter import (
+    present_auto_recommendation,
     present_batch_intelligence_estimate,
+    present_document_summary,
+    present_generation_progress,
     stage_label,
 )
 from .generation_task_controller import GenerationTaskController
 from .intelligent_generation_task_controller import (
     IntelligentGenerationTaskController,
+    failed_generation_retry_is_available,
 )
-from ..intelligence.recovery import failed_chunk_retry_is_available
 from .read_only_anki_targets import (
     BeginnerAnkiReadState,
     ReadOnlyAnkiTargetAdapter,
@@ -149,6 +156,9 @@ class CardMakerPanel(QWidget):
         self._source_import_warning_keys = ()
         self._applying_source_import = False
         self._document_queue_owns_material = False
+        self._document_material_preview_truncated = False
+        self._enabled_document_backend_ids = ()
+        self._pandoc_executable = None
         self._document_import_queue = create_import_queue()
         self._pending_document_import_requests = []
         self._current_intelligence_estimate_view = None
@@ -249,6 +259,7 @@ class CardMakerPanel(QWidget):
         )
         self._render_document_queue()
         self._render_source_import_feedback()
+        self._render_document_intelligence_overview()
 
         self.generation_title_label.setText(self.t("generation_settings"))
         self.create_panel_title.setText(self.t("create_cards_section"))
@@ -637,6 +648,17 @@ class CardMakerPanel(QWidget):
         self.document_queue_layout.setContentsMargins(0, 0, 0, 0)
         self.document_queue_layout.setSpacing(SPACING_XS)
         layout.addWidget(self.document_queue_container)
+
+        self.document_summary_label = QLabel()
+        self.document_summary_label.setProperty("role", "secondary")
+        self.document_summary_label.setWordWrap(True)
+        self.document_summary_label.setVisible(False)
+        layout.addWidget(self.document_summary_label)
+        self.auto_recommendation_label = QLabel()
+        self.auto_recommendation_label.setProperty("role", "status")
+        self.auto_recommendation_label.setWordWrap(True)
+        self.auto_recommendation_label.setVisible(False)
+        layout.addWidget(self.auto_recommendation_label)
 
         self.material_import_status_label = QLabel()
         self.material_import_status_label.setProperty("role", "status")
@@ -1065,6 +1087,8 @@ class CardMakerPanel(QWidget):
         ):
             return
         request = self._pending_document_import_requests.pop(0)
+        enabled_backend_ids = tuple(self._enabled_document_backend_ids)
+        pandoc_executable = self._pandoc_executable
         panel_reference = weakref.ref(self)
 
         def handle_completion(completion):
@@ -1073,9 +1097,16 @@ class CardMakerPanel(QWidget):
                 return
             panel._handle_document_import_completion(completion)
 
+        def import_selected_document(path_token):
+            return import_document_path_token(
+                path_token,
+                enabled_backend_ids=enabled_backend_ids,
+                pandoc_executable=pandoc_executable,
+            )
+
         self._document_import_controller.submit(
             request=request,
-            importer_callback=import_document_path_token,
+            importer_callback=import_selected_document,
             on_complete=handle_completion,
         )
 
@@ -1099,10 +1130,12 @@ class CardMakerPanel(QWidget):
     def _sync_material_from_document_queue(self):
         results = self._document_import_queue.successful_results
         if results:
-            material = build_bounded_import_material(
+            preview = build_bounded_import_material_preview(
                 results,
                 max_chars=MAX_AI_MATERIAL_CHARS,
             )
+            material = preview.text
+            self._document_material_preview_truncated = preview.truncated
             self._applying_source_import = True
             self.material_input.blockSignals(True)
             try:
@@ -1157,6 +1190,12 @@ class CardMakerPanel(QWidget):
                 for warning in row.warnings
                 if row.status is DocumentImportStatus.WARNING
             )
+            if preview.truncated:
+                self._source_import_warning_keys = (
+                    *self._source_import_warning_keys,
+                    "material_preview_truncated",
+                )
+            self._render_document_intelligence_overview()
             return
         if not self._document_queue_owns_material:
             return
@@ -1169,10 +1208,12 @@ class CardMakerPanel(QWidget):
             self.material_input.blockSignals(False)
             self._applying_source_import = False
         self._document_queue_owns_material = False
+        self._document_material_preview_truncated = False
         self.session.update_material(material)
         self.session.set_source_type(SourceType.UNKNOWN)
         self._source_import_message = None
         self._source_import_warning_keys = ()
+        self._render_document_intelligence_overview()
 
     def _retry_failed_document_imports(self):
         self._document_import_queue, requests = retry_failed_imports(
@@ -1181,6 +1222,52 @@ class CardMakerPanel(QWidget):
         self._pending_document_import_requests.extend(requests)
         self._render_document_queue()
         self._dispatch_next_document_import()
+
+    def _render_document_intelligence_overview(self):
+        results = tuple(
+            result
+            for result in self._document_import_queue.successful_results
+            if result.analysis is not None
+        )
+        if not results:
+            self.document_summary_label.clear()
+            self.document_summary_label.setVisible(False)
+            self.auto_recommendation_label.clear()
+            self.auto_recommendation_label.setVisible(False)
+            return
+        summaries = tuple(
+            present_document_summary(
+                result.document,
+                result.analysis,
+                language=self.language,
+            )
+            for result in results
+        )
+        self.document_summary_label.setText(
+            "\n".join(
+                f"{view.title}: {view.detail}"
+                for view in summaries
+            )
+        )
+        self.document_summary_label.setVisible(True)
+        recommendations = tuple(
+            present_auto_recommendation(
+                result.analysis,
+                language=self.language,
+            )
+            for result in results
+        )
+        recommended_modes = tuple(
+            dict.fromkeys(
+                mode
+                for view in recommendations
+                for mode in view.modes
+            )
+        )
+        self.auto_recommendation_label.setText(
+            f"{recommendations[0].label}: {' · '.join(recommended_modes)}"
+        )
+        self.auto_recommendation_label.setVisible(bool(recommended_modes))
 
     def _render_document_queue(self):
         self._clear_layout(self.document_queue_layout)
@@ -1214,6 +1301,15 @@ class CardMakerPanel(QWidget):
                     chars=row.char_count,
                 )
             )
+            if row.warnings:
+                issue_text = "\n".join(
+                    present_document_import_issue(
+                        code,
+                        language=self.language,
+                    ).display_text
+                    for code in row.warnings
+                )
+                label.setText(f"{label.text()}\n{issue_text}")
             label.setWordWrap(True)
             row_layout.addWidget(label, 1)
 
@@ -1272,13 +1368,20 @@ class CardMakerPanel(QWidget):
         self._update_intelligence_estimate()
 
     def _show_document_capabilities(self):
+        availability = probe_optional_backend_availability(
+            pandoc_executable=self._pandoc_executable,
+        )
         dialog = DocumentCapabilitiesDialog(
             default_document_capabilities(),
             language=self.language,
-            backend_availability={"pdf_optional": False},
+            backend_availability=availability,
+            enabled_backend_ids=self._enabled_document_backend_ids,
+            pandoc_executable=self._pandoc_executable,
             parent=self,
         )
         dialog.exec()
+        self._enabled_document_backend_ids = dialog.selected_backend_ids()
+        self._pandoc_executable = dialog.pandoc_executable()
 
     def _invalidate_generation_for_document_queue_change(self):
         self.session.mark_document_queue_changed()
@@ -1314,7 +1417,13 @@ class CardMakerPanel(QWidget):
             self._set_status_role(self.material_import_status_label, role)
             self.material_import_status_label.setText(self.t(key, **values))
             self.material_import_status_label.setVisible(True)
-        warnings = [self.t(key) for key in self._source_import_warning_keys]
+        warnings = [
+            present_document_import_issue(
+                code,
+                language=self.language,
+            ).display_text
+            for code in self._source_import_warning_keys
+        ]
         self._set_status_role(self.material_import_warning_label, "warning")
         self.material_import_warning_label.setText("\n".join(warnings))
         self.material_import_warning_label.setVisible(bool(warnings))
@@ -1638,6 +1747,12 @@ class CardMakerPanel(QWidget):
                 return
             panel._handle_intelligent_generation_completion(completion)
 
+        def handle_progress(progress):
+            panel = panel_reference()
+            if panel is None or panel._disposed:
+                return
+            panel._handle_intelligent_generation_progress(progress)
+
         self._intelligent_generation_controller.submit(
             run_snapshot=run,
             generator_callback=adapter,
@@ -1645,6 +1760,7 @@ class CardMakerPanel(QWidget):
             critic_callback=adapter.critic_callback,
             repair_callback=adapter.repair_callback,
             supplement_callback=adapter.supplement_callback,
+            on_progress=handle_progress,
             on_complete=handle_completion,
         )
 
@@ -1699,10 +1815,36 @@ class CardMakerPanel(QWidget):
             stage_label(run.stage, language=self.language)
         )
         self.generation_progress_label.setVisible(True)
-        retry_available = failed_chunk_retry_is_available(run)
+        retry_available = failed_generation_retry_is_available(run)
         self.retry_failed_generation_btn.setVisible(retry_available)
         self.retry_failed_generation_btn.setEnabled(retry_available)
         self._refresh_product_state()
+
+    def _handle_intelligent_generation_progress(self, progress):
+        if self._disposed or self.session.closed:
+            return
+        run = progress.run
+        label = stage_label(run.stage, language=self.language)
+        if progress.total_groups:
+            detail = self.t(
+                "generation_group_progress",
+                completed=progress.completed_groups,
+                total=progress.total_groups,
+            )
+            label = f"{label} · {detail}"
+        elif run.stage in {
+            GenerationStage.REVIEWING,
+            GenerationStage.REPAIRING,
+            GenerationStage.CHECKING_COVERAGE,
+            GenerationStage.DEDUPLICATING,
+        }:
+            detail = present_generation_progress(
+                run,
+                language=self.language,
+            ).progress_text
+            label = f"{label} · {detail}"
+        self.generation_progress_label.setText(label)
+        self.generation_progress_label.setVisible(True)
 
     def _retry_failed_generation_chunks(self):
         run = self._last_intelligence_run
@@ -1710,10 +1852,12 @@ class CardMakerPanel(QWidget):
         if (
             run is None
             or adapter is None
-            or not failed_chunk_retry_is_available(run)
+            or not failed_generation_retry_is_available(run)
         ):
             self.retry_failed_generation_btn.setVisible(False)
             self.retry_failed_generation_btn.setEnabled(False)
+            return
+        if not self._confirm_failed_generation_retry(run):
             return
         self.retry_failed_generation_btn.setVisible(False)
         self.generation_progress_label.setText(
@@ -1727,15 +1871,48 @@ class CardMakerPanel(QWidget):
                 return
             panel._handle_intelligent_generation_completion(completion)
 
+        def handle_progress(progress):
+            panel = panel_reference()
+            if panel is None or panel._disposed:
+                return
+            panel._handle_intelligent_generation_progress(progress)
+
         submitted = self._intelligent_generation_controller.retry_failed(
             run_snapshot=run,
             retry_generator_callback=adapter,
+            on_progress=handle_progress,
             on_complete=handle_completion,
         )
         if submitted is None:
             self.retry_failed_generation_btn.setVisible(False)
             self.retry_failed_generation_btn.setEnabled(False)
         self._refresh_product_state()
+
+    def _confirm_failed_generation_retry(self, run):
+        remaining_cards = max(
+            0,
+            card_limit_for_settings(
+                self._current_generation_settings()
+            )
+            - len(run.cards),
+        )
+        calls = min(
+            len(run.failed_chunk_ids),
+            run.call_budget.remaining_calls,
+        )
+        buttons = getattr(QMessageBox, "StandardButton", QMessageBox)
+        choice = QMessageBox.question(
+            self,
+            self.t("retry_generation_confirmation_title"),
+            self.t(
+                "retry_generation_confirmation_body",
+                calls=calls,
+                cards=remaining_cards,
+            ),
+            buttons.Yes | buttons.No,
+            buttons.No,
+        )
+        return choice == buttons.Yes
 
     def _handle_generation_completion(self, completion):
         if self._disposed or self.session.closed:

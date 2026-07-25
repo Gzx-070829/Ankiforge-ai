@@ -38,7 +38,7 @@ _FILE_TYPE_EXTENSIONS = {
     "typescript": (".ts",),
     "java": (".java",),
     "c": (".c", ".h"),
-    "cpp": (".cpp", ".cc"),
+    "cpp": (".cpp", ".cc", ".hpp"),
     "rust": (".rs",),
     "go": (".go",),
     "sql": (".sql",),

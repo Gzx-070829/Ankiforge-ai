@@ -7,7 +7,13 @@ from ..limits import DEFAULT_DOCUMENT_LIMITS
 from ..models import BlockKind, DocumentSection
 from ..source_labels import get_safe_source_label
 from .base import DocumentImporter, ImportInspection
-from .text import block, location, make_document, read_text_bounded
+from .text import (
+    DocumentParseBudget,
+    block,
+    location,
+    make_document,
+    read_text_bounded,
+)
 
 
 _TIMING = re.compile(
@@ -60,6 +66,8 @@ class SubtitleImporter(DocumentImporter):
     def import_document(self, path, limits=DEFAULT_DOCUMENT_LIMITS):
         text, _ = read_text_bounded(path, limits)
         label = get_safe_source_label(path)
+        budget = DocumentParseBudget(limits)
+        budget.consume_section()
         lines = text.splitlines()
         captions = []
         index = 0
@@ -75,6 +83,7 @@ class SubtitleImporter(DocumentImporter):
                 content.append(lines[index].strip())
                 index += 1
             if content:
+                budget.ensure_blocks(len(captions) + 1)
                 captions.append(
                     _Caption(
                         _seconds(timing.group("start")),
@@ -100,6 +109,7 @@ class SubtitleImporter(DocumentImporter):
                 line_end=group[-1].line_end,
                 timestamp_start=group[0].start,
                 timestamp_end=group[-1].end,
+                budget=budget,
             )
             for number, group in enumerate(groups, 1)
         )

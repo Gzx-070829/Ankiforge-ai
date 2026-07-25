@@ -7,7 +7,14 @@ from ..limits import DEFAULT_DOCUMENT_LIMITS
 from ..models import BlockKind, DocumentSection
 from ..source_labels import get_safe_source_label
 from .base import DocumentImporter, ImportInspection
-from .text import block, import_error, location, make_document, read_text_bounded
+from .text import (
+    DocumentParseBudget,
+    block,
+    import_error,
+    location,
+    make_document,
+    read_text_bounded,
+)
 
 
 class TabularImporter(DocumentImporter):
@@ -40,6 +47,8 @@ class TabularImporter(DocumentImporter):
     def import_document(self, path, limits=DEFAULT_DOCUMENT_LIMITS):
         text, _ = read_text_bounded(path, limits)
         label = get_safe_source_label(path)
+        budget = DocumentParseBudget(limits)
+        budget.consume_section()
         try:
             rows = []
             reader = csv.reader(text.splitlines(), delimiter=self.delimiter)
@@ -71,6 +80,7 @@ class TabularImporter(DocumentImporter):
                     row_start=2,
                     row_end=len(rows),
                     metadata={"column_count": len(rows[0])},
+                    budget=budget,
                 ),
             )
         section = DocumentSection(
