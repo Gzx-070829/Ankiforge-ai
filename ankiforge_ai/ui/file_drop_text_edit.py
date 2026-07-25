@@ -40,8 +40,11 @@ class FileDropTextEdit(QTextEdit):
     def _local_paths(mime_data) -> tuple[str, ...]:
         if not mime_data.hasUrls():
             return ()
-        return tuple(
-            url.toLocalFile()
-            for url in mime_data.urls()
-            if url.isLocalFile() and url.toLocalFile()
-        )
+        paths = []
+        for url in mime_data.urls():
+            if not url.isLocalFile():
+                continue
+            path = url.toLocalFile()
+            if path:
+                paths.append(path)
+        return tuple(paths)

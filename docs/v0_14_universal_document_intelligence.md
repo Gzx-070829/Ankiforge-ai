@@ -117,10 +117,17 @@ remains unavailable in the public UI.
 
 - **Fast:** local analysis/planning, grouped generation, deterministic quality
   and deduplication; normally 1–3 calls.
-- **Standard (default):** one optional planner call, grouped generation,
-  coverage and deduplication; normally 3–8 calls.
+- **Standard (default):** one planner call, grouped generation, coverage and
+  deduplication; the UI shows the plan-specific mandatory count and the
+  8-call policy ceiling. A one-chunk run plans 2 calls.
 - **Deep:** planner, generation, critic, at most one repair per point, and at
-  most one missing-point supplement; never more than 12 calls.
+  most one missing-point supplement; the UI shows the plan-specific mandatory
+  count (3 calls for one chunk) and never exceeds the 12-call policy ceiling.
+
+The historical 1–3 / 3–8 / 4–12 values are policy envelopes, not mandatory
+paid-call minimums. Small runs may complete below an envelope's lower bound;
+no dummy call is dispatched or billed. Repair and supplement calls occur only
+when deterministic source-grounding or coverage checks require them.
 
 Standard and Deep show estimated blocks, calls, and candidates and require
 confirmation. No mode automatically retries a failed request.
@@ -149,7 +156,10 @@ acceptance proves the operation safe.
 ## UI shape
 
 Create gains a compact file queue, document summary, capability dialog, Auto
-recommendation, intelligence selector, plan estimate, and stage progress.
+recommendation, intelligence selector, plan estimate, and bounded-run status.
+The current Qt integration deliberately shows coarse in-progress copy and the
+terminal stage only; live per-stage main-thread events are deferred until their
+request-ID and window-lifetime delivery can be proven safe.
 Advanced details remain progressively disclosed. Queue rows show safe labels,
 parser/status/counts/warnings and remove/reorder/retry actions, never absolute
 paths.

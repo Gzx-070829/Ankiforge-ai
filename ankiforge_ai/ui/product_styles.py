@@ -379,4 +379,27 @@ QWidget#CardMakerPanel QScrollBar::add-line:vertical,
 QWidget#CardMakerPanel QScrollBar::sub-line:vertical {
     height: 0;
 }
+
+QWidget#DocumentQueueRow {
+    background-color: #0F141B;
+    border: 1px solid #263241;
+    border-radius: 8px;
+}
+
+QWidget#DocumentQueueRow QPushButton {
+    min-height: 28px;
+    padding: 2px 8px;
+}
+
+QPushButton#SourceChip {
+    min-height: 28px;
+    border-radius: 10px;
+    color: #A99AFF;
+    background-color: rgba(124, 92, 255, 0.12);
+}
+
+QLabel#StageProgress {
+    color: #CBD5E1;
+    padding: 4px 0;
+}
 """

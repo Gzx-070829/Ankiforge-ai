@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from itertools import islice
 from threading import Lock
 import re
 from typing import Callable, Mapping, Optional
 
 from ..intelligence.call_budget import CallPurpose
 from ..intelligence.coverage import CoverageReport, assess_generation_coverage
-from ..intelligence.critic import CriticAction, CriticDecision, decide_card
+from ..intelligence.critic import (
+    CriticAction,
+    CriticDecision,
+    decide_card,
+    repair_and_revalidate,
+)
 from ..intelligence.deduplication import deduplicate_cards
 from ..intelligence.generation_run import (
     ChunkGenerationSnapshot,
@@ -26,6 +32,18 @@ from ..intelligence.generation_run import (
 )
 from ..intelligence.models import IntelligenceLevel
 from ..intelligence.planning import KnowledgePlan
+from ..intelligence.recovery import (
+    apply_failed_chunk_retry,
+    create_failed_chunk_retry,
+    fail_failed_chunk_retry,
+    failed_chunk_retry_is_available,
+    start_failed_chunk_retry,
+    succeed_failed_chunk_retry,
+)
+from ..pipeline.generation_settings import (
+    GenerationSettings,
+    card_limit_for_settings,
+)
 
 
 _SAFE_REASON = re.compile(r"^[a-z][a-z0-9_]{0,119}$")
@@ -106,6 +124,8 @@ class IntelligentGenerationTaskController:
         planner_callback=None,
         generator_callback=None,
         critic_callback=None,
+        repair_callback=None,
+        supplement_callback=None,
     ):
         run_in_background = getattr(taskman, "run_in_background", None)
         if not callable(run_in_background):
@@ -114,13 +134,24 @@ class IntelligentGenerationTaskController:
             (planner_callback, "planner_callback"),
             (generator_callback, "generator_callback"),
             (critic_callback, "critic_callback"),
+            (repair_callback, "repair_callback"),
+            (supplement_callback, "supplement_callback"),
         ):
-            if callback is not None and not callable(callback):
+            if (
+                callback is not None
+                and not callable(callback)
+                and not (
+                    name == "generator_callback"
+                    and _is_grouped_generator(callback)
+                )
+            ):
                 raise TypeError(f"{name} must be callable")
         self._taskman = taskman
         self._default_planner = planner_callback
         self._default_generator = generator_callback
         self._default_critic = critic_callback
+        self._default_repair = repair_callback
+        self._default_supplement = supplement_callback
         self._lock = Lock()
         self._current_request_id = None
         self._highest_request_id = 0
@@ -150,6 +181,8 @@ class IntelligentGenerationTaskController:
         on_complete: Callable[[IntelligentGenerationTaskCompletion], None],
         planner_callback=None,
         critic_callback=None,
+        repair_callback=None,
+        supplement_callback=None,
     ):
         if not isinstance(run_snapshot, GenerationRun):
             raise TypeError("run_snapshot must be a GenerationRun")
@@ -168,11 +201,23 @@ class IntelligentGenerationTaskController:
             if critic_callback is None
             else critic_callback
         )
-        if not callable(generator):
+        repair = (
+            self._default_repair
+            if repair_callback is None
+            else repair_callback
+        )
+        supplement = (
+            self._default_supplement
+            if supplement_callback is None
+            else supplement_callback
+        )
+        if not callable(generator) and not _is_grouped_generator(generator):
             raise TypeError("generator_callback must be callable")
         for callback, name in (
             (planner, "planner_callback"),
             (critic, "critic_callback"),
+            (repair, "repair_callback"),
+            (supplement, "supplement_callback"),
         ):
             if callback is not None and not callable(callback):
                 raise TypeError(f"{name} must be callable")
@@ -202,6 +247,8 @@ class IntelligentGenerationTaskController:
                 planner_callback=planner,
                 generator_callback=generator,
                 critic_callback=critic,
+                repair_callback=repair,
+                supplement_callback=supplement,
                 continue_if_current=lambda: self._is_current(
                     snapshot.request_id
                 ),
@@ -248,6 +295,87 @@ class IntelligentGenerationTaskController:
             self._current_request_id = None
             self._running = False
 
+    def retry_failed(
+        self,
+        *,
+        run_snapshot: GenerationRun,
+        retry_generator_callback,
+        on_complete: Callable[[IntelligentGenerationTaskCompletion], None],
+    ):
+        if not isinstance(run_snapshot, GenerationRun):
+            raise TypeError("run_snapshot must be a GenerationRun")
+        if not callable(retry_generator_callback):
+            raise TypeError("retry_generator_callback must be callable")
+        if not callable(on_complete):
+            raise TypeError("on_complete must be callable")
+        with self._lock:
+            if not self._alive:
+                return None
+            if self._running:
+                return None
+            if run_snapshot.request_id != self._highest_request_id:
+                raise ValueError("retry run is stale")
+            if not failed_chunk_retry_is_available(run_snapshot):
+                return None
+            retry = create_failed_chunk_retry(
+                run_snapshot,
+                retry_id=(
+                    f"retry-{run_snapshot.request_id}-"
+                    f"{run_snapshot.call_budget.call_count}"
+                ),
+            )
+            self._current_request_id = run_snapshot.request_id
+            self._running = True
+
+        def background_task():
+            return _execute_failed_retry_lifecycle(
+                run_snapshot,
+                retry,
+                retry_generator_callback=retry_generator_callback,
+                continue_if_current=lambda: self._is_current(
+                    run_snapshot.request_id
+                ),
+            )
+
+        def on_done(future):
+            try:
+                worker_result = future.result()
+                completion = IntelligentGenerationTaskCompletion(
+                    request_id=run_snapshot.request_id,
+                    run=worker_result.run,
+                    error_code=worker_result.error_code,
+                )
+            except Exception:
+                completion = IntelligentGenerationTaskCompletion(
+                    request_id=run_snapshot.request_id,
+                    run=_failed_run(
+                        run_snapshot,
+                        "background_task_failed",
+                    ),
+                    error_code="background_task_failed",
+                )
+            self._finish_if_current(completion, on_complete)
+
+        try:
+            self._taskman.run_in_background(
+                background_task,
+                on_done,
+                uses_collection=False,
+            )
+        except Exception:
+            self._finish_if_current(
+                IntelligentGenerationTaskCompletion(
+                    request_id=run_snapshot.request_id,
+                    run=_failed_run(
+                        run_snapshot,
+                        "background_task_submit_failed",
+                    ),
+                    error_code="background_task_submit_failed",
+                ),
+                on_complete,
+            )
+        return run_snapshot.request_id
+
     def close(self) -> None:
         with self._lock:
             self._alive = False
@@ -285,6 +413,8 @@ def _execute_lifecycle(
     planner_callback,
     generator_callback,
     critic_callback,
+    repair_callback=None,
+    supplement_callback=None,
     continue_if_current=lambda: True,
 ) -> _WorkerResult:
     current = transition_run(run, GenerationStage.PLANNING)
@@ -322,17 +452,20 @@ def _execute_lifecycle(
             supersede_run(current),
             "request_superseded",
         )
-    current = reserve_run_call(current, CallPurpose.GENERATE)
-    if not continue_if_current():
+    try:
+        current, generated = _dispatch_generation_calls(
+            current,
+            generator_callback,
+            continue_if_current=continue_if_current,
+        )
+    except _GenerationSuperseded as error:
         return _WorkerResult(
-            supersede_run(current),
+            supersede_run(error.run),
             "request_superseded",
         )
-    try:
-        generated = generator_callback(current)
-    except Exception:
+    except _GenerationDispatchFailed as error:
         return _WorkerResult(
-            _failed_run(current, "generator_call_failed"),
+            _failed_run(error.run, "generator_call_failed"),
             "generator_call_failed",
         )
     if not continue_if_current():
@@ -357,6 +490,7 @@ def _execute_lifecycle(
     if (
         critic_callback is not None
         and current.level is IntelligenceLevel.DEEP
+        and bool(current.cards)
     ):
         if not continue_if_current():
             return _WorkerResult(
@@ -382,7 +516,17 @@ def _execute_lifecycle(
                 "request_superseded",
             )
     try:
-        current = _apply_critic_decisions(current, critic_output)
+        current = _apply_review_and_repairs(
+            current,
+            critic_output,
+            repair_callback=repair_callback,
+            continue_if_current=continue_if_current,
+        )
+    except _LifecycleSuperseded as error:
+        return _WorkerResult(
+            supersede_run(error.run),
+            "request_superseded",
+        )
     except Exception:
         return _WorkerResult(
             _failed_run(current, "critic_result_invalid"),
@@ -426,19 +570,243 @@ def _execute_lifecycle(
             coverage_report=coverage,
             deduplication_result=deduplication,
         )
+        current = _apply_coverage_supplement(
+            current,
+            supplement_callback=supplement_callback,
+            continue_if_current=continue_if_current,
+        )
+    except _LifecycleSuperseded as error:
+        return _WorkerResult(
+            supersede_run(error.run),
+            "request_superseded",
+        )
     except Exception:
         return _WorkerResult(
             _failed_run(current, "postprocessing_failed"),
             "postprocessing_failed",
         )
     current = transition_run(current, GenerationStage.DEDUPLICATING)
-    if current.call_budget.call_count < current.call_budget.minimum_calls:
-        return _WorkerResult(
-            _failed_run(current, "minimum_call_policy_not_met"),
-            "minimum_call_policy_not_met",
-        )
     current = complete_run(current)
     return _WorkerResult(current)
+
+
+class _GenerationDispatchFailed(RuntimeError):
+    def __init__(self, run: GenerationRun):
+        self.run = run
+        super().__init__("generator_call_failed")
+
+
+class _GenerationSuperseded(_GenerationDispatchFailed):
+    pass
+
+
+class _LifecycleSuperseded(RuntimeError):
+    def __init__(self, run: GenerationRun):
+        self.run = run
+        super().__init__("request_superseded")
+
+
+def _is_grouped_generator(callback: object) -> bool:
+    return callable(getattr(callback, "generation_batches", None)) and callable(
+        getattr(callback, "generate_batch", None)
+    )
+
+
+def _dispatch_generation_calls(
+    run: GenerationRun,
+    generator_callback,
+    *,
+    continue_if_current,
+) -> tuple[GenerationRun, object]:
+    if not _is_grouped_generator(generator_callback):
+        current = reserve_run_call(run, CallPurpose.GENERATE)
+        if not continue_if_current():
+            raise _GenerationSuperseded(current)
+        try:
+            return current, generator_callback(current)
+        except Exception:
+            raise _GenerationDispatchFailed(current) from None
+    try:
+        batches = _validated_generation_batches(
+            run,
+            generator_callback.generation_batches(run),
+        )
+    except Exception:
+        raise _GenerationDispatchFailed(run) from None
+    current = run
+    generated = {}
+    for batch in batches:
+        if not continue_if_current():
+            raise _GenerationSuperseded(current)
+        current = reserve_run_call(current, CallPurpose.GENERATE)
+        if not continue_if_current():
+            raise _GenerationSuperseded(current)
+        try:
+            outcome = generator_callback.generate_batch(current, batch)
+        except Exception:
+            generated.update(
+                {
+                    chunk_id: {"error_code": "generation_call_failed"}
+                    for chunk_id in batch
+                }
+            )
+            continue
+        try:
+            outcome_by_chunk = _bounded_mapping_for_ids(outcome, batch)
+        except (TypeError, ValueError):
+            generated.update(
+                {
+                    chunk_id: {"error_code": "generation_output_invalid"}
+                    for chunk_id in batch
+                }
+            )
+            continue
+        for chunk_id in batch:
+            generated[chunk_id] = outcome_by_chunk.get(
+                chunk_id,
+                {"error_code": "generation_result_missing"},
+            )
+    return current, generated
+
+
+def _validated_generation_batches(
+    run: GenerationRun,
+    value,
+) -> tuple[tuple[str, ...], ...]:
+    if isinstance(value, (str, bytes)):
+        raise TypeError("generation batches must be a sequence")
+    remaining = run.call_budget.remaining_calls
+    try:
+        raw_batches = tuple(islice(iter(value), remaining + 1))
+    except TypeError:
+        raise TypeError("generation batches must be a sequence") from None
+    if len(raw_batches) > remaining:
+        raise ValueError("generation batches exceed the remaining call budget")
+    batches = []
+    for raw_batch in raw_batches:
+        if isinstance(raw_batch, (str, bytes)):
+            raise TypeError("one generation batch must be a sequence")
+        try:
+            batch = tuple(islice(iter(raw_batch), len(run.chunks) + 1))
+        except TypeError:
+            raise TypeError("one generation batch must be a sequence") from None
+        if len(batch) > len(run.chunks):
+            raise ValueError("one generation batch exceeds run chunks")
+        batches.append(batch)
+    batches = tuple(batches)
+    if not batches:
+        raise ValueError("generation batches cannot be empty")
+    flattened = tuple(chunk_id for batch in batches for chunk_id in batch)
+    expected = tuple(chunk.chunk_id for chunk in run.chunks)
+    if any(not batch for batch in batches) or flattened != expected:
+        raise ValueError("generation batches must partition run chunks in order")
+    return batches
+
+
+def _bounded_mapping_for_ids(value, allowed_ids) -> dict:
+    if not isinstance(value, Mapping):
+        raise TypeError("value must be a mapping")
+    allowed = tuple(allowed_ids)
+    try:
+        keys = tuple(islice(iter(value), len(allowed) + 1))
+    except Exception:
+        raise ValueError("mapping keys are invalid") from None
+    if (
+        len(keys) > len(allowed)
+        or len(set(keys)) != len(keys)
+        or not set(keys).issubset(set(allowed))
+    ):
+        raise ValueError("mapping keys are invalid")
+    copied = {}
+    for key in keys:
+        try:
+            copied[key] = value[key]
+        except Exception:
+            raise ValueError("mapping values are invalid") from None
+    return copied
+
+
+def _execute_failed_retry_lifecycle(
+    run: GenerationRun,
+    retry,
+    *,
+    retry_generator_callback,
+    continue_if_current=lambda: True,
+) -> _WorkerResult:
+    current = apply_failed_chunk_retry(run, retry)
+    for chunk_id in retry.chunk_ids:
+        if not continue_if_current():
+            return _WorkerResult(
+                supersede_run(current),
+                "request_superseded",
+            )
+        current = start_failed_chunk_retry(current, retry, chunk_id)
+        if not continue_if_current():
+            return _WorkerResult(
+                supersede_run(current),
+                "request_superseded",
+            )
+        try:
+            outcome = retry_generator_callback(current, chunk_id)
+        except Exception:
+            current = fail_failed_chunk_retry(
+                current,
+                retry,
+                chunk_id,
+            )
+            continue
+        if isinstance(outcome, Mapping) and set(outcome).issubset(
+            {"cards", "error_code"}
+        ):
+            error_code = outcome.get("error_code")
+            if error_code is not None:
+                current = fail_failed_chunk_retry(
+                    current,
+                    retry,
+                    chunk_id,
+                    reason_code=error_code,
+                )
+                continue
+            outcome = outcome.get("cards", ())
+        try:
+            current = succeed_failed_chunk_retry(
+                current,
+                retry,
+                chunk_id,
+                outcome,
+            )
+        except (TypeError, ValueError):
+            current = fail_failed_chunk_retry(
+                current,
+                retry,
+                chunk_id,
+                reason_code="generation_output_invalid",
+            )
+    current = transition_run(current, GenerationStage.REVIEWING)
+    current = _apply_critic_decisions(current, None)
+    current = transition_run(current, GenerationStage.CHECKING_COVERAGE)
+    try:
+        deduplication = deduplicate_cards(current.cards)
+        current = _retain_candidate_ids(
+            current,
+            {
+                _card_value(card, "candidate_id")
+                for card in deduplication.unique_cards
+            },
+        )
+        coverage = _assess_run_coverage(current)
+        current = replace(
+            current,
+            coverage_report=coverage,
+            deduplication_result=deduplication,
+        )
+    except Exception:
+        return _WorkerResult(
+            _failed_run(current, "postprocessing_failed"),
+            "postprocessing_failed",
+        )
+    current = transition_run(current, GenerationStage.DEDUPLICATING)
+    return _WorkerResult(complete_run(current))
 
 
 def _apply_generated_chunks(run: GenerationRun, generated: object) -> GenerationRun:
@@ -539,6 +907,7 @@ def _apply_critic_decisions(
                         card=card,
                         source_text=source_text,
                         model_decision=per_candidate.get(candidate_id),
+                        settings=_generation_settings_for_card(run, card),
                     )
                 except (TypeError, ValueError):
                     decision = CriticDecision(
@@ -549,6 +918,237 @@ def _apply_critic_decisions(
             if decision.action in {CriticAction.PASS, CriticAction.FLAG}:
                 accepted_ids.add(candidate_id)
     return _retain_candidate_ids(run, accepted_ids)
+
+
+def _apply_review_and_repairs(
+    run: GenerationRun,
+    critic_output: object,
+    *,
+    repair_callback,
+    continue_if_current,
+) -> GenerationRun:
+    cards = run.cards
+    per_candidate = _critic_output_by_candidate(cards, critic_output)
+    accepted_ids = set()
+    repair_items = []
+    for chunk in run.chunks:
+        if chunk.state is not ChunkGenerationState.SUCCEEDED:
+            continue
+        for card in chunk.cards:
+            candidate_id = _card_value(card, "candidate_id")
+            source_text = _source_text_for_chunk(run, chunk.chunk_id)
+            if not source_text:
+                decision = CriticDecision(
+                    CriticAction.REJECT,
+                    ("source_unavailable",),
+                    local_blocking=True,
+                )
+            else:
+                try:
+                    decision = decide_card(
+                        card=card,
+                        source_text=source_text,
+                        model_decision=per_candidate.get(candidate_id),
+                        settings=_generation_settings_for_card(run, card),
+                    )
+                except (TypeError, ValueError):
+                    decision = CriticDecision(
+                        CriticAction.REJECT,
+                        ("local_validation_failed",),
+                        local_blocking=True,
+                    )
+            if decision.action in {CriticAction.PASS, CriticAction.FLAG}:
+                accepted_ids.add(candidate_id)
+            elif (
+                decision.action is CriticAction.REPAIR
+                and callable(repair_callback)
+                and run.level
+                in {IntelligenceLevel.STANDARD, IntelligenceLevel.DEEP}
+            ):
+                repair_items.append(
+                    (
+                        card,
+                        _card_value(card, "point_id"),
+                        source_text,
+                        _generation_settings_for_card(run, card),
+                    )
+                )
+    if not repair_items:
+        return _retain_candidate_ids(run, accepted_ids)
+    if run.level is IntelligenceLevel.STANDARD:
+        repair_items = repair_items[:1]
+    current = transition_run(run, GenerationStage.REPAIRING)
+    replacements = {}
+    for card, point_id, source_text, generation_settings in repair_items:
+        if not continue_if_current():
+            raise _LifecycleSuperseded(current)
+        if point_id in current.repaired_point_ids:
+            continue
+        if current.call_budget.remaining_calls < 1:
+            break
+        try:
+            result = repair_and_revalidate(
+                run=current,
+                point_id=point_id,
+                card=card,
+                source_text=source_text,
+                repair_callback=repair_callback,
+                settings=generation_settings,
+            )
+        except Exception:
+            continue
+        current = result.run
+        if not continue_if_current():
+            raise _LifecycleSuperseded(current)
+        if result.accepted:
+            candidate_id = _card_value(result.card, "candidate_id")
+            accepted_ids.add(candidate_id)
+            replacements[candidate_id] = result.card
+    current = _retain_and_replace_cards(
+        current,
+        accepted_ids,
+        replacements,
+    )
+    return transition_run(current, GenerationStage.REVIEWING)
+
+
+def _apply_coverage_supplement(
+    run: GenerationRun,
+    *,
+    supplement_callback,
+    continue_if_current,
+) -> GenerationRun:
+    coverage = run.coverage_report
+    if (
+        run.level is not IntelligenceLevel.DEEP
+        or not callable(supplement_callback)
+        or not isinstance(coverage, CoverageReport)
+        or not coverage.supplement_recommended
+    ):
+        return run
+    eligible_point_ids = _eligible_supplement_point_ids(
+        run,
+        coverage.missing_high_priority_point_ids,
+    )
+    if (
+        not eligible_point_ids
+        or run.call_budget.remaining_calls < 1
+        or len(run.cards)
+        >= card_limit_for_settings(_generation_settings_from_run(run))
+    ):
+        return run
+    if not continue_if_current():
+        raise _LifecycleSuperseded(run)
+    try:
+        current = reserve_run_call(run, CallPurpose.SUPPLEMENT)
+    except Exception:
+        return run
+    try:
+        generated = supplement_callback(
+            current,
+            eligible_point_ids,
+        )
+        if not continue_if_current():
+            raise _LifecycleSuperseded(current)
+        current = _append_supplement_cards(current, generated)
+        deduplication = deduplicate_cards(current.cards)
+        current = _retain_candidate_ids(
+            current,
+            {
+                _card_value(card, "candidate_id")
+                for card in deduplication.unique_cards
+            },
+        )
+        return replace(
+            current,
+            coverage_report=_assess_run_coverage(current),
+            deduplication_result=deduplication,
+        )
+    except _LifecycleSuperseded:
+        raise
+    except Exception:
+        return current
+
+
+def _append_supplement_cards(
+    run: GenerationRun,
+    generated: object,
+) -> GenerationRun:
+    by_chunk = {chunk.chunk_id: chunk for chunk in run.chunks}
+    try:
+        generated_by_chunk = _bounded_mapping_for_ids(
+            generated,
+            tuple(by_chunk),
+        )
+    except (TypeError, ValueError):
+        raise ValueError("supplement output is invalid")
+    remaining_card_slots = max(
+        0,
+        card_limit_for_settings(_generation_settings_from_run(run))
+        - len(run.cards),
+    )
+    chunks = []
+    for chunk in run.chunks:
+        additions = generated_by_chunk.get(chunk.chunk_id, ())
+        if chunk.state is not ChunkGenerationState.SUCCEEDED:
+            additions = ()
+        try:
+            candidates = tuple(additions)
+        except TypeError:
+            raise ValueError("supplement output is invalid") from None
+        source_text = _source_text_for_chunk(run, chunk.chunk_id)
+        accepted_additions = []
+        for card in candidates:
+            try:
+                decision = decide_card(
+                    card=card,
+                    source_text=source_text,
+                    model_decision=CriticDecision(CriticAction.PASS),
+                    settings=_generation_settings_for_card(run, card),
+                )
+            except (TypeError, ValueError):
+                continue
+            if decision.action in {CriticAction.PASS, CriticAction.FLAG}:
+                if remaining_card_slots < 1:
+                    break
+                accepted_additions.append(card)
+                remaining_card_slots -= 1
+        cards = (*chunk.cards, *accepted_additions)
+        chunks.append(
+            ChunkGenerationSnapshot(
+                chunk_id=chunk.chunk_id,
+                state=chunk.state,
+                cards=cards,
+                reason_code=chunk.reason_code,
+            )
+        )
+    return replace(run, chunks=tuple(chunks))
+
+
+def _retain_and_replace_cards(
+    run: GenerationRun,
+    candidate_ids: set,
+    replacements: Mapping,
+) -> GenerationRun:
+    chunks = tuple(
+        ChunkGenerationSnapshot(
+            chunk_id=chunk.chunk_id,
+            state=chunk.state,
+            cards=tuple(
+                replacements.get(
+                    _card_value(card, "candidate_id"),
+                    card,
+                )
+                for card in chunk.cards
+                if _card_value(card, "candidate_id") in candidate_ids
+            ),
+            reason_code=chunk.reason_code,
+        )
+        if chunk.state is ChunkGenerationState.SUCCEEDED
+        else chunk
+        for chunk in run.chunks
+    )
+    return replace(run, chunks=chunks)
 
 
 def _critic_output_by_candidate(cards, output: object) -> dict:
@@ -572,6 +1172,68 @@ def _critic_output_by_candidate(cards, output: object) -> dict:
             raise ValueError("critic result count mismatch")
         return dict(zip(candidate_ids, output))
     raise ValueError("critic result is unsupported")
+
+
+def _eligible_supplement_point_ids(
+    run: GenerationRun,
+    missing_point_ids,
+) -> tuple[str, ...]:
+    if not isinstance(run.plan, KnowledgePlan):
+        return ()
+    succeeded_chunk_ids = {
+        chunk.chunk_id
+        for chunk in run.chunks
+        if chunk.state is ChunkGenerationState.SUCCEEDED
+    }
+    point_by_id = {
+        point.point_id: point for point in run.plan.points
+    }
+    return tuple(
+        point_id
+        for point_id in missing_point_ids
+        if point_id in point_by_id
+        and bool(
+            set(point_by_id[point_id].source_chunk_ids)
+            & succeeded_chunk_ids
+        )
+    )
+
+
+def _generation_settings_for_card(
+    run: GenerationRun,
+    card: object,
+) -> GenerationSettings:
+    settings = _generation_settings_from_run(run)
+    if settings.card_mode != "auto" or not isinstance(run.plan, KnowledgePlan):
+        return settings
+    point_id = _card_value(card, "point_id")
+    recommended_template = next(
+        (
+            point.recommended_template
+            for point in run.plan.points
+            if point.point_id == point_id
+        ),
+        None,
+    )
+    if not isinstance(recommended_template, str):
+        return replace(settings, card_mode="concept")
+    try:
+        return replace(settings, card_mode=recommended_template)
+    except ValueError:
+        return replace(settings, card_mode="concept")
+
+
+def _generation_settings_from_run(run: GenerationRun) -> GenerationSettings:
+    snapshot = run.settings_snapshot
+    values = {}
+    defaults = GenerationSettings()
+    for name in ("card_mode", "card_count", "answer_length", "language"):
+        value = snapshot.get(name) if isinstance(snapshot, Mapping) else None
+        values[name] = value if isinstance(value, str) else getattr(defaults, name)
+    try:
+        return GenerationSettings(**values)
+    except ValueError:
+        return defaults
 
 
 def _source_text_for_chunk(run: GenerationRun, chunk_id: str) -> str:

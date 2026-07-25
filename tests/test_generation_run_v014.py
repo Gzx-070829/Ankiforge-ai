@@ -236,7 +236,7 @@ class GenerationRunV014Tests(unittest.TestCase):
         self.assertEqual(completed.stage, GenerationStage.COMPLETED)
         self.assertEqual(completed.status, GenerationRunStatus.COMPLETED)
 
-    def test_completion_enforces_minimum_actual_calls_without_reserving_for_caller(self):
+    def test_completion_requires_a_real_reserved_generation_call(self):
         run = transition_run(
             transition_run(
                 self.make_run(level=IntelligenceLevel.FAST),
@@ -250,7 +250,7 @@ class GenerationRunV014Tests(unittest.TestCase):
         run = transition_run(run, GenerationStage.CHECKING_COVERAGE)
         run = transition_run(run, GenerationStage.DEDUPLICATING)
 
-        with self.assertRaisesRegex(ValueError, "minimum_call_policy_not_met"):
+        with self.assertRaisesRegex(ValueError, "generation_call_not_reserved"):
             complete_run(run)
         self.assertEqual(run.call_budget.call_count, 0)
 

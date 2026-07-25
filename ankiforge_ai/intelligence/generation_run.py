@@ -481,8 +481,11 @@ def complete_run(run: GenerationRun) -> GenerationRun:
         for chunk in run.chunks
     ):
         raise ValueError("unfinished_chunks")
-    if run.call_budget.call_count < run.call_budget.minimum_calls:
-        raise ValueError("minimum_call_policy_not_met")
+    if not any(
+        reservation.purpose is CallPurpose.GENERATE
+        for reservation in run.call_budget.reservations
+    ):
+        raise ValueError("generation_call_not_reserved")
     status = (
         GenerationRunStatus.PARTIAL
         if run.failed_chunk_ids
@@ -588,8 +591,11 @@ def _validate_run_coherence(
             raise ValueError("completed run cannot contain unfinished chunks")
         if failed != (status is GenerationRunStatus.PARTIAL):
             raise ValueError("completed status must match failed chunk state")
-        if call_budget.call_count < call_budget.minimum_calls:
-            raise ValueError("minimum_call_policy_not_met")
+        if not any(
+            reservation.purpose is CallPurpose.GENERATE
+            for reservation in call_budget.reservations
+        ):
+            raise ValueError("generation_call_not_reserved")
     if stage in {
         GenerationStage.REVIEWING,
         GenerationStage.REPAIRING,
@@ -617,7 +623,12 @@ def _validate_run_coherence(
             {CallPurpose.PLANNER, CallPurpose.GENERATE}
         ),
         GenerationStage.REVIEWING: frozenset(
-            {CallPurpose.PLANNER, CallPurpose.GENERATE, CallPurpose.CRITIC}
+            {
+                CallPurpose.PLANNER,
+                CallPurpose.GENERATE,
+                CallPurpose.CRITIC,
+                CallPurpose.REPAIR,
+            }
         ),
         GenerationStage.REPAIRING: frozenset(
             {

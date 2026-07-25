@@ -7,6 +7,8 @@ import re
 from types import MappingProxyType
 from typing import Mapping, Optional
 
+from ..document import SourceLocation
+from ..intelligence import IntelligenceLevel
 from ..pipeline.card_quality import CardQualityResult, evaluate_card_batch
 from ..pipeline.generation_settings import (
     GenerationSettings,
@@ -383,6 +385,10 @@ class BeginnerAICardDraft:
     front: str = field(repr=False)
     back: str = field(repr=False)
     source_excerpt: str = field(repr=False)
+    source_location: Optional[SourceLocation] = field(
+        default=None,
+        repr=False,
+    )
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, str) or not self.id.strip():
@@ -392,6 +398,11 @@ class BeginnerAICardDraft:
                 raise ValueError(f"{name} must be a string.")
         if not isinstance(self.source_excerpt, str) or not self.source_excerpt.strip():
             raise ValueError("source_excerpt must be a non-empty string.")
+        if self.source_location is not None and not isinstance(
+            self.source_location,
+            SourceLocation,
+        ):
+            raise TypeError("source_location must be SourceLocation or None.")
 
     def __repr__(self) -> str:
         return (
@@ -419,6 +430,10 @@ class BeginnerCandidateCardPreview:
     front_preview: str
     back_preview: str
     source_excerpt: str
+    source_location: Optional[SourceLocation] = field(
+        default=None,
+        repr=False,
+    )
 
     def __repr__(self) -> str:
         return (
@@ -468,6 +483,14 @@ class BeginnerFlowSession:
         default_factory=GenerationSettings,
     )
     source_type: SourceType = SourceType.PASTE
+    intelligence_level: IntelligenceLevel = IntelligenceLevel.STANDARD
+    document_artifact_revision: int = 0
+    parsed_documents: tuple[object, ...] = field(default_factory=tuple, repr=False)
+    document_analyses: tuple[object, ...] = field(default_factory=tuple, repr=False)
+    document_chunks: tuple[object, ...] = field(default_factory=tuple, repr=False)
+    knowledge_plan: object = field(default=None, repr=False)
+    intelligence_estimate: object = field(default=None, repr=False)
+    intelligence_run: object = field(default=None, repr=False)
     candidate_quality_results: dict[str, CardQualityResult] = field(
         default_factory=dict,
         repr=False,
@@ -811,6 +834,7 @@ class BeginnerFlowSession:
                 front_preview=draft.front,
                 back_preview=draft.back,
                 source_excerpt=draft.source_excerpt,
+                source_location=draft.source_location,
             )
             for draft in resolved
         )
@@ -838,6 +862,59 @@ class BeginnerFlowSession:
         self.generation_settings = resolved
         self.ai_draft_revision += 1
         self._clear_from_candidates("generation_settings_changed")
+
+    def set_intelligence_level(
+        self,
+        level: IntelligenceLevel | str,
+    ) -> None:
+        self._ensure_open()
+        try:
+            normalized = IntelligenceLevel(level)
+        except (TypeError, ValueError):
+            raise ValueError(
+                "intelligence level must be fast, standard, or deep"
+            ) from None
+        if normalized is self.intelligence_level:
+            return
+        self.intelligence_level = normalized
+        self.invalidate_document_intelligence_artifacts(
+            "intelligence_settings_changed"
+        )
+
+    def record_document_intelligence_artifacts(
+        self,
+        *,
+        parsed_documents=(),
+        analyses=(),
+        chunks=(),
+        plan=None,
+        estimate=None,
+        run=None,
+    ) -> None:
+        self._ensure_open()
+        self.parsed_documents = tuple(parsed_documents)
+        self.document_analyses = tuple(analyses)
+        self.document_chunks = tuple(chunks)
+        self.knowledge_plan = plan
+        self.intelligence_estimate = estimate
+        self.intelligence_run = run
+        self.document_artifact_revision += 1
+
+    def mark_document_queue_changed(self) -> None:
+        self._ensure_open()
+        self.invalidate_document_intelligence_artifacts(
+            "document_queue_changed"
+        )
+
+    def invalidate_document_intelligence_artifacts(self, reason: str) -> None:
+        self.parsed_documents = ()
+        self.document_analyses = ()
+        self.document_chunks = ()
+        self.knowledge_plan = None
+        self.intelligence_estimate = None
+        self.intelligence_run = None
+        self.document_artifact_revision += 1
+        self._clear_from_candidates(reason)
         self.ai_generation_state = BeginnerAIGenerationState.IDLE
         self.current_step = BeginnerFlowStep.SELECT_MATERIAL
 
@@ -879,6 +956,7 @@ class BeginnerFlowSession:
                 front=front if item.id == draft_id else item.front,
                 back=back if item.id == draft_id else item.back,
                 source_excerpt=item.source_excerpt,
+                source_location=item.source_location,
             )
             for item in self.ai_candidate_card_drafts
         )
@@ -889,6 +967,7 @@ class BeginnerFlowSession:
                 front_preview=front if item.id == candidate_id else item.front_preview,
                 back_preview=back if item.id == candidate_id else item.back_preview,
                 source_excerpt=item.source_excerpt,
+                source_location=item.source_location,
             )
             for item in self.candidate_card_previews
         )
@@ -998,6 +1077,7 @@ class BeginnerFlowSession:
                 front_preview=copied.front,
                 back_preview=copied.back,
                 source_excerpt=copied.source,
+                source_location=source_preview.source_location,
             ),
         )
         source_draft_id = candidate_id.removeprefix("candidate-")
@@ -1018,6 +1098,7 @@ class BeginnerFlowSession:
                     front=copied.front,
                     back=copied.back,
                     source_excerpt=copied.source,
+                    source_location=source_draft.source_location,
                 ),
             )
             self.ai_draft_revision += 1
@@ -1059,6 +1140,7 @@ class BeginnerFlowSession:
                 source_excerpt=(
                     restored.source if item.id == candidate_id else item.source_excerpt
                 ),
+                source_location=item.source_location,
             )
             for item in self.candidate_card_previews
         )
@@ -1070,6 +1152,7 @@ class BeginnerFlowSession:
                 source_excerpt=(
                     restored.source if item.id == draft_id else item.source_excerpt
                 ),
+                source_location=item.source_location,
             )
             for item in self.ai_candidate_card_drafts
         )
@@ -1698,6 +1781,14 @@ class BeginnerFlowSession:
             ),
             "generation_settings": self.generation_settings.to_safe_dict(),
             "source_type": self.source_type.value,
+            "intelligence_level": self.intelligence_level.value,
+            "document_artifact_revision": self.document_artifact_revision,
+            "parsed_document_count": len(self.parsed_documents),
+            "document_analysis_count": len(self.document_analyses),
+            "document_chunk_count": len(self.document_chunks),
+            "knowledge_plan_present": self.knowledge_plan is not None,
+            "intelligence_estimate_present": self.intelligence_estimate is not None,
+            "intelligence_run_present": self.intelligence_run is not None,
             "quality_result_count": len(self.candidate_quality_results),
             "quality_warning_count": sum(
                 item.warning_count for item in self.candidate_quality_results.values()

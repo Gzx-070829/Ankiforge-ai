@@ -336,7 +336,7 @@ Auto routing returns template ID, confidence, reason code, and source
 constraints from analysis, block kinds, and point type. A user-selected mode
 always overrides Auto.
 
-| Level | Default behavior | Estimated call policy |
+| Level | Default behavior | Call policy envelope |
 | --- | --- | --- |
 | Fast | local analysis/chunking/planning, grouped generation, deterministic quality/dedup | 1–3 calls, no critic/repair |
 | Standard (default) | one planner call, bounded grouped generation, quality, coverage, dedup | 3–8 calls; at most one blocking-card repair if enabled |
@@ -344,6 +344,12 @@ always overrides Auto.
 
 Standard/Deep show chunk count, call range, and card-count estimate and require
 confirmation before the first call. No currency estimate is shown.
+
+The table ranges are policy envelopes, not hard paid-call minimums. The UI
+also shows the plan-specific mandatory count: grouped generation batches plus
+planner for Standard, and plus planner and critic for Deep. Small inputs may
+complete below the envelope's lower bound, and the runtime never makes dummy
+calls merely to satisfy that lower bound.
 
 ## 12. Generation lifecycle, partial failure, and budget
 
@@ -400,7 +406,11 @@ Create remains progressively disclosed:
 - Auto recommendation;
 - Fast/Standard/Deep selector;
 - plan/call/card estimate;
-- one explicit Generate action and stage progress.
+- one explicit Generate action and bounded-run progress.
+
+The immutable run records every internal stage. The v0.14 Qt integration shows
+coarse in-progress copy and the terminal stage; live per-stage delivery is
+deferred rather than sending worker-thread callbacks directly to widgets.
 
 Each queue row shows safe filename, detected type, importer, status, structural
 counts, extracted characters, warning, remove, reorder, and retry. It never

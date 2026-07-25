@@ -80,21 +80,39 @@ def create_failed_chunk_retry(
     retry_id: str,
 ) -> FailedChunkRetry:
     _validate_run(run)
-    failed_ids = tuple(
-        item
-        for item in run.failed_chunk_ids
-        if item not in run.retry_scheduled_chunk_ids
-    )
+    failed_ids = _unscheduled_failed_chunk_ids(run)
     if not failed_ids:
         if run.failed_chunk_ids:
             raise ValueError("retry_already_scheduled")
         raise ValueError("no_failed_chunks")
+    if run.call_budget.remaining_calls < len(failed_ids):
+        raise ValueError("retry_call_budget_insufficient")
     return FailedChunkRetry(
         retry_id=retry_id,
         source_run_id=run.run_id,
         source_request_id=run.request_id,
         chunk_ids=failed_ids,
         source_call_count=run.call_budget.call_count,
+    )
+
+
+def failed_chunk_retry_is_available(run: GenerationRun) -> bool:
+    try:
+        _validate_run(run)
+    except (TypeError, ValueError):
+        return False
+    failed_ids = _unscheduled_failed_chunk_ids(run)
+    return bool(
+        failed_ids
+        and run.call_budget.remaining_calls >= len(failed_ids)
+    )
+
+
+def _unscheduled_failed_chunk_ids(run: GenerationRun) -> tuple[str, ...]:
+    return tuple(
+        item
+        for item in run.failed_chunk_ids
+        if item not in run.retry_scheduled_chunk_ids
     )
 
 
