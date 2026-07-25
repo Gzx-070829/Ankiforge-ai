@@ -8,6 +8,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from xml.etree import ElementTree
 
+from ankiforge_ai.document import (
+    DEFAULT_DOCUMENT_LIMITS,
+    DocumentImportError,
+    document_to_plain_text,
+)
+from ankiforge_ai.document.archive_safety import open_validated_archive
+from ankiforge_ai.document.importers.registry import create_native_importer_registry
+from ankiforge_ai.document.importers.text import (
+    make_document,
+    paragraph_blocks,
+)
+from ankiforge_ai.document.models import DocumentSection
+from ankiforge_ai.document.source_labels import get_safe_source_label
+
 
 TEXT_FILE_SIZE_LIMIT = 5 * 1024 * 1024
 DOCUMENT_FILE_SIZE_LIMIT = 10 * 1024 * 1024
@@ -59,12 +73,109 @@ def import_source_file(path: Path) -> ImportedSource:
     if suffix not in SUPPORTED_SUFFIXES:
         raise SourceImportError("unsupported_type", source_path.name)
     if suffix == ".txt":
-        return import_text_file(source_path)
+        return _import_text_via_document_ir(source_path)
     if suffix in {".md", ".markdown"}:
-        return import_markdown_file(source_path)
+        return _import_markdown_via_document_ir(source_path)
     if suffix == ".docx":
-        return import_docx_file(source_path)
+        return _import_docx_via_document_ir(source_path)
     return import_pdf_file(source_path)
+
+
+def _document_error_to_legacy(
+    error: DocumentImportError, path: Path
+) -> SourceImportError:
+    mapping = {
+        "empty_file": "empty_file",
+        "file_too_large": "file_too_large",
+        "document_too_complex": "file_too_large",
+        "file_unavailable": "read_failed",
+    }
+    return SourceImportError(mapping.get(error.code, "read_failed"), path.name)
+
+
+def _source_from_document(path: Path, document, text: str, warnings=()):
+    default_title = Path(document.source_label).stem
+    return ImportedSource(
+        filename=path.name,
+        suffix=path.suffix.casefold(),
+        text=text,
+        char_count=len(text),
+        warnings=tuple(warnings),
+        source_label=(
+            document.title
+            if document.source_type == "markdown"
+            and document.title != default_title
+            else document.source_label
+        ),
+    )
+
+
+def _legacy_text_document(path: Path, text: str):
+    label = get_safe_source_label(path)
+    section = DocumentSection(
+        section_id="section-00001",
+        heading=None,
+        blocks=paragraph_blocks(text, label),
+    )
+    return make_document(path, "text", text, (section,))
+
+
+def _import_text_via_document_ir(path: Path) -> ImportedSource:
+    _ensure_size(path, TEXT_FILE_SIZE_LIMIT)
+    try:
+        document = create_native_importer_registry().import_document(path)
+    except DocumentImportError as error:
+        if error.code not in {"binary_file", "binary_extension_mismatch"}:
+            raise _document_error_to_legacy(error, path) from None
+        imported = _import_utf8_text(path, expected_suffixes={".txt"})
+        document = _legacy_text_document(path, imported.text)
+        return _source_from_document(
+            path, document, imported.text, imported.warnings
+        )
+    imported = _import_utf8_text(path, expected_suffixes={".txt"})
+    return _source_from_document(path, document, imported.text, imported.warnings)
+
+
+def _import_markdown_via_document_ir(path: Path) -> ImportedSource:
+    _ensure_size(path, TEXT_FILE_SIZE_LIMIT)
+    try:
+        document = create_native_importer_registry().import_document(path)
+    except DocumentImportError as error:
+        raise _document_error_to_legacy(error, path) from None
+    imported = import_markdown_file(path)
+    return _source_from_document(path, document, imported.text, imported.warnings)
+
+
+def _import_docx_via_document_ir(path: Path) -> ImportedSource:
+    _ensure_size(path, DOCUMENT_FILE_SIZE_LIMIT)
+    try:
+        with open_validated_archive(path, DEFAULT_DOCUMENT_LIMITS) as archive:
+            has_document = archive.contains("word/document.xml")
+            has_content_types = archive.contains("[Content_Types].xml")
+    except DocumentImportError as error:
+        raise _docx_document_error_to_legacy(error, path) from None
+    if not has_document:
+        raise SourceImportError("docx_missing_document", path.name)
+    if not has_content_types:
+        return import_docx_file(path)
+    try:
+        document = create_native_importer_registry().import_document(
+            path, DEFAULT_DOCUMENT_LIMITS
+        )
+    except DocumentImportError as error:
+        raise _docx_document_error_to_legacy(error, path) from None
+    text = document_to_plain_text(document).strip()
+    if not text:
+        raise SourceImportError("empty_file", path.name)
+    return _source_from_document(path, document, text, ("docx_text_only",))
+
+
+def _docx_document_error_to_legacy(
+    error: DocumentImportError, path: Path
+) -> SourceImportError:
+    if error.code in {"file_too_large", "document_too_complex"}:
+        return SourceImportError("file_too_large", path.name)
+    return SourceImportError("docx_invalid", path.name)
 
 
 def import_text_file(path: Path) -> ImportedSource:

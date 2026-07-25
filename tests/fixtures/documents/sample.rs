@@ -1,0 +1,2 @@
+// comment
+fn main() {}

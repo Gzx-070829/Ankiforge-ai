@@ -23,6 +23,7 @@ from .serialization import (
 )
 from .source_labels import get_safe_source_label
 from .registry import DocumentImporterRegistry
+from .importers.registry import create_native_importer_registry, import_documents
 
 __all__ = [
     "BlockKind",
@@ -42,6 +43,7 @@ __all__ = [
     "SourceLocation",
     "SupportLevel",
     "count_blocks_by_kind",
+    "create_native_importer_registry",
     "detect_file_type",
     "document_from_safe_json",
     "document_summary",
@@ -49,5 +51,6 @@ __all__ = [
     "document_to_safe_json",
     "document_to_safe_markdown",
     "get_safe_source_label",
+    "import_documents",
     "validate_document_ir",
 ]

@@ -18,6 +18,7 @@ _XML_ROOT = re.compile(
     r"^\s*(?:<\?xml[^>]*\?>\s*)?<([A-Za-z_][A-Za-z0-9_.:-]*)",
     re.DOTALL,
 )
+_HTML5_DOCTYPE = re.compile(r"^\s*<!doctype\s+html\s*>\s*", re.IGNORECASE)
 _TEXT_EXTENSIONS: Dict[str, str] = {
     ".txt": "text",
     ".log": "text",
@@ -207,6 +208,8 @@ def _inspect_zip(
             canonical_names = set()
             for info in infos:
                 normalized = info.filename.replace("\\", "/")
+                if info.flag_bits & 0x1:
+                    raise _error("encrypted_archive_member")
                 if (
                     normalized.startswith("/")
                     or re.match(r"^[A-Za-z]:/", normalized)
@@ -254,7 +257,7 @@ def _inspect_zip(
             return _detected("zip", extension, is_text=False, confidence="medium")
     except DocumentImportError:
         raise
-    except (OSError, zipfile.BadZipFile, KeyError):
+    except (OSError, RuntimeError, zipfile.BadZipFile, KeyError):
         raise _error("invalid_archive") from None
 
 
@@ -291,13 +294,23 @@ def _detect_xml(
     lowered = text.lstrip().lower()
     if not lowered.startswith("<"):
         return None
-    if "<!doctype" in lowered or "<!entity" in lowered:
+    if "<!entity" in lowered:
         raise _error("unsafe_xml")
-    match = _XML_ROOT.match(text)
+    html5_doctype = _HTML5_DOCTYPE.match(text)
+    candidate = text[html5_doctype.end() :] if html5_doctype else text
+    strict_xml = extension in {".xml", ".xhtml"}
+    if "<!doctype" in lowered and (html5_doctype is None or strict_xml):
+        raise _error("unsafe_xml")
+    match = _XML_ROOT.match(candidate)
     if not match:
         if extension in {".xml", ".html", ".htm", ".xhtml"}:
             raise _error("malformed_file")
         return None
+    root = match.group(1).split(":")[-1].lower()
+    if root == "html" and not strict_xml:
+        return _detected("html", extension, is_text=True, encoding=encoding)
+    if html5_doctype is not None:
+        raise _error("unsafe_xml")
     if complete:
         try:
             ElementTree.fromstring(text)
@@ -305,7 +318,6 @@ def _detect_xml(
             if extension in {".xml", ".html", ".htm", ".xhtml"}:
                 raise _error("malformed_file") from None
             return None
-    root = match.group(1).split(":")[-1].lower()
     file_type = "html" if root == "html" else "xml"
     return _detected(file_type, extension, is_text=True, encoding=encoding)
 

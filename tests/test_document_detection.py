@@ -116,6 +116,33 @@ class DocumentDetectionTests(unittest.TestCase):
         self.assertEqual(detected.media_type, "application/epub+zip")
         self.assertFalse(detected.is_text)
 
+    def test_encrypted_epub_member_has_structured_error_before_signature_read(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "encrypted.epub"
+            with zipfile.ZipFile(path, "w") as archive:
+                archive.writestr("mimetype", "application/epub+zip")
+                archive.writestr("META-INF/container.xml", "<container />")
+            payload = bytearray(path.read_bytes())
+            member = b"mimetype"
+            local = payload.find(b"PK\x03\x04")
+            central = payload.find(b"PK\x01\x02")
+            self.assertGreaterEqual(local, 0)
+            self.assertGreaterEqual(central, 0)
+            self.assertIn(member, payload)
+            payload[local + 6 : local + 8] = (
+                int.from_bytes(payload[local + 6 : local + 8], "little") | 1
+            ).to_bytes(2, "little")
+            payload[central + 8 : central + 10] = (
+                int.from_bytes(payload[central + 8 : central + 10], "little") | 1
+            ).to_bytes(2, "little")
+            path.write_bytes(payload)
+
+            with self.assertRaises(DocumentImportError) as raised:
+                detect_file_type(path)
+
+        self.assertEqual(raised.exception.code, "encrypted_archive_member")
+        self.assertIsNone(raised.exception.__cause__)
+
     def test_archive_member_count_is_bounded_before_signature_selection(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "many.docx"
@@ -168,6 +195,22 @@ class DocumentDetectionTests(unittest.TestCase):
                 with self.binary_file(filename, payload) as path:
                     detected = detect_file_type(path)
                 self.assertEqual(detected.file_type, expected)
+
+    def test_html5_void_elements_route_to_htmlparser_while_xhtml_stays_strict(self):
+        html5 = (
+            b"<!doctype html><html><body><img src='local.png'>"
+            b"<p>HTML5 paragraph</body></html>"
+        )
+        for filename in ("page.html", "page.htm", "page.data"):
+            with self.subTest(filename=filename):
+                with self.binary_file(filename, html5) as path:
+                    detected = detect_file_type(path)
+                self.assertEqual(detected.file_type, "html")
+
+        with self.binary_file("page.xhtml", html5) as path:
+            with self.assertRaises(DocumentImportError) as raised:
+                detect_file_type(path)
+        self.assertEqual(raised.exception.code, "unsafe_xml")
 
     def test_empty_malformed_json_xml_and_zip_have_structured_errors(self):
         cases = (
