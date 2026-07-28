@@ -246,6 +246,9 @@ class CardMakerPanel(QWidget):
         self.material_title_label.setText(self.t("material_section"))
         self.material_help_label.setText(self.t("material_help"))
         self.material_input.setPlaceholderText(self.t("material_placeholder"))
+        self.material_import_hint_label.setText(
+            self.t("material_import_hint")
+        )
         self.choose_file_btn.setText(self.t("choose_file"))
         self.example_btn.setText(self.t("use_example"))
         self.document_capabilities_btn.setText(
@@ -639,9 +642,26 @@ class CardMakerPanel(QWidget):
         )
         self.material_input.setObjectName("MaterialDropArea")
         self.material_input.setPlaceholderText(self.t("material_placeholder"))
-        self.material_input.setMinimumHeight(220)
+        self.material_input.setMinimumHeight(240)
         self.material_input.textChanged.connect(self._on_material_changed)
         layout.addWidget(self.material_input, 1)
+
+        self.material_import_row = QFrame()
+        self.material_import_row.setObjectName("MaterialImportRow")
+        import_row = QHBoxLayout(self.material_import_row)
+        import_row.setContentsMargins(0, 0, 0, 0)
+        import_row.setSpacing(SPACING_SM)
+        self.material_import_hint_label = QLabel(
+            self.t("material_import_hint")
+        )
+        self.material_import_hint_label.setProperty("role", "secondary")
+        self.material_import_hint_label.setWordWrap(True)
+        self.choose_file_btn = QPushButton(self.t("choose_file"))
+        self._configure_secondary_button(self.choose_file_btn)
+        self.choose_file_btn.clicked.connect(self._choose_source_file)
+        import_row.addWidget(self.material_import_hint_label, 1)
+        import_row.addWidget(self.choose_file_btn)
+        layout.addWidget(self.material_import_row)
 
         self.document_queue_container = QWidget()
         self.document_queue_layout = QVBoxLayout(self.document_queue_container)
@@ -672,9 +692,6 @@ class CardMakerPanel(QWidget):
         layout.addWidget(self.material_import_warning_label)
 
         actions = QHBoxLayout()
-        self.choose_file_btn = QPushButton(self.t("choose_file"))
-        self._configure_secondary_button(self.choose_file_btn)
-        self.choose_file_btn.clicked.connect(self._choose_source_file)
         self.example_btn = QPushButton(self.t("use_example"))
         self._configure_secondary_button(self.example_btn)
         self.example_btn.clicked.connect(self._show_example_menu)
@@ -687,7 +704,6 @@ class CardMakerPanel(QWidget):
         )
         self.material_count_label = QLabel(self.t("character_count", count=0))
         self.material_count_label.setProperty("role", "muted")
-        actions.addWidget(self.choose_file_btn)
         actions.addWidget(self.example_btn)
         actions.addWidget(self.document_capabilities_btn)
         actions.addStretch()
@@ -729,22 +745,6 @@ class CardMakerPanel(QWidget):
             self.card_mode_label,
             self.card_mode_combo,
         )
-        self.intelligence_level_label = self._make_form_label(
-            self.t("intelligence_level")
-        )
-        self.intelligence_level_combo = QComboBox()
-        for level, key in (
-            (IntelligenceLevel.FAST, "intelligence_fast"),
-            (IntelligenceLevel.STANDARD, "intelligence_standard"),
-            (IntelligenceLevel.DEEP, "intelligence_deep"),
-        ):
-            self.intelligence_level_combo.addItem(self.t(key), level.value)
-        self.intelligence_level_combo.setCurrentIndex(1)
-        self._add_form_row(
-            mode_form,
-            self.intelligence_level_label,
-            self.intelligence_level_combo,
-        )
         layout.addLayout(mode_form)
 
         self.card_mode_description_label = QLabel()
@@ -758,19 +758,95 @@ class CardMakerPanel(QWidget):
         )
         layout.addWidget(self.card_mode_description_label)
 
+        self.generation_settings_btn = QPushButton(
+            self.t("more_options")
+        )
+        self.generation_settings_btn.setProperty("role", "subtle")
+        self.generation_settings_btn.setCheckable(True)
+        self.generation_settings_btn.setFlat(True)
+        self.generation_settings_btn.toggled.connect(
+            self._toggle_generation_settings
+        )
+        layout.addWidget(self.generation_settings_btn)
+
+        self.generation_settings_container = QFrame()
+        self.generation_settings_container.setObjectName(
+            "GenerationSettingsDisclosure"
+        )
+        advanced_layout = QVBoxLayout(self.generation_settings_container)
+        advanced_layout.setContentsMargins(0, 0, 0, 0)
+        advanced_layout.setSpacing(SPACING_SM)
+        advanced_form = QFormLayout()
+        self._configure_form_layout(advanced_form)
+        self.intelligence_level_label = self._make_form_label(
+            self.t("intelligence_level")
+        )
+        self.intelligence_level_combo = QComboBox()
+        for level, key in (
+            (IntelligenceLevel.FAST, "intelligence_fast"),
+            (IntelligenceLevel.STANDARD, "intelligence_standard"),
+            (IntelligenceLevel.DEEP, "intelligence_deep"),
+        ):
+            self.intelligence_level_combo.addItem(self.t(key), level.value)
+        self.intelligence_level_combo.setCurrentIndex(1)
+        self._add_form_row(
+            advanced_form,
+            self.intelligence_level_label,
+            self.intelligence_level_combo,
+        )
+        self.card_count_combo = QComboBox()
+        for value, key in (
+            ("auto", "card_count_auto"),
+            ("fewer", "card_count_fewer"),
+            ("balanced", "card_count_balanced"),
+            ("more", "card_count_more"),
+        ):
+            self.card_count_combo.addItem(self.t(key), value)
+        self.card_count_combo.setCurrentIndex(2)
+        self.card_count_label = self._make_form_label(self.t("card_count"))
+        self._add_form_row(
+            advanced_form,
+            self.card_count_label,
+            self.card_count_combo,
+        )
+        self.answer_length_combo = QComboBox()
+        self.answer_length_combo.addItem(self.t("answer_length_short"), "short")
+        self.answer_length_combo.addItem(self.t("answer_length_medium"), "medium")
+        self.answer_length_label = self._make_form_label(
+            self.t("answer_length")
+        )
+        self._add_form_row(
+            advanced_form,
+            self.answer_length_label,
+            self.answer_length_combo,
+        )
+        self.output_language_combo = QComboBox()
+        self.output_language_combo.addItem(self.t("output_language_auto"), "auto")
+        self.output_language_combo.addItem(self.t("output_language_zh"), "zh")
+        self.output_language_combo.addItem(self.t("output_language_en"), "en")
+        self.output_language_label = self._make_form_label(
+            self.t("output_language")
+        )
+        self._add_form_row(
+            advanced_form,
+            self.output_language_label,
+            self.output_language_combo,
+        )
+        advanced_layout.addLayout(advanced_form)
+
         self.intelligence_estimate_label = QLabel(
             self.t("intelligence_estimate_pending")
         )
         self.intelligence_estimate_label.setProperty("role", "status")
         self.intelligence_estimate_label.setWordWrap(True)
-        layout.addWidget(self.intelligence_estimate_label)
+        advanced_layout.addWidget(self.intelligence_estimate_label)
 
         self.plan_detail_btn = QPushButton(self.t("plan_details"))
         self.plan_detail_btn.setProperty("role", "subtle")
         self.plan_detail_btn.setCheckable(True)
         self.plan_detail_btn.setFlat(True)
         self.plan_detail_btn.toggled.connect(self._toggle_plan_details)
-        layout.addWidget(self.plan_detail_btn)
+        advanced_layout.addWidget(self.plan_detail_btn)
         self.plan_detail_container = QWidget()
         plan_detail_layout = QVBoxLayout(self.plan_detail_container)
         plan_detail_layout.setContentsMargins(
@@ -784,60 +860,7 @@ class CardMakerPanel(QWidget):
         self.plan_detail_label.setWordWrap(True)
         plan_detail_layout.addWidget(self.plan_detail_label)
         self.plan_detail_container.setVisible(False)
-        layout.addWidget(self.plan_detail_container)
-
-        self.generation_settings_btn = QPushButton(
-            self.t("more_options")
-        )
-        self.generation_settings_btn.setProperty("role", "subtle")
-        self.generation_settings_btn.setCheckable(True)
-        self.generation_settings_btn.setFlat(True)
-        self.generation_settings_btn.toggled.connect(
-            self._toggle_generation_settings
-        )
-        layout.addWidget(self.generation_settings_btn)
-
-        self.generation_settings_container = QWidget()
-        generation_form = QFormLayout(self.generation_settings_container)
-        self._configure_form_layout(generation_form)
-        self.card_count_combo = QComboBox()
-        for value, key in (
-            ("auto", "card_count_auto"),
-            ("fewer", "card_count_fewer"),
-            ("balanced", "card_count_balanced"),
-            ("more", "card_count_more"),
-        ):
-            self.card_count_combo.addItem(self.t(key), value)
-        self.card_count_combo.setCurrentIndex(2)
-        self.card_count_label = self._make_form_label(self.t("card_count"))
-        self._add_form_row(
-            generation_form,
-            self.card_count_label,
-            self.card_count_combo,
-        )
-        self.answer_length_combo = QComboBox()
-        self.answer_length_combo.addItem(self.t("answer_length_short"), "short")
-        self.answer_length_combo.addItem(self.t("answer_length_medium"), "medium")
-        self.answer_length_label = self._make_form_label(
-            self.t("answer_length")
-        )
-        self._add_form_row(
-            generation_form,
-            self.answer_length_label,
-            self.answer_length_combo,
-        )
-        self.output_language_combo = QComboBox()
-        self.output_language_combo.addItem(self.t("output_language_auto"), "auto")
-        self.output_language_combo.addItem(self.t("output_language_zh"), "zh")
-        self.output_language_combo.addItem(self.t("output_language_en"), "en")
-        self.output_language_label = self._make_form_label(
-            self.t("output_language")
-        )
-        self._add_form_row(
-            generation_form,
-            self.output_language_label,
-            self.output_language_combo,
-        )
+        advanced_layout.addWidget(self.plan_detail_container)
         self.generation_settings_container.setVisible(False)
         layout.addWidget(self.generation_settings_container)
         self.card_mode_combo.currentIndexChanged.connect(

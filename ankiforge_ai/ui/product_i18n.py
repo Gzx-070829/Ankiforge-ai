@@ -42,6 +42,7 @@ PRODUCT_COPY = {
         "material_help": "粘贴材料，或导入 Markdown / TXT / DOCX。",
         "first_run_guidance": "第一次使用？可以先试试示例材料，并写入测试牌组。",
         "material_placeholder": "粘贴学习材料，或拖入文件",
+        "material_import_hint": "也可拖入 TXT、MD 或 DOCX 文件",
         "choose_file": "选择文件",
         "source_file_filter": (
             "支持的文档 (*.txt *.log *.md *.markdown *.html *.htm *.xhtml "
@@ -147,8 +148,8 @@ PRODUCT_COPY = {
             "不会自动重试。"
         ),
         "generation_settings_collapse": "收起生成设置",
-        "more_options": "更多选项",
-        "more_options_collapse": "收起选项",
+        "more_options": "生成设置（可选）",
+        "more_options_collapse": "收起生成设置",
         "generation_settings_help": "按需要调整；默认设置适合大多数材料。",
         "card_count": "卡片数量",
         "card_count_auto": "自动",
@@ -332,6 +333,7 @@ PRODUCT_COPY = {
         "material_help": "Paste material, or import Markdown / TXT / DOCX.",
         "first_run_guidance": "New here? Try the example material and write to a test deck first.",
         "material_placeholder": "Paste study material, or drop a file",
+        "material_import_hint": "You can also drop a TXT, MD, or DOCX file",
         "choose_file": "Choose file",
         "source_file_filter": (
             "Supported documents (*.txt *.log *.md *.markdown *.html *.htm "
@@ -473,8 +475,8 @@ PRODUCT_COPY = {
             "after confirmation; there is no automatic retry."
         ),
         "generation_settings_collapse": "Hide Generation Settings",
-        "more_options": "More options",
-        "more_options_collapse": "Hide options",
+        "more_options": "Generation settings (optional)",
+        "more_options_collapse": "Hide generation settings",
         "generation_settings_help": "Adjust when needed; the defaults suit most material.",
         "card_count": "Card count",
         "card_count_auto": "Auto",
