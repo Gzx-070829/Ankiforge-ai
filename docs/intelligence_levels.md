@@ -1,0 +1,3 @@
+# Intelligence levels (v0.14.0)
+
+Fast, Standard, and Deep have historical policy envelopes, with a hard ceiling of 12 calls; these ranges are not a mandatory per-run estimate. The UI shows the selected plan's specific required calls plus its ceiling, and the balanced plan hard-caps candidates at five. Imported documents use bounded local analysis, chunking, and planning before generation. Manually pasted material remains the legacy one-call flow. No level automatically retries a Provider request; a failed generation chunk may be retried only once by an explicit user action where the UI supports it.

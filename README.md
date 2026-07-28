@@ -1,5 +1,9 @@
 # AnkiForge AI
 
+## v0.14.0：通用文档与智能引擎
+
+v0.14.0 在本地将用户明确选择的学习文件转换为 DocumentIR，再进行结构分析、切块、知识规划与候选卡审核。原生支持常见文本、Office Open XML、表格、HTML、JSON/XML、Notebook、EPUB、字幕和安全代码文本；PDF 仍仅提供 fallback 或用户另行安装的本地 backend。不会自动安装、下载或上传文件。只有用户点击 Generate 后，所选生成材料才会发送给其配置的 Provider；所有候选卡仍须人工审核、查重和最终确认。
+
 把自己的学习材料变成可审核、可安全写入的 Anki 卡片。
 
 [English](README.en.md)
@@ -8,7 +12,7 @@
 
 AnkiForge AI 是一个本地优先、中文优先的 AI 制卡工作台。你提供材料、选择学习目标，AI 只生成候选卡；本地质量检查和人工审核完成后，插件才会进入重复检查、写入预览和最终确认。
 
-当前候选版本：`v0.13.2-product-grade-preview`。
+当前候选版本：`v0.14.0` feature branch / release candidate（尚未发布到 AnkiWeb）。
 
 ## 快速安装
 
@@ -32,7 +36,7 @@ git clone https://github.com/Gzx-070829/Ankiforge-ai.git
 ## 第一次制卡
 
 1. 在右上角打开 **AI 设置**，选择 Provider 和 Model，输入自己的 API key。
-2. 粘贴材料，或导入 Markdown / TXT / DOCX；也可以先使用内置示例。
+2. 粘贴材料，或导入 v0.14 支持的本地文档；也可以先使用内置示例。
 3. 选择卡片模式和生成设置，主动点击生成。
 4. 逐张编辑、保留或丢弃候选卡。blocking 卡必须先修正或丢弃。
 5. 选择已有牌组、笔记类型和字段映射，执行重复检查。
@@ -42,8 +46,8 @@ git clone https://github.com/Gzx-070829/Ankiforge-ai.git
 
 ## 产品能力
 
-- 粘贴文本，以及 Markdown / TXT / DOCX 选择和拖拽导入
-- PDF 安全 fallback：当前不做 OCR，也不提取 PDF 正文
+- 粘贴文本，以及 Markdown/TXT、Office、表格、HTML/JSON/XML、Notebook、EPUB、字幕与安全代码文件的选择/拖拽导入
+- PDF 安全 fallback；也可在“支持能力”中为本次会话明确选择已安装的 Docling / MarkItDown 本地后端，当前不内置 OCR
 - DeepSeek 与 OpenAI-compatible Provider；AI 设置留在独立 Modal
 - `concept`、`definition`、`exam`、`quick_review`、`compare_contrast`、`process_steps`、`formula_rule` 和 `mistake_trap` 八种公开模式；Cloze 仅保留内部 fail-closed 兼容检查，当前 UI 不开放
 - 模板感知的生成提示，以及卡片数量、答案长度和输出语言控制
@@ -70,6 +74,8 @@ git clone https://github.com/Gzx-070829/Ankiforge-ai.git
 
 - [安装与首次使用](docs/getting_started.md)
 - [导入学习材料](docs/importing_materials.md)
+- [原生支持格式与边界](docs/native_supported_formats.md)
+- [可选本地文档后端](docs/optional_document_backends.md)
 - [卡片模式与模板](docs/card_modes_and_templates.md)
 - [卡片质量系统](docs/card_quality_system.md)
 - [审核工作台](docs/review_workbench.md)

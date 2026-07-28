@@ -1,0 +1,2 @@
+# comment
+Write-Output safe

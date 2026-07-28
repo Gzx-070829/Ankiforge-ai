@@ -42,12 +42,40 @@ PRODUCT_COPY = {
         "material_help": "粘贴材料，或导入 Markdown / TXT / DOCX。",
         "first_run_guidance": "第一次使用？可以先试试示例材料，并写入测试牌组。",
         "material_placeholder": "粘贴学习材料，或拖入文件",
+        "material_import_hint": "也可拖入 TXT、MD 或 DOCX 文件",
         "choose_file": "选择文件",
         "source_file_filter": (
-            "支持的文件 (*.md *.markdown *.txt *.docx *.pdf);;"
-            "Markdown (*.md *.markdown);;文本 (*.txt);;"
-            "Word 文档 (*.docx);;PDF (*.pdf)"
+            "支持的文档 (*.txt *.log *.md *.markdown *.html *.htm *.xhtml "
+            "*.csv *.tsv *.json *.jsonl *.xml *.ipynb *.srt *.vtt *.docx "
+            "*.pptx *.xlsx *.epub *.yaml *.yml *.rst *.org *.tex *.latex "
+            "*.py *.js *.ts *.java *.c *.h *.cpp *.cc *.hpp *.rs *.go *.sql *.sh "
+            "*.ps1 *.pdf);;所有文件 (*)"
         ),
+        "document_capabilities": "支持能力",
+        "document_queue_empty": "尚未选择文档",
+        "document_queue_status_queued": "等待导入",
+        "document_queue_status_importing": "正在导入",
+        "document_queue_status_success": "已导入",
+        "document_queue_status_warning": "已导入，有提醒",
+        "document_queue_status_failure": "导入失败",
+        "document_queue_row": (
+            "{filename} · {status} · {type} · {importer} · "
+            "{sections} 节 / {blocks} 块 / {chars} 字符"
+        ),
+        "remove_document": "移除",
+        "move_document_up": "上移",
+        "move_document_down": "下移",
+        "retry_failed_imports": "仅重试失败文件",
+        "retry_failed_generation": "仅重试失败分块",
+        "retry_generation_confirmation_title": "确认重试失败分块",
+        "retry_generation_confirmation_body": (
+            "本次最多再调用 AI {calls} 次，并且最多补充 {cards} 张卡片。"
+            "只会重试失败分块，继续吗？"
+        ),
+        "document_imported_batch": "已解析 {count} 个文档；不会自动调用 AI。",
+        "document_queue_error_too_many_files": "一次最多选择 20 个文件。",
+        "document_queue_error_batch_too_large": "所选文件总大小超过 25 MiB。",
+        "document_queue_error_file_unavailable": "无法读取所选文件，请重新选择。",
         "use_example": "使用示例",
         "character_count": "{count} 字符",
         "source_imported": "已导入 {filename} · {kind} · {count} 字符",
@@ -103,9 +131,25 @@ PRODUCT_COPY = {
         "mode_quick_review": "快速回顾",
         "mode_quick_review_description": "短问短答，一卡一事实",
         "generation_settings": "生成设置",
+        "intelligence_level": "智能级别",
+        "intelligence_fast": "快速",
+        "intelligence_standard": "标准",
+        "intelligence_deep": "深度",
+        "intelligence_estimate_pending": "解析文档后显示分块、调用与卡片估算。",
+        "paste_generation_behavior": (
+            "粘贴文本使用 1 次有界卡片生成调用；"
+            "Fast / Standard / Deep 仅在导入文档后启用。"
+        ),
+        "plan_details": "查看计划详情",
+        "plan_details_collapse": "收起计划详情",
+        "intelligence_confirmation_title": "确认开始有界 AI 生成",
+        "intelligence_confirmation_body": (
+            "{level} 模式预计 {estimate}。确认后才会开始首次 AI 调用；"
+            "不会自动重试。"
+        ),
         "generation_settings_collapse": "收起生成设置",
-        "more_options": "更多选项",
-        "more_options_collapse": "收起选项",
+        "more_options": "生成设置（可选）",
+        "more_options_collapse": "收起生成设置",
         "generation_settings_help": "按需要调整；默认设置适合大多数材料。",
         "card_count": "卡片数量",
         "card_count_auto": "自动",
@@ -126,6 +170,17 @@ PRODUCT_COPY = {
         "generate_cards": "生成卡片",
         "regenerate_cards": "重新生成",
         "generation_running": "正在生成…",
+        "document_run_in_progress": (
+            "文档有界运行进行中；这里会显示规划、生成与本地检查阶段。"
+        ),
+        "generation_group_progress": "生成分组 {completed}/{total}",
+        "document_import_in_progress": (
+            "请等待队列中的全部文档完成导入，再生成卡片。"
+        ),
+        "document_batch_too_complex": (
+            "合并后的文档超过单次运行上限（最多 48 个分块、96 个知识点）。"
+            "请移除部分文档或拆成多批生成。"
+        ),
         "generation_requirements": "请先添加材料并配置 AI。",
         "material_too_long": "材料过长，请拆分后再生成。",
         "generation_failed": "生成失败，请检查 API key、模型或网络后重试。",
@@ -278,11 +333,45 @@ PRODUCT_COPY = {
         "material_help": "Paste material, or import Markdown / TXT / DOCX.",
         "first_run_guidance": "New here? Try the example material and write to a test deck first.",
         "material_placeholder": "Paste study material, or drop a file",
+        "material_import_hint": "You can also drop a TXT, MD, or DOCX file",
         "choose_file": "Choose file",
         "source_file_filter": (
-            "Supported files (*.md *.markdown *.txt *.docx *.pdf);;"
-            "Markdown (*.md *.markdown);;Text (*.txt);;"
-            "Word documents (*.docx);;PDF (*.pdf)"
+            "Supported documents (*.txt *.log *.md *.markdown *.html *.htm "
+            "*.xhtml *.csv *.tsv *.json *.jsonl *.xml *.ipynb *.srt *.vtt "
+            "*.docx *.pptx *.xlsx *.epub *.yaml *.yml *.rst *.org *.tex "
+            "*.latex *.py *.js *.ts *.java *.c *.h *.cpp *.cc *.hpp *.rs *.go "
+            "*.sql *.sh *.ps1 *.pdf);;All files (*)"
+        ),
+        "document_capabilities": "Capabilities",
+        "document_queue_empty": "No documents selected",
+        "document_queue_status_queued": "Queued",
+        "document_queue_status_importing": "Importing",
+        "document_queue_status_success": "Imported",
+        "document_queue_status_warning": "Imported with warnings",
+        "document_queue_status_failure": "Import failed",
+        "document_queue_row": (
+            "{filename} · {status} · {type} · {importer} · "
+            "{sections} sections / {blocks} blocks / {chars} characters"
+        ),
+        "remove_document": "Remove",
+        "move_document_up": "Move up",
+        "move_document_down": "Move down",
+        "retry_failed_imports": "Retry failed files only",
+        "retry_failed_generation": "Retry failed generation chunks only",
+        "retry_generation_confirmation_title": "Confirm failed-chunk retry",
+        "retry_generation_confirmation_body": (
+            "This can make up to {calls} more AI calls and add at most "
+            "{cards} cards. Only failed chunks are retried. Continue?"
+        ),
+        "document_imported_batch": (
+            "Parsed {count} documents; AI will not start automatically."
+        ),
+        "document_queue_error_too_many_files": "Select no more than 20 files at once.",
+        "document_queue_error_batch_too_large": (
+            "The selected files exceed the 25 MiB batch limit."
+        ),
+        "document_queue_error_file_unavailable": (
+            "A selected file could not be read. Select it again."
         ),
         "use_example": "Use Example",
         "character_count": "{count} characters",
@@ -367,9 +456,27 @@ PRODUCT_COPY = {
         "mode_quick_review": "Quick Review",
         "mode_quick_review_description": "Short question, short answer, one fact per card",
         "generation_settings": "Generation Settings",
+        "intelligence_level": "Intelligence",
+        "intelligence_fast": "Fast",
+        "intelligence_standard": "Standard",
+        "intelligence_deep": "Deep",
+        "intelligence_estimate_pending": (
+            "Parse documents to see chunk, call, and card estimates."
+        ),
+        "paste_generation_behavior": (
+            "Pasted text uses one bounded card-generation call; "
+            "Fast / Standard / Deep apply after document import."
+        ),
+        "plan_details": "View plan details",
+        "plan_details_collapse": "Hide plan details",
+        "intelligence_confirmation_title": "Confirm bounded AI generation",
+        "intelligence_confirmation_body": (
+            "{level} is estimated at {estimate}. The first AI call starts only "
+            "after confirmation; there is no automatic retry."
+        ),
         "generation_settings_collapse": "Hide Generation Settings",
-        "more_options": "More options",
-        "more_options_collapse": "Hide options",
+        "more_options": "Generation settings (optional)",
+        "more_options_collapse": "Hide generation settings",
         "generation_settings_help": "Adjust when needed; the defaults suit most material.",
         "card_count": "Card count",
         "card_count_auto": "Auto",
@@ -390,6 +497,19 @@ PRODUCT_COPY = {
         "generate_cards": "Generate Cards",
         "regenerate_cards": "Regenerate",
         "generation_running": "Generating…",
+        "document_run_in_progress": (
+            "Bounded document run in progress; planning, generation, and "
+            "local quality stages appear here."
+        ),
+        "generation_group_progress": "Generation group {completed}/{total}",
+        "document_import_in_progress": (
+            "Wait for every queued document to finish importing before "
+            "generating cards."
+        ),
+        "document_batch_too_complex": (
+            "The combined documents exceed one run (48 chunks or 96 knowledge "
+            "points). Remove documents or generate them in smaller batches."
+        ),
         "generation_requirements": "Add material and configure AI first.",
         "material_too_long": (
             "The material is too long. Please split it before generating cards."

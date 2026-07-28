@@ -27,6 +27,13 @@ BLOCKED_PARTS = {
     "addons21",
     "docs",
     "eval",
+    "fixtures",
+    "screenshots",
+    "models",
+    "cache",
+    "temp",
+    "tmp",
+    "tools",
     "tests",
 }
 BLOCKED_FILENAMES = {
@@ -34,6 +41,8 @@ BLOCKED_FILENAMES = {
     ".ds_store",
     "collection.anki2",
     "config.json",
+    "credentials.json",
+    "secrets.json",
     "thumbs.db",
 }
 BLOCKED_SUFFIXES = {
@@ -41,6 +50,10 @@ BLOCKED_SUFFIXES = {
     ".apkg",
     ".log",
     ".pyc",
+    ".key",
+    ".pem",
+    ".p12",
+    ".pfx",
 }
 NON_RUNTIME_FILENAMES = {
     "config.example.json",

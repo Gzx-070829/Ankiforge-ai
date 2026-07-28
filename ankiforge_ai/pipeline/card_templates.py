@@ -222,7 +222,17 @@ _DEFAULT_BY_MODE = {
     "process_steps": "process_steps",
     "formula_rule": "formula_rule",
     "mistake_trap": "mistake_trap",
+    "auto": "concept",
+    "code_understanding": "concept",
+    "table_relationship": "compare_contrast",
+    "transcript_summary_candidate": "concept",
     "cloze_candidate": "cloze_candidate",
+}
+_TEMPLATE_MODE_BY_MODE = {
+    "auto": "concept",
+    "code_understanding": "concept",
+    "table_relationship": "compare_contrast",
+    "transcript_summary_candidate": "concept",
 }
 
 
@@ -246,3 +256,12 @@ def default_template_for_mode(mode_id: str) -> CardTemplate:
         return get_card_template(_DEFAULT_BY_MODE[mode_id])
     except (KeyError, TypeError):
         raise ValueError(f"unsupported card mode: {mode_id!r}") from None
+
+
+def template_is_compatible_with_mode(
+    template: CardTemplate,
+    mode_id: str,
+) -> bool:
+    if not isinstance(template, CardTemplate):
+        return False
+    return template.mode_id == _TEMPLATE_MODE_BY_MODE.get(mode_id, mode_id)

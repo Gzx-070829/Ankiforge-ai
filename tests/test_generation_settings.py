@@ -24,6 +24,10 @@ class GenerationSettingsTests(unittest.TestCase):
                 "process_steps",
                 "formula_rule",
                 "mistake_trap",
+                "auto",
+                "code_understanding",
+                "table_relationship",
+                "transcript_summary_candidate",
                 "cloze_candidate",
             ),
         )

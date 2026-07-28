@@ -13,6 +13,10 @@ CARD_MODES = (
     "process_steps",
     "formula_rule",
     "mistake_trap",
+    "auto",
+    "code_understanding",
+    "table_relationship",
+    "transcript_summary_candidate",
     "cloze_candidate",
 )
 CARD_COUNTS = ("auto", "fewer", "balanced", "more")
@@ -153,6 +157,62 @@ _CARD_MODE_PROFILES = (
         default_answer_length="short",
         default_card_density="balanced",
         quality_priorities=("misconception", "correction", "grounded"),
+    ),
+    CardModeProfile(
+        mode_id="auto",
+        display_name_zh="自动推荐",
+        display_name_en="Auto",
+        description_zh="根据已解析材料的结构与证据选择模板",
+        description_en="Choose a template from parsed structure and evidence",
+        prompt_guidance=(
+            "Use the deterministic document recommendation and keep every card "
+            "grounded in the selected source chunks."
+        ),
+        default_answer_length="short",
+        default_card_density="balanced",
+        quality_priorities=("grounded", "structure-aware", "conservative"),
+    ),
+    CardModeProfile(
+        mode_id="code_understanding",
+        display_name_zh="代码理解",
+        display_name_en="Code understanding",
+        description_zh="理解代码目的、控制流与关键行为",
+        description_en="Understand code purpose, control flow, and key behavior",
+        prompt_guidance=(
+            "Ask about one code behavior or design choice and preserve the source "
+            "code context without executing or inventing behavior."
+        ),
+        default_answer_length="short",
+        default_card_density="balanced",
+        quality_priorities=("source-grounded", "behavioral", "code-context"),
+    ),
+    CardModeProfile(
+        mode_id="table_relationship",
+        display_name_zh="表格关系",
+        display_name_en="Table relationship",
+        description_zh="理解同一表头下字段与行之间的关系",
+        description_en="Understand relationships among fields and rows under one header",
+        prompt_guidance=(
+            "Use the repeated table header to compare values on the same column or "
+            "explain one explicit row relationship."
+        ),
+        default_answer_length="short",
+        default_card_density="fewer",
+        quality_priorities=("header-grounded", "same-dimension", "relational"),
+    ),
+    CardModeProfile(
+        mode_id="transcript_summary_candidate",
+        display_name_zh="字幕摘要候选",
+        display_name_en="Transcript summary candidate",
+        description_zh="从有时间范围的相邻字幕中提炼可复习要点",
+        description_en="Extract a reviewable point from adjacent timestamped transcript",
+        prompt_guidance=(
+            "Summarize one bounded transcript segment while preserving its timestamp "
+            "context and avoiding speaker claims absent from the source."
+        ),
+        default_answer_length="medium",
+        default_card_density="fewer",
+        quality_priorities=("timestamp-grounded", "bounded", "faithful"),
     ),
     CardModeProfile(
         mode_id="cloze_candidate",

@@ -1,0 +1,2 @@
+/* header */
+int value;

@@ -73,20 +73,20 @@ class FileDropImportContractTests(unittest.TestCase):
             ["dragEnterEvent", "dragMoveEvent", "dropEvent"],
         )
 
-    def test_panel_uses_one_import_path_for_picker_and_drop(self):
+    def test_panel_routes_picker_and_every_drop_path_through_bounded_queue(self):
         source = self.panel_source()
         picker = self.function_source(source, "_choose_source_file")
         dropped = self.function_source(source, "_handle_dropped_files")
-        importer = self.function_source(source, "_import_source_path")
+        completion = self.function_source(
+            source,
+            "_handle_document_import_completion",
+        )
 
-        self.assertIn("self._import_source_path(Path(path))", picker)
-        self.assertIn("paths[0]", dropped)
-        self.assertIn('"source_import_first_only"', dropped)
-        self.assertIn("import_source_file", importer)
-        self.assertIn("except SourceImportError", importer)
-        self.assertIn("self._set_source_import_error(", importer)
-        self.assertIn("error.code", importer)
-        self.assertIn("warning_keys=extra_warnings", importer)
+        self.assertIn("QFileDialog.getOpenFileNames", picker)
+        self.assertIn("self._enqueue_document_paths(paths)", picker)
+        self.assertIn("self._enqueue_document_paths(paths)", dropped)
+        self.assertNotIn("paths[0]", dropped)
+        self.assertIn("apply_import_completion", completion)
         for forbidden in (
             "_generate_cards",
             "BeginnerAICardDraftGenerator",
@@ -94,16 +94,26 @@ class FileDropImportContractTests(unittest.TestCase):
             "execute_beginner_write_if_confirmed",
             "traceback",
         ):
-            self.assertNotIn(forbidden, picker + dropped + importer)
+            self.assertNotIn(forbidden, picker + dropped + completion)
 
-    def test_existing_text_is_appended_and_feedback_is_visible(self):
+    def test_successful_queue_material_replaces_stale_text_and_feedback_is_visible(self):
         source = self.panel_source()
-        apply_import = self.function_source(source, "_apply_imported_source")
+        completion = self.function_source(
+            source,
+            "_handle_document_import_completion",
+        )
+        sync = self.function_source(
+            source,
+            "_sync_material_from_document_queue",
+        )
         material_section = self.function_source(source, "_build_material_section")
 
-        self.assertIn("merge_imported_source_text", apply_import)
-        self.assertIn('warnings.append("source_import_appended")', apply_import)
-        self.assertIn('"source_imported"', apply_import)
+        self.assertIn("_sync_material_from_document_queue", completion)
+        self.assertIn("build_bounded_import_material", sync)
+        self.assertIn("self.material_input.setPlainText(material)", sync)
+        self.assertIn('"document_imported_batch"', sync)
+        self.assertNotIn("merge_imported_source_text", source)
+        self.assertNotIn("def _apply_imported_source", source)
         self.assertIn("material_import_status_label", material_section)
         self.assertIn("material_import_warning_label", material_section)
         self.assertIn('setProperty("role", "status")', material_section)

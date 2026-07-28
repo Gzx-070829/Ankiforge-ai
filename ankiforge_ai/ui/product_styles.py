@@ -185,7 +185,7 @@ QDialog#AiSettingsDialog QSpinBox:focus {
 
 QWidget#CardMakerPanel QTextEdit#MaterialDropArea {
     background-color: #0F141B;
-    border: 1px dashed #334155;
+    border: 1px solid #2D3A4C;
     border-radius: 10px;
     padding: 12px;
 }
@@ -193,6 +193,14 @@ QWidget#CardMakerPanel QTextEdit#MaterialDropArea {
 QWidget#CardMakerPanel QTextEdit#MaterialDropArea:focus {
     border: 1px solid #7C5CFF;
     background-color: #111821;
+}
+
+QFrame#MaterialImportRow,
+QFrame#GenerationSettingsDisclosure {
+    background-color: #111821;
+    border: 1px solid #263241;
+    border-radius: 10px;
+    padding: 8px 10px;
 }
 
 QComboBox::drop-down {
@@ -378,5 +386,28 @@ QWidget#CardMakerPanel QScrollBar::handle:vertical {
 QWidget#CardMakerPanel QScrollBar::add-line:vertical,
 QWidget#CardMakerPanel QScrollBar::sub-line:vertical {
     height: 0;
+}
+
+QWidget#DocumentQueueRow {
+    background-color: #0F141B;
+    border: 1px solid #263241;
+    border-radius: 8px;
+}
+
+QWidget#DocumentQueueRow QPushButton {
+    min-height: 28px;
+    padding: 2px 8px;
+}
+
+QPushButton#SourceChip {
+    min-height: 28px;
+    border-radius: 10px;
+    color: #A99AFF;
+    background-color: rgba(124, 92, 255, 0.12);
+}
+
+QLabel#StageProgress {
+    color: #CBD5E1;
+    padding: 4px 0;
 }
 """

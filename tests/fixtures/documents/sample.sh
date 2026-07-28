@@ -1,0 +1,2 @@
+# comment
+printf safe

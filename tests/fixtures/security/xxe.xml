@@ -1,0 +1,1 @@
+<!DOCTYPE root [<!ENTITY xxe SYSTEM "file:///never-read">]><root>&xxe;</root>

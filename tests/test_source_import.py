@@ -1,9 +1,17 @@
 import tempfile
 import unittest
 import zipfile
+from dataclasses import replace
 from pathlib import Path
 from unittest import mock
 
+import ankiforge_ai.document as document_package
+import ankiforge_ai.importers.source_import as source_import_module
+from ankiforge_ai.document import DEFAULT_DOCUMENT_LIMITS, DocumentImportError
+from ankiforge_ai.document.importers.registry import (
+    create_native_importer_registry,
+    import_documents,
+)
 from ankiforge_ai.importers.source_import import (
     ImportedSource,
     SourceImportError,
@@ -14,6 +22,75 @@ from ankiforge_ai.importers.source_import import (
 
 
 class SourceImportTests(unittest.TestCase):
+    def test_document_package_exports_multi_file_native_import(self):
+        self.assertIs(document_package.import_documents, import_documents)
+
+    def test_native_registry_registers_every_core_format_without_optional_dependencies(self):
+        registry = create_native_importer_registry()
+        extensions = {
+            extension
+            for capability in registry.capabilities()
+            for extension in capability.supported_extensions
+        }
+        self.assertTrue(
+            {
+                ".txt",
+                ".md",
+                ".docx",
+                ".pptx",
+                ".xlsx",
+                ".csv",
+                ".tsv",
+                ".html",
+                ".json",
+                ".jsonl",
+                ".xml",
+                ".ipynb",
+                ".epub",
+                ".srt",
+                ".vtt",
+                ".yaml",
+                ".rst",
+                ".org",
+                ".tex",
+                ".py",
+                ".js",
+                ".ts",
+                ".java",
+                ".c",
+                ".cpp",
+                ".rs",
+                ".go",
+                ".sql",
+                ".sh",
+                ".ps1",
+            }.issubset(extensions)
+        )
+        self.assertTrue(all(not item.external_dependencies for item in registry.capabilities()))
+
+    def test_import_documents_preserves_explicit_order_and_enforces_batch_bounds(self):
+        fixtures = Path(__file__).parent / "fixtures" / "documents"
+        documents = import_documents(
+            (fixtures / "plain.txt", fixtures / "structured.md")
+        )
+        self.assertEqual(
+            [document.source_label for document in documents],
+            ["plain.txt", "structured.md"],
+        )
+        self.assertIsInstance(documents, tuple)
+
+        limits = replace(DEFAULT_DOCUMENT_LIMITS, max_files_per_batch=1)
+        with self.assertRaises(DocumentImportError) as raised:
+            import_documents(
+                (fixtures / "plain.txt", fixtures / "structured.md"), limits
+            )
+        self.assertEqual(raised.exception.code, "too_many_files")
+
+        limits = replace(DEFAULT_DOCUMENT_LIMITS, max_total_batch_bytes=1)
+        with self.assertRaises(DocumentImportError) as raised:
+            import_documents((fixtures / "plain.txt",), limits)
+        self.assertEqual(raised.exception.code, "batch_too_large")
+
     def test_txt_utf8_is_read_without_changing_structure(self):
         with self.temporary_file("notes.txt", "第一段\n\n第二段") as path:
             imported = import_source_file(path)
@@ -44,6 +121,18 @@ class SourceImportTests(unittest.TestCase):
 
         self.assertEqual(imported.text, "café")
         self.assertEqual(imported.warnings, ("system_encoding_fallback",))
+
+    def test_legacy_text_preserves_crlf_cr_and_lf_bytes_exactly(self):
+        payload = b"first\r\nsecond\rthird\n"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "line-endings.txt"
+            path.write_bytes(payload)
+            imported = import_source_file(path)
+
+        self.assertEqual(imported.text.encode("utf-8"), payload)
+        combined, appended = merge_imported_source_text("existing\r\n", imported)
+        self.assertTrue(appended)
+        self.assertTrue(combined.endswith(payload.decode("utf-8")))
 
     def test_empty_text_file_has_safe_error(self):
         with self.temporary_file("empty.txt", "") as path:
@@ -105,6 +194,140 @@ class SourceImportTests(unittest.TestCase):
             "第一段\nSecond paragraph\nCell A\tCell B",
         )
         self.assertEqual(imported.warnings, ("docx_text_only",))
+
+    def test_public_docx_path_rejects_all_member_archive_security_failures(self):
+        xml = (
+            "<w:document xmlns:w='w'><w:body><w:p><w:r>"
+            "<w:t>safe</w:t></w:r></w:p></w:body></w:document>"
+        )
+        cases = (
+            ("macro", None),
+            ("traversal", None),
+            ("symlink", None),
+            ("duplicate", None),
+            ("encrypted", None),
+            (
+                "ratio",
+                replace(
+                    DEFAULT_DOCUMENT_LIMITS,
+                    max_archive_compression_ratio=1.0,
+                ),
+            ),
+            (
+                "member",
+                replace(DEFAULT_DOCUMENT_LIMITS, max_member_bytes=8),
+            ),
+            (
+                "aggregate",
+                replace(
+                    DEFAULT_DOCUMENT_LIMITS,
+                    max_archive_uncompressed_bytes=32,
+                ),
+            ),
+        )
+        for attack, limits in cases:
+            with self.subTest(attack=attack):
+                with tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / f"{attack}.docx"
+                    compression = (
+                        zipfile.ZIP_DEFLATED
+                        if attack == "ratio"
+                        else zipfile.ZIP_STORED
+                    )
+                    with zipfile.ZipFile(
+                        path, "w", compression=compression
+                    ) as archive:
+                        archive.writestr("word/document.xml", xml)
+                        if attack == "macro":
+                            archive.writestr("word/vbaProject.bin", b"macro")
+                        elif attack == "traversal":
+                            archive.writestr("../outside.txt", b"unsafe")
+                        elif attack == "symlink":
+                            info = zipfile.ZipInfo("word/link")
+                            info.create_system = 3
+                            info.external_attr = 0o120777 << 16
+                            archive.writestr(info, b"target")
+                        elif attack == "duplicate":
+                            archive.writestr("WORD/DOCUMENT.XML", xml)
+                        elif attack == "encrypted":
+                            archive.writestr("word/secret.bin", b"secret")
+                        elif attack == "ratio":
+                            archive.writestr("word/padding.bin", b"0" * 1000)
+                    if attack == "encrypted":
+                        payload = bytearray(path.read_bytes())
+                        local_offsets = []
+                        offset = 0
+                        while True:
+                            offset = payload.find(b"PK\x03\x04", offset)
+                            if offset < 0:
+                                break
+                            local_offsets.append(offset)
+                            offset += 4
+                        central_offsets = []
+                        offset = 0
+                        while True:
+                            offset = payload.find(b"PK\x01\x02", offset)
+                            if offset < 0:
+                                break
+                            central_offsets.append(offset)
+                            offset += 4
+                        local = local_offsets[-1]
+                        central = central_offsets[-1]
+                        payload[local + 6 : local + 8] = (
+                            int.from_bytes(
+                                payload[local + 6 : local + 8], "little"
+                            )
+                            | 1
+                        ).to_bytes(2, "little")
+                        payload[central + 8 : central + 10] = (
+                            int.from_bytes(
+                                payload[central + 8 : central + 10], "little"
+                            )
+                            | 1
+                        ).to_bytes(2, "little")
+                        path.write_bytes(payload)
+                    limits_context = (
+                        mock.patch.object(
+                            source_import_module,
+                            "DEFAULT_DOCUMENT_LIMITS",
+                            limits,
+                            create=True,
+                        )
+                        if limits is not None
+                        else mock.patch.object(
+                            source_import_module,
+                            "DEFAULT_DOCUMENT_LIMITS",
+                            DEFAULT_DOCUMENT_LIMITS,
+                            create=True,
+                        )
+                    )
+                    with limits_context:
+                        with self.assertRaises(SourceImportError) as raised:
+                            import_source_file(path)
+                self.assertEqual(raised.exception.code, "docx_invalid")
+                self.assertFalse(
+                    (Path(directory) / "outside.txt").exists()
+                    if Path(directory).exists()
+                    else False
+                )
+
+    def test_public_docx_never_uses_legacy_fallback_for_malformed_xml(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "malformed.docx"
+            with zipfile.ZipFile(path, "w") as archive:
+                archive.writestr("[Content_Types].xml", "<Types />")
+                archive.writestr(
+                    "word/document.xml",
+                    "<document><broken></document>",
+                )
+            with mock.patch.object(
+                source_import_module,
+                "import_docx_file",
+                side_effect=AssertionError("legacy fallback must not run"),
+            ):
+                with self.assertRaises(SourceImportError) as raised:
+                    import_source_file(path)
+        self.assertEqual(raised.exception.code, "docx_invalid")
 
     def test_corrupt_or_incomplete_docx_has_safe_error(self):
         with tempfile.TemporaryDirectory() as directory:

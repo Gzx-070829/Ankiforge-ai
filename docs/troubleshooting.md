@@ -16,10 +16,10 @@
 
 ## 文件无法导入
 
-- Markdown/TXT：检查文件大小和编码。
-- DOCX：确认文件不是损坏或加密的，并核对基础提取是否遗漏公式/图片。
-- PDF：当前不解析，请复制文本或转换为 Markdown/TXT/DOCX。
-- Obsidian：只选择单个 Markdown 文件；不会扫描 vault。
+- v0.14.0 原生格式：检查文件大小、编码和安全限制；损坏 Office/EPUB、恶意 archive、DOCTYPE/ENTITY、二进制伪装文本会被拒绝。
+- DOCX/PPTX/XLSX：核对提取是否遗漏图片、复杂样式或外部对象；公式从不执行，隐藏 sheet 默认跳过。
+- PDF：Core 当前不解析，请复制可选文本，或在“支持能力”中为本次窗口明确选择已安装的 Docling / MarkItDown 本地 backend。
+- 可选 backend：不会自动安装、下载、上传或保存选择；缺失/失败时队列会给出安全原因和下一步。Pandoc 必须手动选择本机 `pandoc`/`pandoc.exe`。
 
 ## 卡片不能保留或写入
 
