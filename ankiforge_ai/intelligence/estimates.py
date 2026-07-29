@@ -1,5 +1,7 @@
 """Conservative deterministic call/card estimates for one bounded run."""
 
+from __future__ import annotations
+
 import math
 from itertools import islice
 

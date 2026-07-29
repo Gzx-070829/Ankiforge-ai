@@ -238,7 +238,7 @@ class ProviderErrorDisplayTests(unittest.TestCase):
             node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
         }
 
-        self.assertEqual(imported_modules, {"dataclasses", "enum"})
+        self.assertEqual(imported_modules, {"__future__", "dataclasses", "enum"})
         for forbidden_function in (
             "classify_exception",
             "capture_exception",

@@ -1,4 +1,4 @@
-# Importing Materials / 导入学习材料（v0.14.0）
+# Importing Materials / 导入学习材料（v0.14.1）
 
 导入只把用户主动选择的内容放入当前学习材料区域，不会自动生成、调用 Provider 或写入 Anki。
 
@@ -29,4 +29,4 @@ DOCX 只能做基础文本提取。如果内容可能不完整，应提示用户
 
 ## English summary
 
-All v0.14.0 imports are local and user-initiated. Native structured formats are TXT/Markdown, DOCX/PPTX/XLSX, CSV/TSV, HTML, JSON/JSONL/safe XML, IPYNB, EPUB, and SRT/VTT. Safe text/code formats are YAML, RST, Org, TeX/LaTeX, logs, SQL, Python, JavaScript/TypeScript, Java, C/C++, Rust, Go, Shell, and PowerShell; none executes. PDF is fallback-only in Core, with no OCR or network parsing; a separately installed explicit local backend is optional. A single Obsidian Markdown file is ordinary Markdown and its vault is never scanned. Import does not automatically call AI or write to Anki, and user-facing summaries avoid full local paths.
+All v0.14.1 imports are local and user-initiated. Native structured formats are TXT/Markdown, DOCX/PPTX/XLSX, CSV/TSV, HTML, JSON/JSONL/safe XML, IPYNB, EPUB, and SRT/VTT. Safe text/code formats are YAML, RST, Org, TeX/LaTeX, logs, SQL, Python, JavaScript/TypeScript, Java, C/C++, Rust, Go, Shell, and PowerShell; none executes. PDF is fallback-only in Core, with no OCR or network parsing; a separately installed explicit local backend is optional. A single Obsidian Markdown file is ordinary Markdown and its vault is never scanned. Import does not automatically call AI or write to Anki, and user-facing summaries avoid full local paths.

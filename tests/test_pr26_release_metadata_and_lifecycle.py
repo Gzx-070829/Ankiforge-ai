@@ -10,7 +10,7 @@ import ankiforge_ai
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_VERSION = "0.14.0"
+EXPECTED_VERSION = "0.14.1"
 
 
 class RecordingDialog:
@@ -161,7 +161,7 @@ class Pr26ReleaseMetadataAndLifecycleTests(unittest.TestCase):
 
         self.assertIn("当前公共 UI 不开放 `cloze_candidate`", modes)
         self.assertIn("not a public card mode", modes)
-        self.assertIn("v0.14.0 当前不开放 Cloze 选择", getting_started)
+        self.assertIn("v0.14.1 当前不开放 Cloze 选择", getting_started)
         self.assertNotIn("Cloze 只在模板和笔记类型均兼容时使用", getting_started)
 
 

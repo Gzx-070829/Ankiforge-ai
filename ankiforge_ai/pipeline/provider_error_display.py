@@ -1,5 +1,7 @@
 """Safe user-facing display mapping for normalized provider error kinds."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import Enum
 

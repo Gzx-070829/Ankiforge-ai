@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ankiforge_ai.document import count_blocks_by_kind, document_to_plain_text, import_documents
-from ankiforge_ai.intelligence import (
+from ..document import (
+    count_blocks_by_kind,
+    document_to_plain_text,
+    import_documents,
+)
+from ..intelligence import (
     analyze_document,
     assess_generation_coverage,
     assess_plan_coverage,
@@ -14,7 +18,7 @@ from ankiforge_ai.intelligence import (
     deduplicate_cards,
     route_template,
 )
-from ankiforge_ai.pipeline.card_quality import evaluate_card_batch
+from ..pipeline.card_quality import evaluate_card_batch
 
 
 SCENARIOS = (

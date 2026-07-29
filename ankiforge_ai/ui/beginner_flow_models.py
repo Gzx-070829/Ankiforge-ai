@@ -1,5 +1,7 @@
 """Pure-Python state and copy models for the beginner read-only walkthrough."""
 
+from __future__ import annotations
+
 from collections.abc import Sequence
 from dataclasses import dataclass, field, fields
 from enum import Enum

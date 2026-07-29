@@ -1,7 +1,9 @@
 """Pure template routing with explicit-mode precedence."""
 
-from ankiforge_ai.document import BlockKind
-from ankiforge_ai.pipeline.generation_settings import (
+from __future__ import annotations
+
+from ..document import BlockKind
+from ..pipeline.generation_settings import (
     get_card_mode_profile,
     selectable_card_mode_profiles,
 )

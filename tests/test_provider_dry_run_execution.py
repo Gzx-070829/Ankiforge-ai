@@ -451,6 +451,7 @@ class ProviderDryRunExecutionTests(unittest.TestCase):
         self.assertEqual(
             imported_modules,
             {
+                "__future__",
                 "dataclasses",
                 "typing",
                 "models",

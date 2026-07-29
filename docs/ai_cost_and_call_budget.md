@@ -1,3 +1,3 @@
-# AI cost and call budget (v0.14.0)
+# AI cost and call budget (v0.14.1)
 
 Document importing, analysis, planning, local quality checks, coverage, and deduplication are local. A configured Provider receives selected generation material only after Generate. The historical Fast/Standard/Deep ranges are policy envelopes, not a mandatory estimate for every run: the UI shows the selected plan's specific call count and the 12-call hard ceiling. The balanced plan has a hard cap of five candidate cards. Reservations occur before dispatch, no automatic retry occurs, and a failed chunk may be retried explicitly once where the UI offers that action.

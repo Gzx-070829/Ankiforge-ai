@@ -1,10 +1,12 @@
 """Structure-first grouping and bounded secondary splitting."""
 
+from __future__ import annotations
+
 import hashlib
 import re
 from dataclasses import dataclass
 
-from ankiforge_ai.document import (
+from ...document import (
     BlockKind,
     DocumentBlock,
     DocumentIR,

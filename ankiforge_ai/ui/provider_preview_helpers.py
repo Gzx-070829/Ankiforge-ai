@@ -1,5 +1,7 @@
 """Pure presentation helpers for the read-only provider preview UI."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 from ..pipeline.provider_preview import ReadOnlyProviderPreview

@@ -3,7 +3,7 @@
 import math
 import re
 
-from ankiforge_ai.document import BlockKind, DocumentIR, count_blocks_by_kind
+from ..document import BlockKind, DocumentIR, count_blocks_by_kind
 
 from .mode_recommender import recommend_modes
 from .models import DocumentAnalysis

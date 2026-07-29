@@ -1,5 +1,7 @@
 """Safe source labels, tags, write summaries, and last-batch tracking."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum

@@ -1,5 +1,7 @@
 """Read-only, non-executing provider preview projections."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 from .provider_consent import ProviderConsentRecord, ProviderSelection

@@ -10,8 +10,8 @@ from itertools import islice
 from types import MappingProxyType
 from typing import Mapping, Optional
 
-from ankiforge_ai.pipeline.card_quality import evaluate_card_quality
-from ankiforge_ai.pipeline.generation_settings import GenerationSettings
+from ..pipeline.card_quality import evaluate_card_quality
+from ..pipeline.generation_settings import GenerationSettings
 
 from .call_budget import CallPurpose
 from .generation_run import GenerationRun, reserve_run_call

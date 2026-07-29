@@ -1,5 +1,7 @@
 """Small deterministic benchmark runner for checked-in mock card fixtures."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 import json
 from pathlib import Path

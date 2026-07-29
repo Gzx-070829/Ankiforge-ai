@@ -1,5 +1,7 @@
 """Build a non-executing final write confirmation contract preview."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 from .human_review_draft_helpers import HumanReviewDraftDisplayRow

@@ -1,5 +1,7 @@
 """Adapt a PR1 decision draft into a disposable local HumanReview preview."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 from .human_review_draft_helpers import (

@@ -1,5 +1,7 @@
 """Build a non-executing Write Plan preview from eligibility presentation."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 from .human_review_draft_helpers import HumanReviewDraftDisplayRow
