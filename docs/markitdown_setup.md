@@ -1,3 +1,3 @@
-# MarkItDown setup (v0.14.0)
+# MarkItDown setup (v0.14.1)
 
 Install MarkItDown separately and review its dependencies/licensing. In AnkiForge, open **Document capabilities / 支持能力** and select MarkItDown for the current window only after it is detected as available. Detection does not prove that the separate Python process can launch inside every Anki distribution, so complete one real-Anki import acceptance test before relying on this integration. AnkiForge does not bundle, install, configure cloud paths, persist the selection, or activate plugins for it. Use only a user-selected local file; backend output is bounded and validated as DocumentIR.

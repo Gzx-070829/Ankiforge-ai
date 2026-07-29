@@ -1,8 +1,8 @@
 # AnkiForge AI
 
-## v0.14.0：通用文档与智能引擎
+## v0.14.1：通用文档与智能引擎
 
-v0.14.0 在本地将用户明确选择的学习文件转换为 DocumentIR，再进行结构分析、切块、知识规划与候选卡审核。原生支持常见文本、Office Open XML、表格、HTML、JSON/XML、Notebook、EPUB、字幕和安全代码文本；PDF 仍仅提供 fallback 或用户另行安装的本地 backend。不会自动安装、下载或上传文件。只有用户点击 Generate 后，所选生成材料才会发送给其配置的 Provider；所有候选卡仍须人工审核、查重和最终确认。
+v0.14.1 在本地将用户明确选择的学习文件转换为 DocumentIR，再进行结构分析、切块、知识规划与候选卡审核，并修复 `.ankiaddon` 在真实 Anki 安装目录下的启动导入问题。原生支持常见文本、Office Open XML、表格、HTML、JSON/XML、Notebook、EPUB、字幕和安全代码文本；PDF 仍仅提供 fallback 或用户另行安装的本地 backend。不会自动安装、下载或上传文件。只有用户点击 Generate 后，所选生成材料才会发送给其配置的 Provider；所有候选卡仍须人工审核、查重和最终确认。
 
 把自己的学习材料变成可审核、可安全写入的 Anki 卡片。
 
@@ -12,7 +12,7 @@ v0.14.0 在本地将用户明确选择的学习文件转换为 DocumentIR，再�
 
 AnkiForge AI 是一个本地优先、中文优先的 AI 制卡工作台。你提供材料、选择学习目标，AI 只生成候选卡；本地质量检查和人工审核完成后，插件才会进入重复检查、写入预览和最终确认。
 
-当前候选版本：`v0.14.0` feature branch / release candidate（尚未发布到 AnkiWeb）。
+当前候选版本：`v0.14.1` 启动热修复候选（尚未重新发布到 AnkiWeb）。
 
 ## 快速安装
 

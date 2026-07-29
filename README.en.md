@@ -1,8 +1,8 @@
 # AnkiForge AI
 
-## v0.14.0: Universal Document & Intelligence Engine
+## v0.14.1: Universal Document & Intelligence Engine
 
-v0.14.0 turns explicitly selected local study files into DocumentIR before local structure analysis, chunking, knowledge planning, and reviewable candidates. Core supports common text, Office Open XML, tables, HTML, JSON/XML, notebooks, EPUB, subtitles, and safe code text. PDF remains fallback-only or uses a separately installed local backend. Nothing is automatically installed, downloaded, or uploaded. A configured Provider receives selected generation material only after Generate; every candidate still requires review, duplicate checking, and final confirmation.
+v0.14.1 turns explicitly selected local study files into DocumentIR before local structure analysis, chunking, knowledge planning, and reviewable candidates, and fixes `.ankiaddon` startup imports under a real Anki installation directory. Core supports common text, Office Open XML, tables, HTML, JSON/XML, notebooks, EPUB, subtitles, and safe code text. PDF remains fallback-only or uses a separately installed local backend. Nothing is automatically installed, downloaded, or uploaded. A configured Provider receives selected generation material only after Generate; every candidate still requires review, duplicate checking, and final confirmation.
 
 Turn your own study material into reviewable, safely writable Anki cards.
 
@@ -12,7 +12,7 @@ Turn your own study material into reviewable, safely writable Anki cards.
 
 AnkiForge AI is a local-first AI card workbench. You provide the source and learning goal; AI produces candidates only. Local quality checks and manual review come before duplicate checking, a write preview, and final confirmation.
 
-Current candidate: `v0.14.0` feature branch / release candidate (not released to AnkiWeb).
+Current candidate: `v0.14.1` startup hotfix candidate (not yet republished to AnkiWeb).
 
 ## Quick install
 

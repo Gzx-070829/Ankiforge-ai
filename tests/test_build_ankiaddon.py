@@ -88,6 +88,19 @@ class BuildAnkiAddonTests(unittest.TestCase):
         self.assertIn("importers/source_import.py", REQUIRED_ARCHIVE_FILES)
         self.assertIn("ui/file_drop_text_edit.py", REQUIRED_ARCHIVE_FILES)
 
+    def test_v014_runtime_modules_are_required(self):
+        self.assertTrue(
+            {
+                "anki_writer/minimal_write.py",
+                "document/__init__.py",
+                "intelligence/__init__.py",
+                "pipeline/openai_compatible_provider.py",
+                "ui/ai_settings_dialog.py",
+                "ui/card_maker_panel.py",
+                "ui/main_dialog.py",
+            }.issubset(REQUIRED_ARCHIVE_FILES)
+        )
+
     def test_archive_writer_is_byte_for_byte_deterministic(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
@@ -116,6 +129,82 @@ class BuildAnkiAddonTests(unittest.TestCase):
             _write_archive(crlf_archive, [(crlf_source, "module.py")])
 
             self.assertEqual(lf_archive.read_bytes(), crlf_archive.read_bytes())
+
+    def test_archive_rejects_absolute_ankiforge_self_import(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            archive_path = root / "absolute-self-import.ankiaddon"
+            files = []
+            for index, archive_name in enumerate(sorted(REQUIRED_ARCHIVE_FILES)):
+                source_file = root / f"runtime-{index}.txt"
+                content = "pass\n" if archive_name.endswith(".py") else "{}\n"
+                source_file.write_text(content, encoding="utf-8")
+                files.append((source_file, archive_name))
+            bad_module = root / "bad.py"
+            bad_module.write_text(
+                "from ankiforge_ai.document import DocumentIR\n",
+                encoding="utf-8",
+            )
+            files.append((bad_module, "bad.py"))
+            _write_archive(archive_path, files)
+
+            with self.assertRaisesRegex(BuildError, "absolute self-import"):
+                _validate_archive(
+                    archive_path,
+                    {archive_name for _, archive_name in files},
+                )
+
+    def test_archive_rejects_eager_pipe_annotation(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            archive_path = root / "eager-pipe-annotation.ankiaddon"
+            files = []
+            for index, archive_name in enumerate(sorted(REQUIRED_ARCHIVE_FILES)):
+                source_file = root / f"runtime-{index}.txt"
+                content = "pass\n" if archive_name.endswith(".py") else "{}\n"
+                source_file.write_text(content, encoding="utf-8")
+                files.append((source_file, archive_name))
+            bad_module = root / "bad.py"
+            bad_module.write_text(
+                "def normalize(value: str | None) -> str:\n"
+                "    return value or ''\n",
+                encoding="utf-8",
+            )
+            files.append((bad_module, "bad.py"))
+            _write_archive(archive_path, files)
+
+            with self.assertRaisesRegex(BuildError, "postpone annotations"):
+                _validate_archive(
+                    archive_path,
+                    {archive_name for _, archive_name in files},
+                )
+
+    def test_archive_rejects_syntax_newer_than_python_39(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            archive_path = root / "newer-python-syntax.ankiaddon"
+            files = []
+            for index, archive_name in enumerate(sorted(REQUIRED_ARCHIVE_FILES)):
+                source_file = root / f"runtime-{index}.txt"
+                content = "pass\n" if archive_name.endswith(".py") else "{}\n"
+                source_file.write_text(content, encoding="utf-8")
+                files.append((source_file, archive_name))
+            bad_module = root / "bad.py"
+            bad_module.write_text(
+                "def describe(value):\n"
+                "    match value:\n"
+                "        case 1:\n"
+                "            return 'one'\n",
+                encoding="utf-8",
+            )
+            files.append((bad_module, "bad.py"))
+            _write_archive(archive_path, files)
+
+            with self.assertRaisesRegex(BuildError, "Python 3.9"):
+                _validate_archive(
+                    archive_path,
+                    {archive_name for _, archive_name in files},
+                )
 
 
 if __name__ == "__main__":

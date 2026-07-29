@@ -1,5 +1,7 @@
 """Validated, non-sensitive settings for card generation."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Mapping, Optional
 

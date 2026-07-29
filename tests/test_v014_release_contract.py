@@ -8,7 +8,7 @@ import ankiforge_ai
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.14.0"
+VERSION = "0.14.1"
 REQUIRED_DOCS = (
     "README.md", "README.en.md", "docs/getting_started.md", "docs/importing_materials.md", "docs/document_ir.md", "docs/native_supported_formats.md", "docs/optional_document_backends.md", "docs/docling_setup.md", "docs/markitdown_setup.md", "docs/pandoc_setup.md", "docs/document_security.md", "docs/intelligence_levels.md", "docs/knowledge_planning.md", "docs/chunking_and_source_traceability.md", "docs/ai_cost_and_call_budget.md", "docs/deck_style_profile.md", "docs/troubleshooting.md", "docs/manual_anki_acceptance.md", "docs/release_notes_v0_14.md", "docs/ankiweb_description_v0_14.md", "docs/future_document_engine_companion.md", "docs/third_party_notices.md",
 )

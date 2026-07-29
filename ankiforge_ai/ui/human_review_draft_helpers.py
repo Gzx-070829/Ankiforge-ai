@@ -1,5 +1,7 @@
 """Pure presentation helpers for an in-memory human-review decision draft."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 from ..pipeline.card_candidate_preview_adapter import (

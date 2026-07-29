@@ -8,19 +8,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from xml.etree import ElementTree
 
-from ankiforge_ai.document import (
+from ..document import (
     DEFAULT_DOCUMENT_LIMITS,
     DocumentImportError,
     document_to_plain_text,
 )
-from ankiforge_ai.document.archive_safety import open_validated_archive
-from ankiforge_ai.document.importers.registry import create_native_importer_registry
-from ankiforge_ai.document.importers.text import (
+from ..document.archive_safety import open_validated_archive
+from ..document.importers.registry import create_native_importer_registry
+from ..document.importers.text import (
     make_document,
     paragraph_blocks,
 )
-from ankiforge_ai.document.models import DocumentSection
-from ankiforge_ai.document.source_labels import get_safe_source_label
+from ..document.models import DocumentSection
+from ..document.source_labels import get_safe_source_label
 
 
 TEXT_FILE_SIZE_LIMIT = 5 * 1024 * 1024

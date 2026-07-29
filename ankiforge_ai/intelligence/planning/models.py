@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from itertools import islice
 
-from ankiforge_ai.document import DEFAULT_DOCUMENT_LIMITS, SourceLocation
+from ...document import DEFAULT_DOCUMENT_LIMITS, SourceLocation
 
 
 _SAFE_PLAN_ID = re.compile(r"^plan-[a-f0-9]{16}$")

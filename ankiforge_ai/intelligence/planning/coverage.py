@@ -1,6 +1,6 @@
 """Deterministic plan grounding and coverage assessment."""
 
-from ankiforge_ai.document import DocumentIR
+from ...document import DocumentIR
 
 from ..chunking import DocumentChunk
 from .local_planner import _validated_chunks, normalize_point_text

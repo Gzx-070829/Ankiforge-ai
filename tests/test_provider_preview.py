@@ -350,6 +350,7 @@ class ProviderPreviewTests(unittest.TestCase):
         self.assertEqual(
             imported_modules,
             {
+                "__future__",
                 "dataclasses",
                 "provider_consent",
                 "provider_dry_run_request",

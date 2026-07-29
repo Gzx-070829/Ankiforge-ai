@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from itertools import islice
 
-from ankiforge_ai.document import (
+from ...document import (
     BlockKind,
     DEFAULT_DOCUMENT_LIMITS,
     SourceLocation,

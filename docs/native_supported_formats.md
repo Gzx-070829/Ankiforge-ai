@@ -1,4 +1,4 @@
-# Native supported formats (v0.14.0)
+# Native supported formats (v0.14.1)
 
 The packaged Core uses only local, bounded parsing. “Structured” means that the importer preserves the listed useful boundaries; it does not promise pixel-perfect rendering.
 

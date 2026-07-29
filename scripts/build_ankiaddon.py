@@ -8,6 +8,7 @@ are intentionally excluded: the .ankiaddon is a runtime-only package.
 
 from __future__ import annotations
 
+import ast
 import re
 import sys
 import zipfile
@@ -87,9 +88,16 @@ TEXT_RUNTIME_SUFFIXES = {
 }
 REQUIRED_ARCHIVE_FILES = {
     "__init__.py",
+    "anki_writer/minimal_write.py",
+    "document/__init__.py",
     "importers/source_import.py",
+    "intelligence/__init__.py",
     "manifest.json",
+    "pipeline/openai_compatible_provider.py",
+    "ui/ai_settings_dialog.py",
+    "ui/card_maker_panel.py",
     "ui/file_drop_text_edit.py",
+    "ui/main_dialog.py",
 }
 SECRET_PATTERNS = {
     "OpenAI-style API key": re.compile(rb"sk-[A-Za-z0-9_-]{20,}"),
@@ -105,6 +113,87 @@ SECRET_PATTERNS = {
 
 class BuildError(RuntimeError):
     """Raised when the package cannot be built safely."""
+
+
+def _uses_pipe_annotation(tree: ast.AST) -> bool:
+    for node in ast.walk(tree):
+        annotations: list[ast.expr] = []
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            arguments = (
+                *node.args.posonlyargs,
+                *node.args.args,
+                *node.args.kwonlyargs,
+            )
+            annotations.extend(
+                argument.annotation
+                for argument in arguments
+                if argument.annotation is not None
+            )
+            if node.args.vararg and node.args.vararg.annotation is not None:
+                annotations.append(node.args.vararg.annotation)
+            if node.args.kwarg and node.args.kwarg.annotation is not None:
+                annotations.append(node.args.kwarg.annotation)
+            if node.returns is not None:
+                annotations.append(node.returns)
+        elif isinstance(node, ast.AnnAssign):
+            annotations.append(node.annotation)
+        if any(
+            isinstance(part, ast.BinOp) and isinstance(part.op, ast.BitOr)
+            for annotation in annotations
+            for part in ast.walk(annotation)
+        ):
+            return True
+    return False
+
+
+def _postpones_annotations(tree: ast.Module) -> bool:
+    return any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "__future__"
+        and any(alias.name == "annotations" for alias in node.names)
+        for node in tree.body
+    )
+
+
+def _validate_python_member(archive_name: str, content: bytes) -> None:
+    try:
+        source = content.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise BuildError(
+            f"Python archive member is not UTF-8: {archive_name}"
+        ) from error
+    try:
+        tree = ast.parse(
+            source,
+            filename=archive_name,
+            feature_version=(3, 9),
+        )
+    except SyntaxError as error:
+        raise BuildError(
+            "Python archive member is not valid Python 3.9 syntax: "
+            f"{archive_name}:{error.lineno}"
+        ) from error
+    if _uses_pipe_annotation(tree) and not _postpones_annotations(tree):
+        raise BuildError(
+            "Python archive member must postpone annotations for the supported "
+            f"Python 3.9 runtime: {archive_name}"
+        )
+
+    for node in ast.walk(tree):
+        modules = ()
+        if isinstance(node, ast.Import):
+            modules = tuple(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            modules = (node.module,)
+        if any(
+            module == SOURCE_DIRECTORY
+            or module.startswith(f"{SOURCE_DIRECTORY}.")
+            for module in modules
+        ):
+            raise BuildError(
+                "Python archive member uses an absolute self-import; "
+                f"use a package-relative import: {archive_name}:{node.lineno}"
+            )
 
 
 def _blocked_reason(path: PurePosixPath) -> str | None:
@@ -208,6 +297,8 @@ def _validate_archive(archive_path: Path, expected_names: set[str]) -> int:
             for label, pattern in SECRET_PATTERNS.items():
                 if pattern.search(content):
                     raise BuildError(f"Possible {label} found in archive member: {name}")
+            if member_path.suffix.casefold() == ".py":
+                _validate_python_member(name, content)
 
         actual_names = set(names)
         if actual_names != expected_names:

@@ -1,5 +1,7 @@
 """Pure presentation helpers for a non-persistent provider profile draft."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 from ..pipeline.user_provider_config import UserProviderProfile

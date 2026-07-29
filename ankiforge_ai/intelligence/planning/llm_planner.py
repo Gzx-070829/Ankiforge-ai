@@ -1,11 +1,13 @@
 """Strict parser for caller-supplied planner JSON; performs no Provider call."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 from collections.abc import Mapping
 from itertools import islice
 
-from ankiforge_ai.document import DocumentIR
+from ...document import DocumentIR
 
 from ..chunking import DocumentChunk
 from .local_planner import (

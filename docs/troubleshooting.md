@@ -4,6 +4,10 @@
 
 这是 Anki 插件，不是共享牌组。在 Anki Desktop 中选择 **工具 → 插件 → 获取插件**，输入 `1227582295`，安装后重启。不要在 Shared Decks 搜索。
 
+## 启动时提示插件加载失败
+
+先确认插件版本为 `0.14.1` 或更高。v0.14.1 修复了安装目录使用 Anki 分配名称时的内部导入问题。如果调试信息包含 `ModuleNotFoundError: No module named 'ankiforge_ai'`，说明仍在运行旧的 v0.14.0 包；重新安装已验证的 v0.14.1 包并完整重启 Anki。若错误不同，请复制完整 traceback 并脱敏后反馈，不要包含 API key、私人材料或 collection 数据。
+
 ## “AI 未配置”或无法生成
 
 打开 AI 设置，检查 Provider、Model 和 API key 是否已填写。本次设置不会跨窗口保存。OpenAI-compatible 还需确认 Base URL。插件不会为了测试配置而自动调用 Provider；只有点击生成才联网。
@@ -16,7 +20,7 @@
 
 ## 文件无法导入
 
-- v0.14.0 原生格式：检查文件大小、编码和安全限制；损坏 Office/EPUB、恶意 archive、DOCTYPE/ENTITY、二进制伪装文本会被拒绝。
+- v0.14.1 原生格式：检查文件大小、编码和安全限制；损坏 Office/EPUB、恶意 archive、DOCTYPE/ENTITY、二进制伪装文本会被拒绝。
 - DOCX/PPTX/XLSX：核对提取是否遗漏图片、复杂样式或外部对象；公式从不执行，隐藏 sheet 默认跳过。
 - PDF：Core 当前不解析，请复制可选文本，或在“支持能力”中为本次窗口明确选择已安装的 Docling / MarkItDown 本地 backend。
 - 可选 backend：不会自动安装、下载、上传或保存选择；缺失/失败时队列会给出安全原因和下一步。Pandoc 必须手动选择本机 `pandoc`/`pandoc.exe`。
@@ -37,4 +41,4 @@
 
 ## English summary
 
-Confirm installation through Get Add-ons, configure the current AI session, and remember that editing invalidates duplicate/write previews. PDF is not parsed. Public reports should include versions, OS, material type, provider name, steps, and redacted screenshots—never API keys, private material, collection data, full paths, or raw provider payloads.
+Confirm installation through Get Add-ons and use v0.14.1 or newer if startup reports `No module named 'ankiforge_ai'`. Configure the current AI session, and remember that editing invalidates duplicate/write previews. PDF is not parsed. Public reports should include versions, OS, material type, provider name, steps, and redacted screenshots—never API keys, private material, collection data, full paths, or raw provider payloads.

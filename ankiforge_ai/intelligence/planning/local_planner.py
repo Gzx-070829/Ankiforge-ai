@@ -1,12 +1,14 @@
 """Balanced, deterministic planning over existing structural chunks."""
 
+from __future__ import annotations
+
 import hashlib
 import re
 import unicodedata
 from collections import deque
 from itertools import islice
 
-from ankiforge_ai.document import BlockKind, DocumentIR
+from ...document import BlockKind, DocumentIR
 
 from ..analyzer import analyze_document
 from ..chunking import DocumentChunk

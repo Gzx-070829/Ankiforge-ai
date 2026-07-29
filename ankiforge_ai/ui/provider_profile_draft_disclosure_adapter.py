@@ -1,5 +1,7 @@
 """Build a non-authorizing send disclosure from a valid local draft preview."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 from .provider_profile_draft_helpers import (

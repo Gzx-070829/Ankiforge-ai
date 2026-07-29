@@ -1,5 +1,7 @@
 """Secret-store contracts for user-configured pipeline providers."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 

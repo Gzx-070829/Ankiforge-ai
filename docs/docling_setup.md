@@ -1,3 +1,3 @@
-# Docling setup (v0.14.0)
+# Docling setup (v0.14.1)
 
 Install Docling outside AnkiForge according to its own documentation and licenses. In AnkiForge, open **Document capabilities / 支持能力** and select Docling for the current window only after it is detected as available. Detection does not prove that the separate Python process can launch inside every Anki distribution, so complete one real-Anki import acceptance test before relying on this integration. Docling may require substantial dependencies/models; model download, disk/cache location, and offline settings are the user's decision. Remote services, OCR/model download automation, persistence, and bundling are not enabled by AnkiForge. PDF support through this route is optional and local, not a Core promise.
