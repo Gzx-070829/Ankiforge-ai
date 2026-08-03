@@ -1,11 +1,11 @@
-# v0.14.1 Manual Anki Acceptance / 真实 Anki 人工验收
+# v0.15.0 Manual Anki Acceptance / 真实 Anki 人工验收
 
 ## Packaged startup hotfix gate
 
 - [ ] 在 Anki 26.05 中从最终 `.ankiaddon` 安装并重启。
 - [ ] 重启后不出现“插件启动失败”窗口，也不出现 `ModuleNotFoundError: No module named 'ankiforge_ai'`。
 - [ ] 从“工具”菜单打开 AnkiForge AI，再直接关闭窗口；此步骤不输入 API key、不调用 Provider、不写入 Anki。
-- [ ] 确认插件管理器显示 `0.14.1`，且加载目录名称不影响启动。
+- [ ] 确认插件管理器显示 `0.15.0`，且加载目录名称不影响启动。
 
 自动测试不能证明 PyQt 布局、Anki 版本兼容性或真实写入行为。候选包必须在独立 profile 或测试牌组中验收；不要使用私人主 collection 作为首测环境。
 
@@ -24,6 +24,41 @@
 - [ ] API key 为密码显示，提示只出现一次；关闭窗口后配置消失。
 - [ ] Help Dialog、语言切换、高 DPI 和窗口缩放可用。
 - [ ] 生成设置默认收起；卡片模式常显。
+
+## Workbench application-core candidate
+
+- [ ] 打开插件后，粘贴材料、导入文件、打开 AI 设置和语言切换与 v0.14.1 行为一致。
+- [ ] 生成中修改材料或开始新请求时，旧请求完成后不覆盖当前候选卡或状态提示。
+- [ ] 对候选卡执行保留、丢弃、编辑、还原、复制和批量操作；每次变化都正确清除旧 duplicate/write readiness。
+- [ ] 更换 deck、note type 或字段 mapping 后，旧 duplicate check 不再允许写入。
+- [ ] 取消最终确认后不调用 writer；确认前再次查重，只有当前 snapshot 可写。
+- [ ] 关闭窗口后材料、候选卡、审核选择、API key 和 Endpoint 确认均被丢弃；重开窗口是新会话。
+- [ ] 在较大测试 collection 上观察 duplicate check 和最多 10 张写入；当前仍使用 Anki collection 允许的同步路径，不应被误改到普通后台线程。
+- [ ] 使用最终 `.ankiaddon` 安装，确认任意 Anki 分配的 add-on 目录名都能导入 `workbench` 模块并正常打开主界面。
+
+## v0.15 quality / source / preferences candidate
+
+- [ ] 导入包含多个段落/表格/代码块的脱敏材料，确认每张卡的 source evidence 只显示文件名与真实可得的位置；无可靠页码时不编造页码，普通 UI 不显示绝对路径。
+- [ ] 编辑、复制、还原候选卡后，来源提示仍对应原来源；关闭窗口后来源正文和路径不会被保留。
+- [ ] 准备 `exact / canonical / similar` 候选对，确认每张候选仍可见，近重复只给出配对和原因，不自动丢弃或保留。
+- [ ] 确认 `ready / review / blocked` 文案简短自然；ready 仍必须人工审核，blocked 在修正或丢弃前不能写入。
+- [ ] 重开窗口后，语言、Provider/Model、卡片模式、数量、答案长度、输出语言和智能级别恢复；`user_files/preferences.json` 只包含这些非敏感字段。
+- [ ] 输入 API key 和自定义 Base URL 后关闭并重开窗口，确认二者均为空；偏好文件、日志和 package 中均无 API key、Endpoint、材料、候选正文、审核状态或写入历史。
+- [ ] 手工损坏或加入未知字段到 `user_files/preferences.json`，确认插件安全回退到默认值且仍可打开，不回显文件内容。
+- [ ] 使用最终 `.ankiaddon` 检查 archive：运行时偏好模块存在，但 `user_files/preferences.json` 和整个 runtime `user_files` 内容均不在包内。
+
+## v0.15 Warm Charcoal + Soft Orange visual pass
+
+- [ ] 中文和英文空状态下，Warm Charcoal 背景、面板与输入区层级清楚；Soft Orange 只强调主操作、focus 和少量 chip，不形成整屏高亮。
+- [ ] Generate / Write 主按钮在正常、hover、pressed 与 disabled 状态都能一眼区分；disabled 不像可点击，也不显得报错。
+- [ ] 用键盘依次进入材料、卡片模式、生成设置、审核操作、mapping 和写入操作，确认 focus 边框完整、没有裁切或跳动。
+- [ ] 检查 success / warning / error、AI 已配置、来源 chip、导入队列、空状态和滚动条；文字清晰，语义不能只依赖颜色。
+- [ ] 在 100% / 125% / 150% high DPI 和较小窗口中检查主屏、AI Settings、Help 与确认框；没有重叠、截断或控件消失。
+- [ ] 对比 `docs/assets/ui_preview_v0_15.html` 仅核对色彩方向；真实 Qt 渲染优先，mock 不能替代 Anki 验收。
+- [ ] 抽查写入后的卡片外观，确认 generated Anki card template 未随产品 QSS 改变。
+- [ ] 初次打开时窗口比例紧凑，空态不伪装成已有候选卡；宽屏下两栏底边对齐，审核空态自然填充中间空间，写入区位于右栏底部。
+- [ ] 逐一点击“使用示例”“生成设置”“支持能力”“AI 设置”“帮助”“检查重复”和最终写入确认，确认菜单、展开区、弹层及按钮 pressed 状态统一且没有背景滚动穿透。
+- [ ] 最终确认框中取消是安静的次操作、确认写入是唯一主操作；关闭、Esc 和点击取消均不会触发写入。
 
 ## PR28 UI convergence
 
@@ -102,7 +137,7 @@
 
 ## PR26 metadata / lifecycle polish
 
-1. [ ] Add-ons 列表、安装包 manifest、运行时版本、README、release draft 和 AnkiWeb draft 均显示 `0.14.1`。
+1. [ ] Add-ons 列表、安装包 manifest、运行时版本、README、release draft 和 AnkiWeb draft 均显示 `0.15.0`。
 2. [ ] 连续执行打开 → X/Esc/关闭 → 重开，旧材料、审核结果、API key 和 Endpoint 确认均不恢复。
 3. [ ] 关闭生成中的窗口后，晚到结果不更新新窗口；重复打开关闭不会累积隐藏窗口或出现 callback 错误。
 4. [ ] 重启 Anki、禁用再启用插件后，Tools 菜单中不出现重复入口。

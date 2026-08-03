@@ -26,7 +26,6 @@ from aqt.qt import (
     QWidget,
 )
 
-from ..anki_writer.minimal_write import MinimalAnkiWriter
 from ..intelligence import GenerationStage, IntelligenceLevel
 from ..pipeline.ai_generation_limits import MAX_AI_MATERIAL_CHARS
 from ..pipeline.generation_settings import (
@@ -52,12 +51,14 @@ from ..pipeline.write_traceability import (
     create_last_write_batch_record,
     safe_source_label,
 )
+from ..workbench import (
+    ReviewUseCases,
+    WorkbenchPreferences,
+    WorkbenchSessionStore,
+)
 from .beginner_ai_card_drafts import (
     BeginnerAIProviderRuntimeSettings,
     generation_error_message_key,
-)
-from .beginner_final_confirmation import (
-    build_beginner_final_confirmation_preview,
 )
 from .beginner_flow_models import (
     BeginnerAICardDraft,
@@ -65,10 +66,6 @@ from .beginner_flow_models import (
     BeginnerFlowSession,
     BeginnerReviewDecision,
     BeginnerWriteState,
-)
-from .beginner_real_write import (
-    execute_beginner_write_if_confirmed,
-    prepare_beginner_write,
 )
 from .file_drop_text_edit import FileDropTextEdit
 from .document_capabilities_dialog import (
@@ -109,21 +106,21 @@ from .intelligent_generation_task_controller import (
 )
 from .read_only_anki_targets import (
     BeginnerAnkiReadState,
-    ReadOnlyAnkiTargetAdapter,
     build_beginner_field_mapping_preview,
 )
 from .read_only_duplicate_check import (
     BeginnerDuplicatePreviewState,
     BeginnerDuplicateStatus,
-    ReadOnlyDuplicateCheckAdapter,
 )
 from .product_i18n import DEFAULT_PRODUCT_LANGUAGE, product_text
+from .review_session_adapter import LegacyReviewSessionAdapter
 from .source_location_presenter import present_source_location
 from .universal_document_generation_adapter import (
     BoundedProviderGenerationAdapter,
     build_imported_generation_run,
     drafts_from_generation_run,
 )
+from .workbench_factory import create_workbench_write_coordinator
 from .style_tokens import (
     BUTTON_HEIGHT,
     FORM_LABEL_WIDTH,
@@ -146,9 +143,22 @@ class CardMakerPanel(QWidget):
         parent=None,
         collection=None,
         language=DEFAULT_PRODUCT_LANGUAGE,
+        preferences=None,
+        preferences_changed=None,
     ):
         super().__init__(parent)
-        self.language = language
+        if preferences is None:
+            preferences = WorkbenchPreferences.defaults().with_updates(
+                ui_language=language
+            )
+        if not isinstance(preferences, WorkbenchPreferences):
+            raise TypeError("preferences must be WorkbenchPreferences")
+        if preferences_changed is not None and not callable(preferences_changed):
+            raise TypeError("preferences_changed must be callable or None")
+        self._preferences = preferences
+        self._preferences_changed = preferences_changed
+        self._applying_preferences = True
+        self.language = preferences.ui_language
         self._generation_message = None
         self._target_message = None
         self._write_message = None
@@ -166,9 +176,11 @@ class CardMakerPanel(QWidget):
         self._active_provider_generation_adapter = None
         self._last_intelligence_run = None
         self.session = BeginnerFlowSession()
-        self.anki_target_adapter = ReadOnlyAnkiTargetAdapter(collection)
-        self.duplicate_check_adapter = ReadOnlyDuplicateCheckAdapter(collection)
-        self.writer = MinimalAnkiWriter(collection)
+        self.workbench_store = WorkbenchSessionStore.from_legacy(self.session)
+        self.review_use_cases = ReviewUseCases(
+            LegacyReviewSessionAdapter(self.session)
+        )
+        self.write_coordinator = create_workbench_write_coordinator(collection)
         self.anki_target_snapshot = None
         self.anki_field_snapshot = None
         self.anki_mapping = None
@@ -192,6 +204,16 @@ class CardMakerPanel(QWidget):
         self.setObjectName("CardMakerPanel")
         self.setMaximumWidth(1280)
         self._build_ui()
+        self._apply_preferences_to_controls()
+        self._applying_preferences = False
+        self.session.set_generation_settings(
+            self._current_generation_settings()
+        )
+        self.session.set_intelligence_level(
+            self._current_intelligence_level()
+        )
+        self._update_card_mode_description()
+        self._update_intelligence_estimate()
         self._read_anki_targets()
         self._render_cards()
         self._refresh_product_state()
@@ -225,6 +247,7 @@ class CardMakerPanel(QWidget):
             if not self._endpoint_confirmations.is_confirmed(settings.base_url):
                 raise ValueError("provider endpoint requires confirmation")
         self._ai_runtime_settings = settings
+        self._notify_preferences_changed()
         self.session.mark_ai_runtime_settings_changed()
         self._set_generation_message()
         self._after_upstream_change(render_material_count=False)
@@ -241,6 +264,62 @@ class CardMakerPanel(QWidget):
         product_text(language, "title")
         self.language = language
         self._retranslate_ui()
+        self._notify_preferences_changed()
+
+    def preference_snapshot(self):
+        return self._preferences
+
+    def _apply_preferences_to_controls(self):
+        selections = (
+            (self.card_mode_combo, self._preferences.card_mode),
+            (self.card_count_combo, self._preferences.card_count),
+            (self.answer_length_combo, self._preferences.answer_length),
+            (self.output_language_combo, self._preferences.output_language),
+            (
+                self.intelligence_level_combo,
+                self._preferences.intelligence_level,
+            ),
+        )
+        for combo, value in selections:
+            index = combo.findData(value)
+            if index >= 0:
+                combo.setCurrentIndex(index)
+
+    def _current_preferences(self):
+        runtime = self._ai_runtime_settings
+        return self._preferences.with_updates(
+            ui_language=self.language,
+            provider_name=(
+                runtime.provider_name
+                if runtime is not None
+                else self._preferences.provider_name
+            ),
+            model_name=(
+                runtime.model
+                if runtime is not None
+                else self._preferences.model_name
+            ),
+            card_mode=self.card_mode_combo.currentData(),
+            card_count=self.card_count_combo.currentData(),
+            answer_length=self.answer_length_combo.currentData(),
+            output_language=self.output_language_combo.currentData(),
+            intelligence_level=self.intelligence_level_combo.currentData(),
+        )
+
+    def _notify_preferences_changed(self):
+        if self._applying_preferences or self._disposed:
+            return
+        try:
+            preferences = self._current_preferences()
+        except ValueError:
+            # A valid runtime model may be outside the deliberately narrow
+            # persistence grammar. Keep it session-only instead of blocking use.
+            return
+        if preferences == self._preferences:
+            return
+        self._preferences = preferences
+        if self._preferences_changed is not None:
+            self._preferences_changed(preferences)
 
     def _retranslate_ui(self):
         self.material_title_label.setText(self.t("material_section"))
@@ -921,23 +1000,18 @@ class CardMakerPanel(QWidget):
         layout.addLayout(quality_row)
         self.cards_empty_widget = QWidget()
         self.cards_empty_widget.setObjectName("CardsEmptyState")
+        self.cards_empty_widget.setMinimumHeight(150)
         empty_layout = QVBoxLayout(self.cards_empty_widget)
-        empty_layout.setContentsMargins(12, 16, 12, 16)
-        self.empty_cards_glyph = QLabel("◇")
-        self.empty_cards_glyph.setObjectName("EmptyStateGlyph")
-        self.empty_cards_glyph.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_layout.setContentsMargins(24, 28, 24, 28)
         self.empty_cards_title = QLabel(self.t("no_cards"))
         self.empty_cards_title.setObjectName("EmptyStateTitle")
         self.empty_cards_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty_cards_help = QLabel(self.t("no_cards_help"))
         self.empty_cards_help.setObjectName("EmptyStateHelp")
         self.empty_cards_help.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        empty_layout.addStretch()
-        empty_layout.addWidget(self.empty_cards_glyph)
         empty_layout.addWidget(self.empty_cards_title)
         empty_layout.addWidget(self.empty_cards_help)
-        empty_layout.addStretch()
-        layout.addWidget(self.cards_empty_widget)
+        layout.addWidget(self.cards_empty_widget, 1)
 
         self.cards_scroll = QScrollArea()
         self.cards_scroll.setWidgetResizable(True)
@@ -1524,12 +1598,15 @@ class CardMakerPanel(QWidget):
         )
 
     def _on_intelligence_level_changed(self, *unused):
+        if self._applying_preferences:
+            return
         self.session.set_intelligence_level(
             self._current_intelligence_level()
         )
         self._set_generation_message()
         self._after_upstream_change(render_material_count=False)
         self._update_intelligence_estimate()
+        self._notify_preferences_changed()
 
     def _update_intelligence_estimate(self):
         level = self._current_intelligence_level()
@@ -1629,6 +1706,8 @@ class CardMakerPanel(QWidget):
         )
 
     def _on_generation_settings_changed(self, *unused):
+        if self._applying_preferences:
+            return
         self._update_card_mode_description()
         self.session.set_generation_settings(
             self._current_generation_settings()
@@ -1639,6 +1718,7 @@ class CardMakerPanel(QWidget):
         self._set_generation_message()
         self._after_upstream_change(render_material_count=False)
         self._update_intelligence_estimate()
+        self._notify_preferences_changed()
 
     def _ai_settings_are_ready(self):
         return bool(
@@ -1994,10 +2074,10 @@ class CardMakerPanel(QWidget):
         qualities = tuple(
             self.session.quality_for_candidate(card.id) for card in cards
         )
-        blocking = sum(item.is_blocking for item in qualities)
-        warnings = sum(item.severity == "warning" for item in qualities)
+        blocking = sum(item.status == "blocked" for item in qualities)
+        warnings = sum(item.status == "review" for item in qualities)
         good = len(qualities) - blocking - warnings
-        workbench = self.session.review_workbench_snapshot()
+        workbench = self.review_use_cases.snapshot()
         stats = workbench.stats
         self.review_stats_label.setText(
             self.t(
@@ -2026,6 +2106,9 @@ class CardMakerPanel(QWidget):
         self.quality_summary_label.setVisible(True)
         self.discard_blocking_btn.setVisible(bool(blocking))
         self.keep_clean_btn.setVisible(bool(good))
+        candidate_number_by_id = {
+            card.id: index for index, card in enumerate(cards, start=1)
+        }
 
         for index, card in enumerate(cards, start=1):
             quality = self.session.quality_for_candidate(card.id)
@@ -2040,23 +2123,33 @@ class CardMakerPanel(QWidget):
             card_layout.addWidget(back)
 
             quality_label = QLabel(
-                self.t(f"quality_status_{quality.severity}")
+                self.t(f"quality_status_{quality.status}")
             )
             self._set_status_role(
                 quality_label,
                 {
-                    "info": "success",
-                    "warning": "warning",
-                    "blocking": "error",
-                }[quality.severity],
+                    "ready": "success",
+                    "review": "warning",
+                    "blocked": "error",
+                }[quality.status],
             )
             quality_label.setWordWrap(True)
             card_layout.addWidget(quality_label)
             if quality.issues:
                 warning_lines = []
                 for issue in quality.issues[:3]:
+                    evidence = ""
+                    if issue.related_candidate_id is not None:
+                        paired_number = candidate_number_by_id.get(
+                            issue.related_candidate_id,
+                            "?",
+                        )
+                        evidence = " " + self.t(
+                            f"quality_duplicate_reason_{issue.evidence_code}",
+                            number=paired_number,
+                        )
                     warning_lines.append(
-                        f"• {issue.user_message(self.language)} — "
+                        f"• {issue.user_message(self.language)}{evidence} — "
                         f"{issue.suggestion(self.language)}"
                     )
                 quality_detail = QLabel("\n".join(warning_lines))
@@ -2065,7 +2158,7 @@ class CardMakerPanel(QWidget):
                 card_layout.addWidget(quality_detail)
 
             source_view = present_source_location(
-                card.source_location,
+                card.source_span or card.source_location,
                 card.source_excerpt,
                 language=self.language,
             )
@@ -2110,14 +2203,14 @@ class CardMakerPanel(QWidget):
             keep_btn.toggled.connect(
                 lambda checked, card_id=card.id: self._set_card_decision(
                     card_id,
-                    BeginnerReviewDecision.LOOKS_GOOD,
+                    "keep",
                     checked,
                 )
             )
             discard_btn.toggled.connect(
                 lambda checked, card_id=card.id: self._set_card_decision(
                     card_id,
-                    BeginnerReviewDecision.SKIP_FOR_NOW,
+                    "discard",
                     checked,
                 )
             )
@@ -2144,14 +2237,14 @@ class CardMakerPanel(QWidget):
         self.cards_layout.addStretch()
 
     def _discard_blocking_cards(self):
-        discarded = self.session.discard_blocking_candidates()
+        discarded = self.review_use_cases.discard_blocking()
         if discarded:
             self._clear_duplicate_state()
             self._render_cards()
             self._refresh_product_state()
 
     def _keep_clean_cards(self):
-        kept = self.session.keep_clean_candidates()
+        kept = self.review_use_cases.keep_clean()
         if kept:
             self._clear_duplicate_state()
             self._render_cards()
@@ -2164,7 +2257,7 @@ class CardMakerPanel(QWidget):
         self._refresh_product_state()
 
     def _restore_card(self, card_id):
-        self.session.restore_candidate_content(card_id)
+        self.review_use_cases.restore_content(card_id)
         self._clear_duplicate_state()
         self._render_cards()
         self._refresh_product_state()
@@ -2172,7 +2265,7 @@ class CardMakerPanel(QWidget):
     def _set_card_decision(self, card_id, decision, checked):
         if not checked:
             return
-        self.session.set_candidate_review_decision(card_id, decision)
+        self.review_use_cases.set_decision(card_id, decision)
         self._clear_duplicate_state()
         self._refresh_product_state()
 
@@ -2191,7 +2284,7 @@ class CardMakerPanel(QWidget):
         if not dialog.exec():
             return
         front, back = dialog.values()
-        self.session.replace_candidate_content(card_id, front, back)
+        self.review_use_cases.replace_content(card_id, front, back)
         self._clear_duplicate_state()
         self._render_cards()
         self._refresh_product_state()
@@ -2200,7 +2293,7 @@ class CardMakerPanel(QWidget):
         self.session.clear_anki_target_selection()
         self.anki_mapping = None
         self.anki_field_snapshot = None
-        snapshot = self.anki_target_adapter.read_targets()
+        snapshot = self.write_coordinator.read_targets()
         self.anki_target_snapshot = snapshot
         self._set_target_message(
             None
@@ -2239,7 +2332,7 @@ class CardMakerPanel(QWidget):
             self._clear_field_options()
             self._update_mapping()
             return
-        snapshot = self.anki_target_adapter.read_fields(note_type.id)
+        snapshot = self.write_coordinator.read_fields(note_type.id)
         self.anki_field_snapshot = snapshot
         if snapshot.state is not BeginnerAnkiReadState.SUCCESS:
             self._set_target_message("field_read_failed")
@@ -2360,7 +2453,7 @@ class CardMakerPanel(QWidget):
             self._refresh_duplicate_copy()
             return
         self.session.begin_duplicate_check()
-        results = self.duplicate_check_adapter.check(
+        results = self.write_coordinator.check_duplicates(
             self.session.candidate_card_previews,
             self.anki_mapping,
         )
@@ -2383,22 +2476,18 @@ class CardMakerPanel(QWidget):
         self._refresh_product_state()
 
     def _prepare_current_write(self):
-        final_preview = build_beginner_final_confirmation_preview(
+        prepared = self.write_coordinator.prepare(
             self.session,
             self.anki_mapping,
             self.duplicate_results,
         )
+        final_preview = prepared.final_preview
         self.final_confirmation_preview = final_preview
         self.session.apply_final_confirmation_preview(
             final_preview.candidate_count,
             len(final_preview.missing_conditions),
         )
-        preparation = prepare_beginner_write(
-            self.session,
-            final_preview,
-            self.anki_mapping,
-            self.duplicate_results,
-        )
+        preparation = prepared.preparation
         self.write_preparation = preparation
         self.write_command = preparation.command
         command = preparation.command
@@ -2522,11 +2611,16 @@ class CardMakerPanel(QWidget):
             )
         )
         roles = getattr(QMessageBox, "ButtonRole", QMessageBox)
-        message_box.addButton(self.t("cancel"), roles.RejectRole)
+        cancel_button = message_box.addButton(
+            self.t("cancel"),
+            roles.RejectRole,
+        )
+        cancel_button.setProperty("role", "dialogSecondary")
         confirm_button = message_box.addButton(
             self.t("confirm_write"),
             roles.AcceptRole,
         )
+        confirm_button.setProperty("role", "dialogPrimary")
         message_box.exec()
         confirmed = message_box.clickedButton() is confirm_button
         if not confirmed:
@@ -2556,11 +2650,7 @@ class CardMakerPanel(QWidget):
         self.write_btn.setText(self.t("write_running"))
         self.write_btn.setEnabled(False)
         QApplication.processEvents()
-        result = execute_beginner_write_if_confirmed(
-            True,
-            self.writer,
-            command,
-        )
+        result = self.write_coordinator.execute_if_confirmed(True, command)
         self.session.record_write_result(
             result.snapshot_id,
             result.created_note_ids,
@@ -2653,7 +2743,17 @@ class CardMakerPanel(QWidget):
         if hasattr(self, "write_summary_label"):
             self._render_write_summary()
 
+    def _sync_workbench_state(self):
+        active_request_id = (
+            self._intelligent_generation_controller.current_request_id
+        )
+        return self.workbench_store.synchronize(
+            self.session,
+            active_request_id=active_request_id,
+        )
+
     def _refresh_product_state(self):
+        self._sync_workbench_state()
         self.material_count_label.setText(
             self.t(
                 "character_count",
@@ -2752,8 +2852,10 @@ class CardMakerPanel(QWidget):
         self.material_input.blockSignals(False)
         self._clear_source_import_feedback()
         self._ai_runtime_settings = None
+        self._preferences_changed = None
         if not self.session.closed:
             self.session.close()
+        self.workbench_store.close()
         self.anki_target_snapshot = None
         self.anki_field_snapshot = None
         self.anki_mapping = None

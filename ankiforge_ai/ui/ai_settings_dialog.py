@@ -105,6 +105,8 @@ class AiSettingsDialog(QDialog):
         language=DEFAULT_PRODUCT_LANGUAGE,
         settings=None,
         confirmed_endpoint_keys=(),
+        preferred_provider_name="DeepSeek",
+        preferred_model_name="deepseek-v4-flash",
     ):
         super().__init__(parent)
         self.language = language
@@ -116,7 +118,11 @@ class AiSettingsDialog(QDialog):
         self.setFixedWidth(480)
         self._configure_window()
         self._build_ui()
-        self._load_settings(settings)
+        self._load_settings(
+            settings,
+            preferred_provider_name=preferred_provider_name,
+            preferred_model_name=preferred_model_name,
+        )
 
     def t(self, key, **values):
         return product_text(self.language, key, **values)
@@ -259,14 +265,33 @@ class AiSettingsDialog(QDialog):
         row.addWidget(control, 1, Qt.AlignmentFlag.AlignTop)
         return row
 
-    def _load_settings(self, settings):
+    def _load_settings(
+        self,
+        settings,
+        preferred_provider_name="DeepSeek",
+        preferred_model_name="deepseek-v4-flash",
+    ):
         if settings is None:
-            self.provider_combo.setCurrentIndex(0)
-            self.model_input.setText(self.PROVIDERS[0][2])
-            self.base_url_input.setText(self.PROVIDERS[0][1])
+            provider_index = next(
+                (
+                    index
+                    for index, provider in enumerate(self.PROVIDERS)
+                    if provider[0] == preferred_provider_name
+                ),
+                0,
+            )
+            provider = self.PROVIDERS[provider_index]
+            self.provider_combo.setCurrentIndex(provider_index)
+            self.model_input.setText(
+                preferred_model_name
+                if isinstance(preferred_model_name, str)
+                and preferred_model_name.strip()
+                else provider[2]
+            )
+            self.base_url_input.setText(provider[1])
             self.api_key_input.clear()
             self.timeout_input.setValue(60)
-            self._on_provider_changed(0)
+            self._on_provider_changed(provider_index, preserve_values=True)
             return
         if not isinstance(settings, BeginnerAIProviderRuntimeSettings):
             raise TypeError(

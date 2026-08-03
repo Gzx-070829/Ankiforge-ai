@@ -90,6 +90,9 @@ class InstalledPackageRuntimeTests(unittest.TestCase):
                     "importlib.import_module('installed_addon')",
                     "importlib.import_module('installed_addon.intelligence')",
                     "importlib.import_module('installed_addon.importers.source_import')",
+                    "importlib.import_module('installed_addon.workbench')",
+                    "importlib.import_module('installed_addon.workbench.generation_lifecycle')",
+                    "importlib.import_module('installed_addon.workbench.write_coordinator')",
                 )
             )
             result = subprocess.run(

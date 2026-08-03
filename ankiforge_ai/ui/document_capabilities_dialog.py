@@ -319,6 +319,7 @@ class DocumentCapabilitiesDialog(QDialog):
             language=language,
             backend_availability=backend_availability,
         )
+        self.setObjectName("DocumentCapabilitiesDialog")
         self.setWindowTitle(view.title)
         self._language = language
         self._pandoc_executable = pandoc_executable
@@ -331,7 +332,11 @@ class DocumentCapabilitiesDialog(QDialog):
         enabled = set(enabled_backend_ids)
         self.setMinimumWidth(640)
         root = QVBoxLayout(self)
+        root.setContentsMargins(20, 18, 20, 20)
+        root.setSpacing(12)
         intro = QLabel(view.intro)
+        intro.setObjectName("DocumentCapabilitiesIntro")
+        intro.setProperty("role", "secondary")
         intro.setWordWrap(True)
         root.addWidget(intro)
         self._native_only_button = QRadioButton(
@@ -342,12 +347,16 @@ class DocumentCapabilitiesDialog(QDialog):
         root.addWidget(self._native_only_button)
 
         scroll = QScrollArea()
+        scroll.setObjectName("DocumentCapabilitiesScroll")
         scroll.setWidgetResizable(True)
         body = QWidget()
         rows_layout = QVBoxLayout(body)
         for row in view.rows:
             row_widget = QWidget()
+            row_widget.setProperty("capabilityRow", True)
             row_layout = QHBoxLayout(row_widget)
+            row_layout.setContentsMargins(12, 10, 12, 10)
+            row_layout.setSpacing(10)
             format_label = QLabel(f"{row.format_name}  {row.extensions}")
             format_label.setProperty("role", "fieldLabel")
             status_label = QLabel(row.status)
@@ -374,6 +383,7 @@ class DocumentCapabilitiesDialog(QDialog):
                 row_layout.addWidget(selector)
                 if row.backend_id == "pandoc":
                     choose = QPushButton(_copy_for(language)["choose_pandoc"])
+                    choose.setProperty("role", "secondary")
                     choose.clicked.connect(self._choose_pandoc_executable)
                     row_layout.addWidget(choose)
             rows_layout.addWidget(row_widget)
@@ -384,6 +394,7 @@ class DocumentCapabilitiesDialog(QDialog):
         root.addWidget(scroll, 1)
 
         close_button = QPushButton(view.close_label)
+        close_button.setProperty("role", "dialogPrimary")
         close_button.clicked.connect(self.accept)
         root.addWidget(close_button)
 

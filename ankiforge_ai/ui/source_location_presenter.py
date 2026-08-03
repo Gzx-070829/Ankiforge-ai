@@ -5,9 +5,9 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Union
 
-from ..document import SourceLocation
+from ..document import SourceLocation, SourceSpan
 
 
 _WHITESPACE = re.compile(r"\s+")
@@ -26,14 +26,14 @@ class SourceLocationView:
 
 
 def present_source_location(
-    location: Optional[SourceLocation],
+    location: Optional[Union[SourceLocation, SourceSpan]],
     block_text: str,
     *,
     language: str = "en",
     max_snippet_chars: int = 240,
 ) -> SourceLocationView:
-    if location is not None and not isinstance(location, SourceLocation):
-        raise TypeError("location must be a SourceLocation or None")
+    if location is not None and not isinstance(location, (SourceLocation, SourceSpan)):
+        raise TypeError("location must be source evidence or None")
     if not isinstance(block_text, str):
         raise TypeError("block_text must be a string")
     if language not in {"zh", "en"}:
@@ -53,9 +53,14 @@ def present_source_location(
     )
 
 
-def _chip(location: Optional[SourceLocation], language: str) -> str:
+def _chip(
+    location: Optional[Union[SourceLocation, SourceSpan]],
+    language: str,
+) -> str:
     if location is None:
         return "来源" if language == "zh" else "Source"
+    if isinstance(location, SourceSpan):
+        return _source_span_chip(location, language)
     file_label = (
         _safe_chip_text(location.file_label)
         if location.file_label is not None
@@ -128,6 +133,39 @@ def _chip(location: Optional[SourceLocation], language: str) -> str:
     if len(value) > _MAX_CHIP_CHARS:
         return value[: _MAX_CHIP_CHARS - 1].rstrip() + "…"
     return value
+
+
+def _source_span_chip(span: SourceSpan, language: str) -> str:
+    label = _safe_chip_text(span.source_label)
+    kind = span.locator_kind
+    raw_value = span.locator_value
+    value = raw_value.replace("-", "–") if kind in {"row", "line"} else raw_value
+    if kind in {"document", "block"}:
+        detail = ""
+    elif kind == "page":
+        detail = f"第 {value} 页" if language == "zh" else f"Page {value}"
+    elif kind == "slide":
+        detail = f"第 {value} 张幻灯片" if language == "zh" else f"Slide {value}"
+    elif kind == "row":
+        detail = f"第 {value} 行" if language == "zh" else f"Rows {value}"
+        if "–" not in value and language == "en":
+            detail = f"Row {value}"
+    elif kind == "line":
+        detail = f"第 {value} 行" if language == "zh" else f"Lines {value}"
+        if "–" not in value and language == "en":
+            detail = f"Line {value}"
+    elif kind == "cell":
+        detail = f"单元格 {value}" if language == "zh" else f"Cell {value}"
+    elif kind == "sheet":
+        detail = f"工作表“{value}”" if language == "zh" else f'Sheet "{value}"'
+    elif kind == "section":
+        detail = value
+    else:
+        detail = value
+    rendered = label if not detail else f"{label} · {detail}"
+    if len(rendered) > _MAX_CHIP_CHARS:
+        return rendered[: _MAX_CHIP_CHARS - 1].rstrip() + "…"
+    return rendered
 
 
 def _safe_chip_text(value: str) -> str:

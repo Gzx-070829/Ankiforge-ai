@@ -1,8 +1,8 @@
 # AnkiForge AI
 
-## v0.14.1: Universal Document & Intelligence Engine
+## v0.15.0 candidate: a stronger core and simpler review
 
-v0.14.1 turns explicitly selected local study files into DocumentIR before local structure analysis, chunking, knowledge planning, and reviewable candidates, and fixes `.ankiaddon` startup imports under a real Anki installation directory. Core supports common text, Office Open XML, tables, HTML, JSON/XML, notebooks, EPUB, subtitles, and safe code text. PDF remains fallback-only or uses a separately installed local backend. Nothing is automatically installed, downloaded, or uploaded. A configured Provider receives selected generation material only after Generate; every candidate still requires review, duplicate checking, and final confirmation.
+The v0.15.0 release candidate builds on the v0.14.1 document engine with a pure-Python workbench application core, honest source evidence, one `ready / review / blocked` quality contract, advisory local near-duplicate hints, strictly allowlisted non-sensitive preferences, and the warm-charcoal / soft-orange visual system. The simple Create → Review → Write flow remains: material reaches the configured Provider only after Generate, and every candidate still requires manual review, collection duplicate checking, and final confirmation.
 
 Turn your own study material into reviewable, safely writable Anki cards.
 
@@ -12,7 +12,7 @@ Turn your own study material into reviewable, safely writable Anki cards.
 
 AnkiForge AI is a local-first AI card workbench. You provide the source and learning goal; AI produces candidates only. Local quality checks and manual review come before duplicate checking, a write preview, and final confirmation.
 
-Current candidate: `v0.14.1` startup hotfix candidate (not yet republished to AnkiWeb).
+The current public release baseline remains `v0.14.1`; this branch is the `v0.15.0` release candidate and does not gain merge or release authorization merely by being complete.
 
 ## Quick install
 
@@ -51,11 +51,13 @@ Copy the `ankiforge_ai` folder into Anki's `addons21` directory and restart Anki
 - DeepSeek and OpenAI-compatible providers in a dedicated AI Settings dialog
 - Eight public modes: `concept`, `definition`, `exam`, `quick_review`, `compare_contrast`, `process_steps`, `formula_rule`, and `mistake_trap`; Cloze remains an internal fail-closed compatibility check and is not selectable in the current UI
 - Template-aware prompts plus card-count, answer-length, and output-language controls
-- Fully local deterministic card-quality checks and a multidisciplinary benchmark
+- Fully local deterministic card-quality checks with one `ready / review / blocked` contract and a versioned multidisciplinary regression benchmark
+- Safe bounded source evidence and advisory local near-duplicate hints that never remove candidates; the Anki collection check remains the pre-write gate
 - A pending → edit/copy/restore → keep/discard Review workbench
 - Front / Back / Source field suggestions without adding fields or mutating note types
 - Duplicate checking, write summaries, final confirmation, safe source labels, tags, and last-write summaries
 - Chinese and English UI, reproducible `.ankiaddon` builds, and forbidden-file auditing
+- Non-sensitive preferences only: language, Provider/Model, and existing generation choices persist; API keys, Base URLs, material, review state, and write history never do
 
 ## Safety and privacy
 
@@ -78,6 +80,8 @@ Copy the `ankiforge_ai` folder into Anki's `addons21` directory and restart Anki
 - [Optional local document backends](docs/optional_document_backends.md)
 - [Card modes and templates](docs/card_modes_and_templates.md)
 - [Card quality system](docs/card_quality_system.md)
+- [Card quality, source evidence, and preference boundaries](docs/card_quality_and_source_evidence.md)
+- [v0.15 warm charcoal and soft orange visual design](docs/visual_design_v0_15.md)
 - [Review workbench](docs/review_workbench.md)
 - [Field mapping](docs/field_mapping.md)
 - [Troubleshooting](docs/troubleshooting.md)

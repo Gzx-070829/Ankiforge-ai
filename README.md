@@ -1,8 +1,8 @@
 # AnkiForge AI
 
-## v0.14.1：通用文档与智能引擎
+## v0.15.0 候选：更稳的核心，更简单的审核
 
-v0.14.1 在本地将用户明确选择的学习文件转换为 DocumentIR，再进行结构分析、切块、知识规划与候选卡审核，并修复 `.ankiaddon` 在真实 Anki 安装目录下的启动导入问题。原生支持常见文本、Office Open XML、表格、HTML、JSON/XML、Notebook、EPUB、字幕和安全代码文本；PDF 仍仅提供 fallback 或用户另行安装的本地 backend。不会自动安装、下载或上传文件。只有用户点击 Generate 后，所选生成材料才会发送给其配置的 Provider；所有候选卡仍须人工审核、查重和最终确认。
+v0.15.0 release candidate 在 v0.14.1 文档引擎上加入纯 Python workbench application core、诚实的来源证据、`ready / review / blocked` 三态质量反馈、本地近重复提示和严格白名单的非敏感偏好，并采用温和木炭色与柔和橙色视觉。主流程仍是简单的 Create → Review → Write；只有用户点击 Generate 后材料才会发送给其配置的 Provider，所有候选卡仍须人工审核、collection 查重和最终确认。
 
 把自己的学习材料变成可审核、可安全写入的 Anki 卡片。
 
@@ -12,7 +12,7 @@ v0.14.1 在本地将用户明确选择的学习文件转换为 DocumentIR，再�
 
 AnkiForge AI 是一个本地优先、中文优先的 AI 制卡工作台。你提供材料、选择学习目标，AI 只生成候选卡；本地质量检查和人工审核完成后，插件才会进入重复检查、写入预览和最终确认。
 
-当前候选版本：`v0.14.1` 启动热修复候选（尚未重新发布到 AnkiWeb）。
+当前公开发布基线仍是 `v0.14.1`；本分支版本为 `v0.15.0` release candidate，尚未因代码完成而自动获得合并或发布授权。
 
 ## 快速安装
 
@@ -51,11 +51,13 @@ git clone https://github.com/Gzx-070829/Ankiforge-ai.git
 - DeepSeek 与 OpenAI-compatible Provider；AI 设置留在独立 Modal
 - `concept`、`definition`、`exam`、`quick_review`、`compare_contrast`、`process_steps`、`formula_rule` 和 `mistake_trap` 八种公开模式；Cloze 仅保留内部 fail-closed 兼容检查，当前 UI 不开放
 - 模板感知的生成提示，以及卡片数量、答案长度和输出语言控制
-- 完全本地、确定性的 card-quality 检查与多学科 benchmark
+- 完全本地、确定性的 card-quality 检查，统一使用 `ready / review / blocked`，并由版本化多学科 benchmark 做回归验证
+- 安全、有限的来源证据，以及不会自动删除候选卡的本地近重复提示；Anki collection 查重仍是写入前门禁
 - pending → 编辑/复制/还原 → 保留/丢弃的 Review 工作台
 - Front / Back / Source 字段建议；不自动新增字段或修改笔记类型
 - 重复检查、写入摘要、最终确认、来源标签、Tags 和最后写入批次摘要
 - 中英文界面、可复现 `.ankiaddon` 打包和 forbidden-file 审计
+- 仅保存语言、Provider/Model 和现有生成选项等非敏感 preferences；API key、Base URL、材料与审核/写入历史永不保存
 
 ## 安全与隐私
 
@@ -78,6 +80,8 @@ git clone https://github.com/Gzx-070829/Ankiforge-ai.git
 - [可选本地文档后端](docs/optional_document_backends.md)
 - [卡片模式与模板](docs/card_modes_and_templates.md)
 - [卡片质量系统](docs/card_quality_system.md)
+- [卡片质量、来源证据与偏好边界](docs/card_quality_and_source_evidence.md)
+- [v0.15 温和木炭色与柔和橙色视觉说明](docs/visual_design_v0_15.md)
 - [审核工作台](docs/review_workbench.md)
 - [字段映射](docs/field_mapping.md)
 - [常见问题与排错](docs/troubleshooting.md)

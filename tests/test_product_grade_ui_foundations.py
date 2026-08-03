@@ -7,14 +7,14 @@ class ProductGradeUiFoundationTests(unittest.TestCase):
     def test_style_tokens_are_centralized_and_complete(self):
         source = self.read("ankiforge_ai/ui/style_tokens.py")
         for name, value in {
-            "APP_BG": "#0D1117",
-            "SURFACE": "#111827",
-            "SURFACE_ELEVATED": "#161B22",
-            "INPUT_BG": "#0F141B",
-            "ACCENT": "#7C5CFF",
-            "SUCCESS": "#22C55E",
-            "WARNING": "#F59E0B",
-            "DANGER": "#EF4444",
+            "APP_BG": "#211D1A",
+            "SURFACE": "#29231F",
+            "SURFACE_ELEVATED": "#332B26",
+            "INPUT_BG": "#241F1C",
+            "ACCENT": "#D98A55",
+            "SUCCESS": "#7FAF86",
+            "WARNING": "#D6A35D",
+            "DANGER": "#D77B72",
         }.items():
             self.assertIn(f'{name} = "{value}"', source)
         for name, value in {

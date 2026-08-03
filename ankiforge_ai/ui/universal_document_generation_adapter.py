@@ -8,6 +8,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 
+from ..document import SourceSpan, source_span_from_chunk
 from ..intelligence import (
     CallPurpose,
     GenerationRun,
@@ -587,6 +588,12 @@ def build_imported_generation_run(
         chunk_ids=tuple(chunk.chunk_id for chunk in chunks),
         points=points,
     )
+    source_span_by_point_id = _build_source_span_map(
+        selected,
+        chunks,
+        points,
+        batch_document_id=document_id,
+    )
     run = create_generation_run(
         run_id=f"run-{digest[32:48]}",
         request_id=request_id,
@@ -595,6 +602,10 @@ def build_imported_generation_run(
         document_snapshot={
             "chunk_text_by_id": {
                 chunk.chunk_id: chunk.text for chunk in chunks
+            },
+            "source_span_by_point_id": {
+                point_id: span.to_safe_dict()
+                for point_id, span in source_span_by_point_id.items()
             },
         },
         settings_snapshot={
@@ -619,6 +630,7 @@ def drafts_from_generation_run(run: GenerationRun) -> tuple[BeginnerAICardDraft,
         )
         for point in plan.points
     }
+    span_payloads = run.document_snapshot.get("source_span_by_point_id", {})
     drafts = []
     for index, card in enumerate(run.cards, start=1):
         if not isinstance(card, Mapping):
@@ -640,9 +652,63 @@ def drafts_from_generation_run(run: GenerationRun) -> tuple[BeginnerAICardDraft,
                 source_location=location_by_point.get(
                     card.get("point_id")
                 ),
+                source_span=_source_span_from_snapshot(
+                    span_payloads,
+                    card.get("point_id"),
+                ),
             )
         )
     return tuple(drafts)
+
+
+def _build_source_span_map(
+    results,
+    chunks,
+    points,
+    *,
+    batch_document_id: str,
+) -> dict[str, SourceSpan]:
+    document_by_id = {result.document.document_id: result.document for result in results}
+    chunk_by_id = {chunk.chunk_id: chunk for chunk in chunks}
+    spans = {}
+    for point in points:
+        point_chunks = tuple(
+            chunk_by_id[chunk_id]
+            for chunk_id in point.source_chunk_ids
+            if chunk_id in chunk_by_id
+        )
+        if len(point_chunks) == 1:
+            chunk = point_chunks[0]
+            document = document_by_id[chunk.document_id]
+            spans[point.point_id] = source_span_from_chunk(
+                chunk,
+                source_label=document.source_label,
+            )
+            continue
+        document_ids = tuple(dict.fromkeys(chunk.document_id for chunk in point_chunks))
+        if len(document_ids) == 1:
+            document_id = document_ids[0]
+            source_label = document_by_id[document_id].source_label
+        else:
+            document_id = batch_document_id
+            source_label = "Imported material"
+        spans[point.point_id] = SourceSpan(
+            document_id=document_id,
+            source_label=source_label,
+        )
+    return spans
+
+
+def _source_span_from_snapshot(span_payloads, point_id):
+    if not isinstance(span_payloads, Mapping) or not isinstance(point_id, str):
+        return None
+    payload = span_payloads.get(point_id)
+    if not isinstance(payload, Mapping):
+        return None
+    try:
+        return SourceSpan.from_safe_dict(payload)
+    except (TypeError, ValueError):
+        return None
 
 
 def _materialize_cards(

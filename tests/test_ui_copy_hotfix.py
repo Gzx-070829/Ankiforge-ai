@@ -49,7 +49,7 @@ class UICopyHotfixTests(unittest.TestCase):
 
         self.assertNotIn('self.t("quality_score"', render)
         self.assertNotIn("quality.quality_score", render)
-        self.assertIn('self.t(f"quality_status_{quality.severity}")', render)
+        self.assertIn('self.t(f"quality_status_{quality.status}")', render)
 
     def test_chinese_main_copy_is_short_and_product_facing(self):
         zh = PRODUCT_COPY["zh"]
@@ -100,9 +100,9 @@ class UICopyHotfixTests(unittest.TestCase):
             'QWidget#CardMakerPanel QPushButton[role="primary"]:disabled {'
         )[1].split("}", 1)[0]
 
-        self.assertIn("background-color: #292347", disabled_block)
-        self.assertIn("color: #8F83C7", disabled_block)
-        self.assertIn("border-color: #3C3266", disabled_block)
+        self.assertIn("background-color: #493426", disabled_block)
+        self.assertIn("color: #A87C5D", disabled_block)
+        self.assertIn("border-color: #664732", disabled_block)
 
     @staticmethod
     def function_source(source, name):

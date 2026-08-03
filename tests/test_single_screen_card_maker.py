@@ -105,6 +105,50 @@ class SingleScreenCardMakerTests(unittest.TestCase):
         for forbidden in ("save_config", "write_config", "setConfig"):
             self.assertNotIn(forbidden, panel)
 
+    def test_panel_synchronizes_a_content_free_workbench_store(self):
+        panel = self.panel_source()
+        constructor = self.function_source(panel, "__init__")
+        refresh = self.function_source(panel, "_refresh_product_state")
+        discard = self.function_source(panel, "discard_session")
+
+        self.assertIn(
+            "WorkbenchSessionStore.from_legacy(self.session)",
+            constructor,
+        )
+        self.assertIn("self._sync_workbench_state()", refresh)
+        self.assertIn("self.workbench_store.close()", discard)
+        self.assertNotIn("_ai_runtime_settings", constructor.split(
+            "WorkbenchSessionStore.from_legacy(self.session)", 1
+        )[1].split("\n", 1)[0])
+
+    def test_panel_routes_review_mutations_through_workbench_use_cases(self):
+        panel = self.panel_source()
+        constructor = self.function_source(panel, "__init__")
+
+        self.assertIn("ReviewUseCases", constructor)
+        self.assertIn("LegacyReviewSessionAdapter", constructor)
+        for method in (
+            "_discard_blocking_cards",
+            "_keep_clean_cards",
+            "_restore_card",
+            "_set_card_decision",
+            "_edit_card",
+        ):
+            source = self.function_source(panel, method)
+            self.assertIn("self.review_use_cases", source)
+
+    def test_panel_constructs_one_injected_anki_workflow_coordinator(self):
+        panel = self.panel_source()
+        constructor = self.function_source(panel, "__init__")
+
+        self.assertIn(
+            "create_workbench_write_coordinator(collection)",
+            constructor,
+        )
+        self.assertNotIn("MinimalAnkiWriter", constructor)
+        self.assertNotIn("ReadOnlyAnkiTargetAdapter", constructor)
+        self.assertNotIn("ReadOnlyDuplicateCheckAdapter", constructor)
+
     def test_write_requires_custom_secondary_confirmation(self):
         handler = self.function_source(self.panel_source(), "_confirm_and_write")
 
@@ -115,7 +159,7 @@ class SingleScreenCardMakerTests(unittest.TestCase):
         self.assertIn("if not confirmed", handler)
         self.assertLess(
             handler.index("if not confirmed"),
-            handler.index("execute_beginner_write_if_confirmed"),
+            handler.index("self.write_coordinator.execute_if_confirmed"),
         )
         self.assertNotIn("add_note", handler)
 
@@ -128,7 +172,7 @@ class SingleScreenCardMakerTests(unittest.TestCase):
         self.assertEqual(PRODUCT_COPY["zh"]["duplicates_skipped"], "可能重复，已跳过")
         self.assertEqual(PRODUCT_COPY["zh"]["duplicates_unchecked"], "未检查")
         self.assertIn("self.write_preparation.can_write", refresh)
-        self.assertIn("prepare_beginner_write", panel)
+        self.assertIn("self.write_coordinator.prepare", panel)
 
     def test_written_snapshot_disables_same_batch(self):
         refresh = self.function_source(

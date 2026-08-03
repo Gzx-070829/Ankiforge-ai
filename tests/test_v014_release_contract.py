@@ -8,21 +8,25 @@ import ankiforge_ai
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.14.1"
+HISTORICAL_VERSION = "0.14.1"
 REQUIRED_DOCS = (
     "README.md", "README.en.md", "docs/getting_started.md", "docs/importing_materials.md", "docs/document_ir.md", "docs/native_supported_formats.md", "docs/optional_document_backends.md", "docs/docling_setup.md", "docs/markitdown_setup.md", "docs/pandoc_setup.md", "docs/document_security.md", "docs/intelligence_levels.md", "docs/knowledge_planning.md", "docs/chunking_and_source_traceability.md", "docs/ai_cost_and_call_budget.md", "docs/deck_style_profile.md", "docs/troubleshooting.md", "docs/manual_anki_acceptance.md", "docs/release_notes_v0_14.md", "docs/ankiweb_description_v0_14.md", "docs/future_document_engine_companion.md", "docs/third_party_notices.md",
 )
 
 
 class V014ReleaseContractTests(unittest.TestCase):
-    def test_runtime_manifest_and_current_public_docs_use_v014(self):
-        manifest = json.loads((ROOT / "ankiforge_ai" / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(ankiforge_ai.__version__, VERSION)
-        self.assertEqual(manifest["version"], VERSION)
-        self.assertEqual(manifest["human_version"], VERSION)
+    def test_v014_required_docs_remain_available(self):
         for relative_path in REQUIRED_DOCS:
             with self.subTest(path=relative_path):
-                self.assertIn(VERSION, (ROOT / relative_path).read_text(encoding="utf-8"))
+                self.assertTrue((ROOT / relative_path).is_file())
+        for relative_path in (
+            "docs/release_notes_v0_14.md",
+            "docs/ankiweb_description_v0_14.md",
+        ):
+            self.assertIn(
+                HISTORICAL_VERSION,
+                (ROOT / relative_path).read_text(encoding="utf-8"),
+            )
 
     def test_preview_and_manifest_are_offline_mock_release_assets(self):
         preview = ROOT / "docs" / "assets" / "ui_preview_v0_14.html"

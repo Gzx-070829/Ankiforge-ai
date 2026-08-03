@@ -9,8 +9,8 @@ import re
 from types import MappingProxyType
 from typing import Mapping, Optional
 
-from ..document import SourceLocation
-from ..intelligence import IntelligenceLevel
+from ..document import SourceLocation, SourceSpan
+from ..intelligence import IntelligenceLevel, deduplicate_cards
 from ..pipeline.card_quality import CardQualityResult, evaluate_card_batch
 from ..pipeline.generation_settings import (
     GenerationSettings,
@@ -391,6 +391,7 @@ class BeginnerAICardDraft:
         default=None,
         repr=False,
     )
+    source_span: Optional[SourceSpan] = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, str) or not self.id.strip():
@@ -405,6 +406,11 @@ class BeginnerAICardDraft:
             SourceLocation,
         ):
             raise TypeError("source_location must be SourceLocation or None.")
+        if self.source_span is not None and not isinstance(
+            self.source_span,
+            SourceSpan,
+        ):
+            raise TypeError("source_span must be SourceSpan or None.")
 
     def __repr__(self) -> str:
         return (
@@ -420,6 +426,7 @@ class BeginnerAICardDraft:
             "front_chars": len(self.front),
             "back_chars": len(self.back),
             "source_excerpt_chars": len(self.source_excerpt),
+            "source_span_present": self.source_span is not None,
         }
 
 
@@ -436,6 +443,11 @@ class BeginnerCandidateCardPreview:
         default=None,
         repr=False,
     )
+    source_span: Optional[SourceSpan] = field(default=None, repr=False)
+
+    def __post_init__(self) -> None:
+        if self.source_span is not None and not isinstance(self.source_span, SourceSpan):
+            raise TypeError("source_span must be SourceSpan or None.")
 
     def __repr__(self) -> str:
         return (
@@ -837,6 +849,7 @@ class BeginnerFlowSession:
                 back_preview=draft.back,
                 source_excerpt=draft.source_excerpt,
                 source_location=draft.source_location,
+                source_span=draft.source_span,
             )
             for draft in resolved
         )
@@ -959,6 +972,7 @@ class BeginnerFlowSession:
                 back=back if item.id == draft_id else item.back,
                 source_excerpt=item.source_excerpt,
                 source_location=item.source_location,
+                source_span=item.source_span,
             )
             for item in self.ai_candidate_card_drafts
         )
@@ -970,6 +984,7 @@ class BeginnerFlowSession:
                 back_preview=back if item.id == candidate_id else item.back_preview,
                 source_excerpt=item.source_excerpt,
                 source_location=item.source_location,
+                source_span=item.source_span,
             )
             for item in self.candidate_card_previews
         )
@@ -1080,6 +1095,7 @@ class BeginnerFlowSession:
                 back_preview=copied.back,
                 source_excerpt=copied.source,
                 source_location=source_preview.source_location,
+                source_span=source_preview.source_span,
             ),
         )
         source_draft_id = candidate_id.removeprefix("candidate-")
@@ -1101,6 +1117,7 @@ class BeginnerFlowSession:
                     back=copied.back,
                     source_excerpt=copied.source,
                     source_location=source_draft.source_location,
+                    source_span=source_draft.source_span,
                 ),
             )
             self.ai_draft_revision += 1
@@ -1143,6 +1160,7 @@ class BeginnerFlowSession:
                     restored.source if item.id == candidate_id else item.source_excerpt
                 ),
                 source_location=item.source_location,
+                source_span=item.source_span,
             )
             for item in self.candidate_card_previews
         )
@@ -1155,6 +1173,7 @@ class BeginnerFlowSession:
                     restored.source if item.id == draft_id else item.source_excerpt
                 ),
                 source_location=item.source_location,
+                source_span=item.source_span,
             )
             for item in self.ai_candidate_card_drafts
         )
@@ -1922,9 +1941,11 @@ class BeginnerFlowSession:
         self.write_created_note_ids = ()
 
     def _refresh_candidate_quality(self) -> None:
+        deduplication = deduplicate_cards(self.candidate_card_previews)
         batch = evaluate_card_batch(
             self.candidate_card_previews,
             self.generation_settings,
+            duplicate_matches=deduplication.matches,
         )
         self.candidate_quality_results = {
             item.candidate_id: item.quality for item in batch.results

@@ -4,20 +4,40 @@ from aqt import mw
 from aqt.qt import QDialog, QHBoxLayout, QLabel, QPushButton, Qt, QVBoxLayout
 
 from ..pipeline.provider_preview import ReadOnlyProviderPreview
+from ..workbench.preferences import WorkbenchPreferences
 from .ai_settings_dialog import AiSettingsDialog
 from .card_maker_panel import CardMakerPanel
 from .help_dialog import HelpDialog
 from .product_i18n import DEFAULT_PRODUCT_LANGUAGE, product_text
 from .product_styles import PRODUCT_DARK_STYLESHEET
 from .style_tokens import SPACING_SM, SPACING_XL
+from .workbench_preferences_adapter import WorkbenchPreferencesAdapter
 
 
 class MainDialog(QDialog):
     """The only public workbench surface; legacy debug tools are not mounted."""
 
-    def __init__(self, parent=None, provider_preview=None):
+    def __init__(
+        self,
+        parent=None,
+        provider_preview=None,
+        preferences_adapter=None,
+    ):
         super().__init__(parent)
-        self.ui_language = DEFAULT_PRODUCT_LANGUAGE
+        self._preferences_adapter = (
+            preferences_adapter
+            if preferences_adapter is not None
+            else WorkbenchPreferencesAdapter()
+        )
+        if not isinstance(
+            self._preferences_adapter,
+            WorkbenchPreferencesAdapter,
+        ):
+            raise TypeError(
+                "preferences_adapter must be WorkbenchPreferencesAdapter"
+            )
+        self._preferences = self._preferences_adapter.load()
+        self.ui_language = self._preferences.ui_language
         self.setObjectName("AnkiForgeMainDialog")
         self.setStyleSheet(PRODUCT_DARK_STYLESHEET)
         if provider_preview is not None and not isinstance(
@@ -30,7 +50,8 @@ class MainDialog(QDialog):
         self._provider_preview = provider_preview
         self._session_torn_down = False
         self.setWindowTitle(self.t("title"))
-        self.resize(1280, 960)
+        self.resize(1200, 840)
+        self.setMinimumWidth(1020)
         self._build_ui()
 
     def t(self, key, **values):
@@ -81,6 +102,8 @@ class MainDialog(QDialog):
             parent=self,
             collection=collection,
             language=self.ui_language,
+            preferences=self._preferences,
+            preferences_changed=self._save_preferences,
         )
         panel_row = QHBoxLayout()
         panel_row.addStretch()
@@ -100,6 +123,15 @@ class MainDialog(QDialog):
         self.card_maker_panel.set_language(self.ui_language)
         self._refresh_ai_status()
 
+    def _save_preferences(self, preferences):
+        if not isinstance(preferences, WorkbenchPreferences):
+            raise TypeError("preferences must be WorkbenchPreferences")
+        try:
+            self._preferences_adapter.save(preferences)
+        except (OSError, ValueError):
+            return
+        self._preferences = preferences
+
     def _open_ai_settings(self):
         dialog = AiSettingsDialog(
             parent=self,
@@ -108,6 +140,8 @@ class MainDialog(QDialog):
             confirmed_endpoint_keys=(
                 self.card_maker_panel.confirmed_endpoint_keys()
             ),
+            preferred_provider_name=self._preferences.provider_name,
+            preferred_model_name=self._preferences.model_name,
         )
         accepted = (
             QDialog.DialogCode.Accepted

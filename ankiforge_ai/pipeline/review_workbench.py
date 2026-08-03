@@ -86,6 +86,18 @@ class ReviewStats:
     warning_count: int
     blocking_count: int
 
+    @property
+    def ready_count(self) -> int:
+        return self.total_count - self.review_count - self.blocked_count
+
+    @property
+    def review_count(self) -> int:
+        return self.warning_count
+
+    @property
+    def blocked_count(self) -> int:
+        return self.blocking_count
+
 
 @dataclass(frozen=True, repr=False)
 class ReviewWorkbench:
@@ -128,8 +140,8 @@ class ReviewWorkbench:
             discarded_count=sum(
                 item.decision is ReviewDecision.DISCARDED for item in self.cards
             ),
-            warning_count=sum(item.quality.severity == "warning" for item in self.cards),
-            blocking_count=sum(item.quality.is_blocking for item in self.cards),
+            warning_count=sum(item.quality.status == "review" for item in self.cards),
+            blocking_count=sum(item.quality.status == "blocked" for item in self.cards),
         )
 
     def card(self, candidate_id: str) -> ReviewCandidate:
@@ -207,7 +219,7 @@ class ReviewWorkbench:
         cards = tuple(
             replace(item, decision=ReviewDecision.KEPT)
             if item.decision is ReviewDecision.PENDING
-            and item.quality.severity == "info"
+            and item.quality.status == "ready"
             else item
             for item in self.cards
         )

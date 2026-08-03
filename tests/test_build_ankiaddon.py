@@ -27,6 +27,8 @@ class BuildAnkiAddonTests(unittest.TestCase):
             "temp/conversion.html",
             "tools/pandoc.exe",
             "docs/release.md",
+            "user_files/preferences.json",
+            "user_files/.preferences.json.tmp",
             ".env.local",
             "addon_backup/file.py",
             "collection.anki2",
@@ -98,6 +100,20 @@ class BuildAnkiAddonTests(unittest.TestCase):
                 "ui/ai_settings_dialog.py",
                 "ui/card_maker_panel.py",
                 "ui/main_dialog.py",
+            }.issubset(REQUIRED_ARCHIVE_FILES)
+        )
+
+    def test_workbench_runtime_modules_are_required(self):
+        self.assertTrue(
+            {
+                "workbench/__init__.py",
+                "workbench/generation_lifecycle.py",
+                "workbench/models.py",
+                "workbench/review_use_cases.py",
+                "workbench/write_coordinator.py",
+                "workbench/preferences.py",
+                "ui/workbench_factory.py",
+                "ui/workbench_preferences_adapter.py",
             }.issubset(REQUIRED_ARCHIVE_FILES)
         )
 

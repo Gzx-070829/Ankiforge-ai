@@ -6,22 +6,24 @@ from ankiforge_ai.ui.product_styles import PRODUCT_DARK_STYLESHEET
 
 
 class ProductStyleTests(unittest.TestCase):
-    def test_dark_palette_and_scoped_panels_are_defined(self):
+    def test_warm_charcoal_palette_and_scoped_panels_are_defined(self):
         for color in (
-            "#0D1117",
-            "#111827",
-            "#161B22",
-            "#0F141B",
-            "#1C2430",
-            "#263241",
-            "#334155",
-            "#F8FAFC",
-            "#CBD5E1",
-            "#7D8EA3",
-            "#7C5CFF",
-            "#8B73FF",
+            "#211D1A",
+            "#29231F",
+            "#332B26",
+            "#241F1C",
+            "#3A312B",
+            "#443931",
+            "#5A493E",
+            "#F5EEE8",
+            "#D8CCC2",
+            "#A8978A",
+            "#D98A55",
+            "#E39A65",
         ):
             self.assertIn(color, PRODUCT_DARK_STYLESHEET)
+        for former_color in ("#0D1117", "#7C5CFF", "#8B73FF", "#334155"):
+            self.assertNotIn(former_color, PRODUCT_DARK_STYLESHEET)
         self.assertIn("QDialog#AnkiForgeMainDialog", PRODUCT_DARK_STYLESHEET)
         self.assertIn("QWidget#CardMakerPanel", PRODUCT_DARK_STYLESHEET)
         self.assertIn('QFrame[workflowPanel="true"]', PRODUCT_DARK_STYLESHEET)
@@ -31,7 +33,7 @@ class ProductStyleTests(unittest.TestCase):
         for selector in ("QTextEdit", "QLineEdit", "QComboBox", "QSpinBox"):
             self.assertIn(selector, PRODUCT_DARK_STYLESHEET)
         self.assertIn("border-radius: 10px", PRODUCT_DARK_STYLESHEET)
-        self.assertIn("border: 1px solid #7C5CFF", PRODUCT_DARK_STYLESHEET)
+        self.assertIn("border: 1px solid #D98A55", PRODUCT_DARK_STYLESHEET)
 
     def test_generate_and_write_buttons_share_primary_role(self):
         source = self.panel_source()
@@ -61,13 +63,41 @@ class ProductStyleTests(unittest.TestCase):
         self.assertNotIn("AdvancedDebugLink", self.main_source())
         self.assertIn("HelpButton", self.main_source())
 
-    def test_empty_state_is_centered_without_changing_two_column_layout(self):
+    def test_buttons_and_disclosures_have_complete_interaction_states(self):
+        for selector in (
+            'QPushButton[role="primary"]:pressed',
+            'QPushButton[role="secondary"]:pressed',
+            'QPushButton[role="dialogPrimary"]:pressed',
+            'QPushButton[role="dialogSecondary"]:pressed',
+            'QPushButton[role="subtle"]:checked',
+            "QPushButton#AiSettingsButton:pressed",
+            "QPushButton#HelpButton:pressed",
+            "QPushButton#LanguageToggle:pressed",
+            "QComboBox:on",
+        ):
+            self.assertIn(selector, PRODUCT_DARK_STYLESHEET)
+
+    def test_popups_and_secondary_dialogs_share_the_product_surface(self):
+        for selector in (
+            "QMenu",
+            "QMenu::item:selected",
+            "QMessageBox",
+            "QDialog#HelpDialog",
+            "QDialog#DocumentCapabilitiesDialog",
+        ):
+            self.assertIn(selector, PRODUCT_DARK_STYLESHEET)
+
+    def test_empty_state_fills_review_column_without_changing_two_column_layout(self):
         source = self.panel_source()
         cards = self.function_source(source, "_build_cards_section")
         builder = self.function_source(source, "_build_ui")
 
         self.assertIn("CardsEmptyState", cards)
-        self.assertEqual(cards.count("Qt.AlignmentFlag.AlignCenter"), 3)
+        self.assertNotIn("EmptyStateGlyph", cards)
+        self.assertEqual(cards.count("Qt.AlignmentFlag.AlignCenter"), 2)
+        self.assertIn("self.cards_empty_widget.setMinimumHeight(150)", cards)
+        self.assertNotIn("self.cards_empty_widget.setMaximumHeight", cards)
+        self.assertIn("layout.addWidget(self.cards_empty_widget, 1)", cards)
         self.assertIn("columns = QHBoxLayout()", builder)
         self.assertIn("columns.setSpacing(COLUMN_GAP)", builder)
         self.assertIn("columns.addWidget(left, 45)", builder)
@@ -132,11 +162,19 @@ class ProductStyleTests(unittest.TestCase):
         self.assertEqual(builder.count("self._make_form_label("), 5)
         self.assertIn("self._add_form_row(form, self.deck_label", builder)
 
-    def test_styles_module_has_no_business_runtime_dependencies(self):
+    def test_styles_module_depends_only_on_visual_tokens(self):
         source = self.style_source()
         tree = ast.parse(source)
 
-        self.assertFalse(any(isinstance(node, (ast.Import, ast.ImportFrom)) for node in tree.body))
+        imports = [
+            node
+            for node in tree.body
+            if isinstance(node, (ast.Import, ast.ImportFrom))
+        ]
+        self.assertEqual(len(imports), 1)
+        self.assertIsInstance(imports[0], ast.ImportFrom)
+        self.assertEqual(imports[0].module, "style_tokens")
+        self.assertEqual(imports[0].level, 1)
         for forbidden in (
             "from ..ai",
             "from ..anki_writer",

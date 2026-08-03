@@ -1056,7 +1056,7 @@ class UniversalDocumentUIContractTests(unittest.TestCase):
         self.assertNotIn("api_key_input", panel)
         self.assertIn("self._check_duplicates()", write)
         self.assertIn("if not confirmed", write)
-        self.assertIn("execute_beginner_write_if_confirmed", write)
+        self.assertIn("self.write_coordinator.execute_if_confirmed", write)
         self.assertIn(
             "self._active_provider_generation_adapter = None",
             discard,

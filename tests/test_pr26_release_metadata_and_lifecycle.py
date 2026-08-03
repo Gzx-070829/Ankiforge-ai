@@ -10,7 +10,7 @@ import ankiforge_ai
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_VERSION = "0.14.1"
+EXPECTED_VERSION = "0.15.0"
 
 
 class RecordingDialog:
@@ -49,8 +49,8 @@ class Pr26ReleaseMetadataAndLifecycleTests(unittest.TestCase):
         for relative_path in (
             "README.md",
             "README.en.md",
-            "docs/release_notes_v0_14.md",
-            "docs/ankiweb_description_v0_14.md",
+            "docs/release_notes_v0_15.md",
+            "docs/ankiweb_description_v0_15.md",
         ):
             with self.subTest(path=relative_path):
                 content = (REPOSITORY_ROOT / relative_path).read_text(encoding="utf-8")

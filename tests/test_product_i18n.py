@@ -60,12 +60,13 @@ class ProductI18nTests(unittest.TestCase):
         self.assertEqual(en["back_mapping"], "Back")
         self.assertEqual(en["source_mapping"], "Source")
 
-    def test_main_window_toggle_is_memory_only_and_updates_panel(self):
+    def test_main_window_toggle_persists_only_safe_preferences_and_updates_panel(self):
         source = self.main_source()
         init = self.function_source(source, "__init__")
         toggle = self.function_source(source, "toggle_language")
 
-        self.assertIn("self.ui_language = DEFAULT_PRODUCT_LANGUAGE", init)
+        self.assertIn("self._preferences_adapter.load()", init)
+        self.assertIn("self.ui_language = self._preferences.ui_language", init)
         self.assertIn('"en" if self.ui_language == "zh" else "zh"', toggle)
         self.assertIn("self.card_maker_panel.set_language", toggle)
         self.assertNotIn("save_config", toggle)
