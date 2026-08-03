@@ -1311,7 +1311,7 @@ class IntelligentGenerationTaskControllerTests(unittest.TestCase):
             return CriticDecision(CriticAction.PASS)
 
         with patch(
-            "ankiforge_ai.ui.intelligent_generation_task_controller.decide_card",
+            "ankiforge_ai.workbench.generation_lifecycle.decide_card",
             side_effect=observe_decision,
         ):
             IntelligentGenerationTaskController(taskman).submit(
@@ -1356,7 +1356,7 @@ class IntelligentGenerationTaskControllerTests(unittest.TestCase):
             }
 
         with patch(
-            "ankiforge_ai.ui.intelligent_generation_task_controller.repair_and_revalidate",
+            "ankiforge_ai.workbench.generation_lifecycle.repair_and_revalidate",
             side_effect=capture_repair,
         ):
             IntelligentGenerationTaskController(repair_taskman).submit(

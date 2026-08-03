@@ -24,10 +24,20 @@ from .transitions import (
 )
 from .legacy_bridge import project_legacy_session
 from .store import WorkbenchSessionStore
+from .generation_lifecycle import (
+    GenerationLifecycleResult,
+    IntelligentGenerationProgress,
+    apply_coverage_supplement,
+    execute_failed_retry_lifecycle,
+    execute_generation_lifecycle,
+    failed_generation_retry_is_available,
+)
 
 
 __all__ = [
     "GenerationState",
+    "GenerationLifecycleResult",
+    "IntelligentGenerationProgress",
     "MaterialState",
     "ReviewDecisionRecord",
     "ReviewState",
@@ -35,11 +45,15 @@ __all__ = [
     "WorkbenchSessionState",
     "WorkbenchSessionStore",
     "WriteState",
+    "apply_coverage_supplement",
     "change_mapping",
     "change_target",
     "close_session",
     "complete_generation",
     "fail_generation",
+    "execute_failed_retry_lifecycle",
+    "execute_generation_lifecycle",
+    "failed_generation_retry_is_available",
     "initial_workbench_state",
     "mark_duplicate_check_current",
     "project_legacy_session",
