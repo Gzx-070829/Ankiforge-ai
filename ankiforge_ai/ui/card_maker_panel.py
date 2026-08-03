@@ -52,7 +52,7 @@ from ..pipeline.write_traceability import (
     create_last_write_batch_record,
     safe_source_label,
 )
-from ..workbench import WorkbenchSessionStore
+from ..workbench import ReviewUseCases, WorkbenchSessionStore
 from .beginner_ai_card_drafts import (
     BeginnerAIProviderRuntimeSettings,
     generation_error_message_key,
@@ -119,6 +119,7 @@ from .read_only_duplicate_check import (
     ReadOnlyDuplicateCheckAdapter,
 )
 from .product_i18n import DEFAULT_PRODUCT_LANGUAGE, product_text
+from .review_session_adapter import LegacyReviewSessionAdapter
 from .source_location_presenter import present_source_location
 from .universal_document_generation_adapter import (
     BoundedProviderGenerationAdapter,
@@ -168,6 +169,9 @@ class CardMakerPanel(QWidget):
         self._last_intelligence_run = None
         self.session = BeginnerFlowSession()
         self.workbench_store = WorkbenchSessionStore.from_legacy(self.session)
+        self.review_use_cases = ReviewUseCases(
+            LegacyReviewSessionAdapter(self.session)
+        )
         self.anki_target_adapter = ReadOnlyAnkiTargetAdapter(collection)
         self.duplicate_check_adapter = ReadOnlyDuplicateCheckAdapter(collection)
         self.writer = MinimalAnkiWriter(collection)
@@ -1999,7 +2003,7 @@ class CardMakerPanel(QWidget):
         blocking = sum(item.is_blocking for item in qualities)
         warnings = sum(item.severity == "warning" for item in qualities)
         good = len(qualities) - blocking - warnings
-        workbench = self.session.review_workbench_snapshot()
+        workbench = self.review_use_cases.snapshot()
         stats = workbench.stats
         self.review_stats_label.setText(
             self.t(
@@ -2112,14 +2116,14 @@ class CardMakerPanel(QWidget):
             keep_btn.toggled.connect(
                 lambda checked, card_id=card.id: self._set_card_decision(
                     card_id,
-                    BeginnerReviewDecision.LOOKS_GOOD,
+                    "keep",
                     checked,
                 )
             )
             discard_btn.toggled.connect(
                 lambda checked, card_id=card.id: self._set_card_decision(
                     card_id,
-                    BeginnerReviewDecision.SKIP_FOR_NOW,
+                    "discard",
                     checked,
                 )
             )
@@ -2146,14 +2150,14 @@ class CardMakerPanel(QWidget):
         self.cards_layout.addStretch()
 
     def _discard_blocking_cards(self):
-        discarded = self.session.discard_blocking_candidates()
+        discarded = self.review_use_cases.discard_blocking()
         if discarded:
             self._clear_duplicate_state()
             self._render_cards()
             self._refresh_product_state()
 
     def _keep_clean_cards(self):
-        kept = self.session.keep_clean_candidates()
+        kept = self.review_use_cases.keep_clean()
         if kept:
             self._clear_duplicate_state()
             self._render_cards()
@@ -2166,7 +2170,7 @@ class CardMakerPanel(QWidget):
         self._refresh_product_state()
 
     def _restore_card(self, card_id):
-        self.session.restore_candidate_content(card_id)
+        self.review_use_cases.restore_content(card_id)
         self._clear_duplicate_state()
         self._render_cards()
         self._refresh_product_state()
@@ -2174,7 +2178,7 @@ class CardMakerPanel(QWidget):
     def _set_card_decision(self, card_id, decision, checked):
         if not checked:
             return
-        self.session.set_candidate_review_decision(card_id, decision)
+        self.review_use_cases.set_decision(card_id, decision)
         self._clear_duplicate_state()
         self._refresh_product_state()
 
@@ -2193,7 +2197,7 @@ class CardMakerPanel(QWidget):
         if not dialog.exec():
             return
         front, back = dialog.values()
-        self.session.replace_candidate_content(card_id, front, back)
+        self.review_use_cases.replace_content(card_id, front, back)
         self._clear_duplicate_state()
         self._render_cards()
         self._refresh_product_state()

@@ -121,6 +121,22 @@ class SingleScreenCardMakerTests(unittest.TestCase):
             "WorkbenchSessionStore.from_legacy(self.session)", 1
         )[1].split("\n", 1)[0])
 
+    def test_panel_routes_review_mutations_through_workbench_use_cases(self):
+        panel = self.panel_source()
+        constructor = self.function_source(panel, "__init__")
+
+        self.assertIn("ReviewUseCases", constructor)
+        self.assertIn("LegacyReviewSessionAdapter", constructor)
+        for method in (
+            "_discard_blocking_cards",
+            "_keep_clean_cards",
+            "_restore_card",
+            "_set_card_decision",
+            "_edit_card",
+        ):
+            source = self.function_source(panel, method)
+            self.assertIn("self.review_use_cases", source)
+
     def test_write_requires_custom_secondary_confirmation(self):
         handler = self.function_source(self.panel_source(), "_confirm_and_write")
 

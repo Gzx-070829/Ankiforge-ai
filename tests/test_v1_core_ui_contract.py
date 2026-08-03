@@ -50,7 +50,7 @@ class V1CoreUIContractTests(unittest.TestCase):
         self.assertNotIn("set_candidate_review_decision", handler)
         self.assertNotIn("BeginnerReviewDecision.LOOKS_GOOD", handler)
 
-    def test_review_cards_render_quality_and_edit_through_session(self):
+    def test_review_cards_render_quality_and_edit_through_use_cases(self):
         render = self.function_source("_render_cards")
         edit = self.function_source("_edit_card")
 
@@ -59,7 +59,9 @@ class V1CoreUIContractTests(unittest.TestCase):
         self.assertNotIn("warning_id", render)
         self.assertIn("issue.user_message(self.language)", render)
         self.assertIn("issue.suggestion(self.language)", render)
-        self.assertIn("replace_candidate_content", edit)
+        self.assertIn("self.review_use_cases.snapshot()", render)
+        self.assertIn("self.review_use_cases.replace_content", edit)
+        self.assertNotIn("self.session.replace_candidate_content", edit)
         self.assertIn("_clear_duplicate_state", edit)
 
     def test_blocking_discard_and_overall_quality_summary_exist(self):
@@ -68,7 +70,7 @@ class V1CoreUIContractTests(unittest.TestCase):
 
         self.assertIn("self.quality_summary_label", builder)
         self.assertIn("self.discard_blocking_btn", builder)
-        self.assertIn("discard_blocking_candidates", handler)
+        self.assertIn("self.review_use_cases.discard_blocking()", handler)
 
     def test_final_confirmation_is_followed_by_a_fresh_duplicate_gate(self):
         handler = self.function_source("_confirm_and_write")

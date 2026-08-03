@@ -32,15 +32,23 @@ from .generation_lifecycle import (
     execute_generation_lifecycle,
     failed_generation_retry_is_available,
 )
+from .review_use_cases import (
+    MAX_REVIEW_CARD_TEXT_CHARS,
+    ReviewSessionPort,
+    ReviewUseCases,
+)
 
 
 __all__ = [
     "GenerationState",
     "GenerationLifecycleResult",
     "IntelligentGenerationProgress",
+    "MAX_REVIEW_CARD_TEXT_CHARS",
     "MaterialState",
     "ReviewDecisionRecord",
+    "ReviewSessionPort",
     "ReviewState",
+    "ReviewUseCases",
     "WorkbenchArtifactStatus",
     "WorkbenchSessionState",
     "WorkbenchSessionStore",
