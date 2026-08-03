@@ -21,7 +21,8 @@ The current public release baseline remains `v0.14.1`; this branch is the `v0.15
 1. Open Anki Desktop.
 2. Choose **Tools → Add-ons → Get Add-ons**.
 3. Enter add-on code `1227582295`.
-4. Restart Anki, then open AnkiForge AI.
+4. Restart Anki and open **AnkiForge AI** from the deck-browser home screen.
+   You can also use **Tools → AnkiForge AI** or `Ctrl+Alt+F`.
 
 [Open the AnkiWeb page](https://ankiweb.net/shared/info/1227582295) · [Full installation guide](docs/installation_ankiweb.md)
 

@@ -96,10 +96,13 @@ REQUIRED_ARCHIVE_FILES = {
     "manifest.json",
     "pipeline/openai_compatible_provider.py",
     "ui/ai_settings_dialog.py",
+    "ui/anki_entrypoints.py",
     "ui/card_maker_panel.py",
     "ui/file_drop_text_edit.py",
     "ui/main_dialog.py",
     "ui/review_session_adapter.py",
+    "ui/window_experience.py",
+    "ui/window_state_adapter.py",
     "ui/workbench_factory.py",
     "ui/workbench_preferences_adapter.py",
     "workbench/__init__.py",
@@ -111,6 +114,7 @@ REQUIRED_ARCHIVE_FILES = {
     "workbench/store.py",
     "workbench/transitions.py",
     "workbench/write_coordinator.py",
+    "workbench/window_state.py",
 }
 SECRET_PATTERNS = {
     "OpenAI-style API key": re.compile(rb"sk-[A-Za-z0-9_-]{20,}"),

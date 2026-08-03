@@ -6,6 +6,9 @@ AnkiForge AI 是 Anki Desktop 插件，不是共享牌组，也不提供现成�
 
 推荐使用 AnkiWeb 插件代码 `1227582295`：在 Anki 中选择 **工具 → 插件 → 获取插件**，输入代码并重启。详细步骤见[安装说明](installation_ankiweb.md)。
 
+重启后，牌组主页会显示紧凑的 **AnkiForge AI** 入口。也可以从
+**工具 → AnkiForge AI** 打开，或按 `Ctrl+Alt+F`；重复调用只会唤回并置顶同一个工作台窗口。
+
 开发候选包应使用独立测试 profile 或测试牌组手动安装，不要用未验收构建替换日常学习环境。
 
 ## 2. 配置本次 AI 会话

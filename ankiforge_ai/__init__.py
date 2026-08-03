@@ -12,25 +12,48 @@ _dialog_instance = None
 _menu_action = globals().get("_menu_action")
 
 
-def _open_main_dialog(parent, dialog_factory):
-    """Run one main dialog and release all session state when it exits."""
+def _clear_main_dialog(dialog):
+    """Release the singleton only when the matching Qt object is destroyed."""
     global _dialog_instance
 
-    dialog = dialog_factory(parent)
-    _dialog_instance = dialog
-    try:
-        return dialog.exec()
-    finally:
-        try:
-            teardown_session = getattr(dialog, "_teardown_session", None)
-            if callable(teardown_session):
-                teardown_session()
-        finally:
-            if _dialog_instance is dialog:
-                _dialog_instance = None
-            delete_later = getattr(dialog, "deleteLater", None)
-            if callable(delete_later):
-                delete_later()
+    if _dialog_instance is dialog:
+        _dialog_instance = None
+
+
+def _show_main_dialog(parent, dialog_factory):
+    """Show or focus the one modeless AnkiForge workbench window."""
+    global _dialog_instance
+
+    dialog = _dialog_instance
+    if dialog is None:
+        dialog = dialog_factory(parent)
+        dialog.destroyed.connect(
+            lambda *_args, current=dialog: _clear_main_dialog(current)
+        )
+        finished = getattr(dialog, "finished", None)
+        if callable(getattr(finished, "connect", None)):
+            finished.connect(
+                lambda *_args, current=dialog: _clear_main_dialog(current)
+            )
+        _dialog_instance = dialog
+        dialog.show()
+    elif dialog.isMinimized():
+        dialog.showNormal()
+    else:
+        dialog.show()
+    dialog.raise_()
+    dialog.activateWindow()
+    return dialog
+
+
+def _open_from_anki():
+    """Open the workbench from any registered Anki entry point."""
+
+    from aqt import mw
+
+    from .ui.main_dialog import MainDialog
+
+    return _show_main_dialog(mw, MainDialog)
 
 
 def _register_menu_action():
@@ -45,16 +68,26 @@ def _register_menu_action():
     except ImportError:
         return
 
-    from .ui.main_dialog import MainDialog
-
-    def open_main_dialog():
-        _open_main_dialog(mw, MainDialog)
-
     action = QAction("AnkiForge AI", mw)
-    action.triggered.connect(open_main_dialog)
+    action.setShortcut("Ctrl+Alt+F")
+    action.triggered.connect(_open_from_anki)
     mw.form.menuTools.addAction(action)
     _menu_action = action
     return action
 
 
+def _register_home_entry():
+    """Add a deck-browser launcher when the official hooks are available."""
+
+    try:
+        from aqt import gui_hooks
+    except ImportError:
+        return False
+
+    from .ui.anki_entrypoints import register_home_entry
+
+    return register_home_entry(gui_hooks, _open_from_anki)
+
+
 _register_menu_action()
+_register_home_entry()

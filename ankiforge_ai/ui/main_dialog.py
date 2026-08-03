@@ -1,7 +1,16 @@
 """Product-grade main window for the Create → Review → Write workflow."""
 
 from aqt import mw
-from aqt.qt import QDialog, QHBoxLayout, QLabel, QPushButton, Qt, QVBoxLayout
+from aqt.qt import (
+    QByteArray,
+    QDialog,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QTimer,
+    Qt,
+    QVBoxLayout,
+)
 
 from ..pipeline.provider_preview import ReadOnlyProviderPreview
 from ..workbench.preferences import WorkbenchPreferences
@@ -11,6 +20,13 @@ from .help_dialog import HelpDialog
 from .product_i18n import DEFAULT_PRODUCT_LANGUAGE, product_text
 from .product_styles import PRODUCT_DARK_STYLESHEET
 from .style_tokens import SPACING_SM, SPACING_XL
+from .window_experience import (
+    capture_window_state,
+    configure_workbench_window,
+    focus_when_ready,
+    restore_window_geometry,
+)
+from .window_state_adapter import WindowStateAdapter
 from .workbench_preferences_adapter import WorkbenchPreferencesAdapter
 
 
@@ -22,6 +38,7 @@ class MainDialog(QDialog):
         parent=None,
         provider_preview=None,
         preferences_adapter=None,
+        window_state_adapter=None,
     ):
         super().__init__(parent)
         self._preferences_adapter = (
@@ -37,8 +54,18 @@ class MainDialog(QDialog):
                 "preferences_adapter must be WorkbenchPreferencesAdapter"
             )
         self._preferences = self._preferences_adapter.load()
+        self._window_state_adapter = (
+            window_state_adapter
+            if window_state_adapter is not None
+            else WindowStateAdapter()
+        )
+        if not isinstance(self._window_state_adapter, WindowStateAdapter):
+            raise TypeError(
+                "window_state_adapter must be WindowStateAdapter"
+            )
         self.ui_language = self._preferences.ui_language
         self.setObjectName("AnkiForgeMainDialog")
+        configure_workbench_window(self, Qt)
         self.setStyleSheet(PRODUCT_DARK_STYLESHEET)
         if provider_preview is not None and not isinstance(
             provider_preview,
@@ -53,6 +80,11 @@ class MainDialog(QDialog):
         self.resize(1200, 840)
         self.setMinimumWidth(1020)
         self._build_ui()
+        self._restore_window_state()
+        focus_when_ready(
+            QTimer,
+            self.card_maker_panel.material_input,
+        )
 
     def t(self, key, **values):
         return product_text(self.ui_language, key, **values)
@@ -189,10 +221,30 @@ class MainDialog(QDialog):
         self._session_torn_down = True
         self.card_maker_panel.discard_session()
 
+    def _restore_window_state(self):
+        try:
+            state = self._window_state_adapter.load()
+            restore_window_geometry(
+                self,
+                state,
+                QByteArray,
+                Qt.WindowType,
+            )
+        except (OSError, TypeError, ValueError, RuntimeError):
+            return
+
+    def _save_window_state(self):
+        try:
+            self._window_state_adapter.save(capture_window_state(self))
+        except (OSError, TypeError, ValueError, RuntimeError):
+            return
+
     def reject(self):
+        self._save_window_state()
         self._teardown_session()
         super().reject()
 
     def closeEvent(self, event):
+        self._save_window_state()
         self._teardown_session()
         super().closeEvent(event)

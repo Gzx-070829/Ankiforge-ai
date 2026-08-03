@@ -21,7 +21,8 @@ AnkiForge AI 是一个本地优先、中文优先的 AI 制卡工作台。你提
 1. 打开 Anki Desktop。
 2. 选择 **工具 → 插件 → 获取插件**。
 3. 输入插件代码 `1227582295`。
-4. 安装后重启 Anki，再打开 AnkiForge AI。
+4. 安装后重启 Anki，从牌组主页打开 **AnkiForge AI**；也可以使用
+   **工具 → AnkiForge AI** 或快捷键 `Ctrl+Alt+F`。
 
 [打开 AnkiWeb 页面](https://ankiweb.net/shared/info/1227582295) · [完整安装说明](docs/installation_ankiweb.md)
 

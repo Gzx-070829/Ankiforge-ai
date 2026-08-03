@@ -29,6 +29,8 @@ class BuildAnkiAddonTests(unittest.TestCase):
             "docs/release.md",
             "user_files/preferences.json",
             "user_files/.preferences.json.tmp",
+            "user_files/window_state.json",
+            "user_files/.window_state.json.tmp",
             ".env.local",
             "addon_backup/file.py",
             "collection.anki2",
@@ -114,6 +116,9 @@ class BuildAnkiAddonTests(unittest.TestCase):
                 "workbench/preferences.py",
                 "ui/workbench_factory.py",
                 "ui/workbench_preferences_adapter.py",
+                "ui/window_experience.py",
+                "ui/window_state_adapter.py",
+                "workbench/window_state.py",
             }.issubset(REQUIRED_ARCHIVE_FILES)
         )
 
