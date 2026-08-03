@@ -105,6 +105,22 @@ class SingleScreenCardMakerTests(unittest.TestCase):
         for forbidden in ("save_config", "write_config", "setConfig"):
             self.assertNotIn(forbidden, panel)
 
+    def test_panel_synchronizes_a_content_free_workbench_store(self):
+        panel = self.panel_source()
+        constructor = self.function_source(panel, "__init__")
+        refresh = self.function_source(panel, "_refresh_product_state")
+        discard = self.function_source(panel, "discard_session")
+
+        self.assertIn(
+            "WorkbenchSessionStore.from_legacy(self.session)",
+            constructor,
+        )
+        self.assertIn("self._sync_workbench_state()", refresh)
+        self.assertIn("self.workbench_store.close()", discard)
+        self.assertNotIn("_ai_runtime_settings", constructor.split(
+            "WorkbenchSessionStore.from_legacy(self.session)", 1
+        )[1].split("\n", 1)[0])
+
     def test_write_requires_custom_secondary_confirmation(self):
         handler = self.function_source(self.panel_source(), "_confirm_and_write")
 

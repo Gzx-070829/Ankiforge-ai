@@ -52,6 +52,7 @@ from ..pipeline.write_traceability import (
     create_last_write_batch_record,
     safe_source_label,
 )
+from ..workbench import WorkbenchSessionStore
 from .beginner_ai_card_drafts import (
     BeginnerAIProviderRuntimeSettings,
     generation_error_message_key,
@@ -166,6 +167,7 @@ class CardMakerPanel(QWidget):
         self._active_provider_generation_adapter = None
         self._last_intelligence_run = None
         self.session = BeginnerFlowSession()
+        self.workbench_store = WorkbenchSessionStore.from_legacy(self.session)
         self.anki_target_adapter = ReadOnlyAnkiTargetAdapter(collection)
         self.duplicate_check_adapter = ReadOnlyDuplicateCheckAdapter(collection)
         self.writer = MinimalAnkiWriter(collection)
@@ -2653,7 +2655,17 @@ class CardMakerPanel(QWidget):
         if hasattr(self, "write_summary_label"):
             self._render_write_summary()
 
+    def _sync_workbench_state(self):
+        active_request_id = (
+            self._intelligent_generation_controller.current_request_id
+        )
+        return self.workbench_store.synchronize(
+            self.session,
+            active_request_id=active_request_id,
+        )
+
     def _refresh_product_state(self):
+        self._sync_workbench_state()
         self.material_count_label.setText(
             self.t(
                 "character_count",
@@ -2754,6 +2766,7 @@ class CardMakerPanel(QWidget):
         self._ai_runtime_settings = None
         if not self.session.closed:
             self.session.close()
+        self.workbench_store.close()
         self.anki_target_snapshot = None
         self.anki_field_snapshot = None
         self.anki_mapping = None

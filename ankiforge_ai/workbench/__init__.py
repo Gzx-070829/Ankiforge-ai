@@ -22,6 +22,8 @@ from .transitions import (
     update_material,
     write_is_ready,
 )
+from .legacy_bridge import project_legacy_session
+from .store import WorkbenchSessionStore
 
 
 __all__ = [
@@ -31,6 +33,7 @@ __all__ = [
     "ReviewState",
     "WorkbenchArtifactStatus",
     "WorkbenchSessionState",
+    "WorkbenchSessionStore",
     "WriteState",
     "change_mapping",
     "change_target",
@@ -39,6 +42,7 @@ __all__ = [
     "fail_generation",
     "initial_workbench_state",
     "mark_duplicate_check_current",
+    "project_legacy_session",
     "record_review_decision",
     "start_generation",
     "update_material",
