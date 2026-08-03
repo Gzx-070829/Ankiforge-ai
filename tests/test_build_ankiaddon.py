@@ -27,6 +27,8 @@ class BuildAnkiAddonTests(unittest.TestCase):
             "temp/conversion.html",
             "tools/pandoc.exe",
             "docs/release.md",
+            "user_files/preferences.json",
+            "user_files/.preferences.json.tmp",
             ".env.local",
             "addon_backup/file.py",
             "collection.anki2",
@@ -109,7 +111,9 @@ class BuildAnkiAddonTests(unittest.TestCase):
                 "workbench/models.py",
                 "workbench/review_use_cases.py",
                 "workbench/write_coordinator.py",
+                "workbench/preferences.py",
                 "ui/workbench_factory.py",
+                "ui/workbench_preferences_adapter.py",
             }.issubset(REQUIRED_ARCHIVE_FILES)
         )
 

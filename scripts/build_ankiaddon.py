@@ -36,6 +36,7 @@ BLOCKED_PARTS = {
     "tmp",
     "tools",
     "tests",
+    "user_files",
 }
 BLOCKED_FILENAMES = {
     ".env",
@@ -100,10 +101,12 @@ REQUIRED_ARCHIVE_FILES = {
     "ui/main_dialog.py",
     "ui/review_session_adapter.py",
     "ui/workbench_factory.py",
+    "ui/workbench_preferences_adapter.py",
     "workbench/__init__.py",
     "workbench/generation_lifecycle.py",
     "workbench/legacy_bridge.py",
     "workbench/models.py",
+    "workbench/preferences.py",
     "workbench/review_use_cases.py",
     "workbench/store.py",
     "workbench/transitions.py",

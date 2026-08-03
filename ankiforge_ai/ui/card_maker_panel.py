@@ -51,7 +51,11 @@ from ..pipeline.write_traceability import (
     create_last_write_batch_record,
     safe_source_label,
 )
-from ..workbench import ReviewUseCases, WorkbenchSessionStore
+from ..workbench import (
+    ReviewUseCases,
+    WorkbenchPreferences,
+    WorkbenchSessionStore,
+)
 from .beginner_ai_card_drafts import (
     BeginnerAIProviderRuntimeSettings,
     generation_error_message_key,
@@ -139,9 +143,22 @@ class CardMakerPanel(QWidget):
         parent=None,
         collection=None,
         language=DEFAULT_PRODUCT_LANGUAGE,
+        preferences=None,
+        preferences_changed=None,
     ):
         super().__init__(parent)
-        self.language = language
+        if preferences is None:
+            preferences = WorkbenchPreferences.defaults().with_updates(
+                ui_language=language
+            )
+        if not isinstance(preferences, WorkbenchPreferences):
+            raise TypeError("preferences must be WorkbenchPreferences")
+        if preferences_changed is not None and not callable(preferences_changed):
+            raise TypeError("preferences_changed must be callable or None")
+        self._preferences = preferences
+        self._preferences_changed = preferences_changed
+        self._applying_preferences = True
+        self.language = preferences.ui_language
         self._generation_message = None
         self._target_message = None
         self._write_message = None
@@ -187,6 +204,16 @@ class CardMakerPanel(QWidget):
         self.setObjectName("CardMakerPanel")
         self.setMaximumWidth(1280)
         self._build_ui()
+        self._apply_preferences_to_controls()
+        self._applying_preferences = False
+        self.session.set_generation_settings(
+            self._current_generation_settings()
+        )
+        self.session.set_intelligence_level(
+            self._current_intelligence_level()
+        )
+        self._update_card_mode_description()
+        self._update_intelligence_estimate()
         self._read_anki_targets()
         self._render_cards()
         self._refresh_product_state()
@@ -220,6 +247,7 @@ class CardMakerPanel(QWidget):
             if not self._endpoint_confirmations.is_confirmed(settings.base_url):
                 raise ValueError("provider endpoint requires confirmation")
         self._ai_runtime_settings = settings
+        self._notify_preferences_changed()
         self.session.mark_ai_runtime_settings_changed()
         self._set_generation_message()
         self._after_upstream_change(render_material_count=False)
@@ -236,6 +264,62 @@ class CardMakerPanel(QWidget):
         product_text(language, "title")
         self.language = language
         self._retranslate_ui()
+        self._notify_preferences_changed()
+
+    def preference_snapshot(self):
+        return self._preferences
+
+    def _apply_preferences_to_controls(self):
+        selections = (
+            (self.card_mode_combo, self._preferences.card_mode),
+            (self.card_count_combo, self._preferences.card_count),
+            (self.answer_length_combo, self._preferences.answer_length),
+            (self.output_language_combo, self._preferences.output_language),
+            (
+                self.intelligence_level_combo,
+                self._preferences.intelligence_level,
+            ),
+        )
+        for combo, value in selections:
+            index = combo.findData(value)
+            if index >= 0:
+                combo.setCurrentIndex(index)
+
+    def _current_preferences(self):
+        runtime = self._ai_runtime_settings
+        return self._preferences.with_updates(
+            ui_language=self.language,
+            provider_name=(
+                runtime.provider_name
+                if runtime is not None
+                else self._preferences.provider_name
+            ),
+            model_name=(
+                runtime.model
+                if runtime is not None
+                else self._preferences.model_name
+            ),
+            card_mode=self.card_mode_combo.currentData(),
+            card_count=self.card_count_combo.currentData(),
+            answer_length=self.answer_length_combo.currentData(),
+            output_language=self.output_language_combo.currentData(),
+            intelligence_level=self.intelligence_level_combo.currentData(),
+        )
+
+    def _notify_preferences_changed(self):
+        if self._applying_preferences or self._disposed:
+            return
+        try:
+            preferences = self._current_preferences()
+        except ValueError:
+            # A valid runtime model may be outside the deliberately narrow
+            # persistence grammar. Keep it session-only instead of blocking use.
+            return
+        if preferences == self._preferences:
+            return
+        self._preferences = preferences
+        if self._preferences_changed is not None:
+            self._preferences_changed(preferences)
 
     def _retranslate_ui(self):
         self.material_title_label.setText(self.t("material_section"))
@@ -1519,12 +1603,15 @@ class CardMakerPanel(QWidget):
         )
 
     def _on_intelligence_level_changed(self, *unused):
+        if self._applying_preferences:
+            return
         self.session.set_intelligence_level(
             self._current_intelligence_level()
         )
         self._set_generation_message()
         self._after_upstream_change(render_material_count=False)
         self._update_intelligence_estimate()
+        self._notify_preferences_changed()
 
     def _update_intelligence_estimate(self):
         level = self._current_intelligence_level()
@@ -1624,6 +1711,8 @@ class CardMakerPanel(QWidget):
         )
 
     def _on_generation_settings_changed(self, *unused):
+        if self._applying_preferences:
+            return
         self._update_card_mode_description()
         self.session.set_generation_settings(
             self._current_generation_settings()
@@ -1634,6 +1723,7 @@ class CardMakerPanel(QWidget):
         self._set_generation_message()
         self._after_upstream_change(render_material_count=False)
         self._update_intelligence_estimate()
+        self._notify_preferences_changed()
 
     def _ai_settings_are_ready(self):
         return bool(
@@ -2762,6 +2852,7 @@ class CardMakerPanel(QWidget):
         self.material_input.blockSignals(False)
         self._clear_source_import_feedback()
         self._ai_runtime_settings = None
+        self._preferences_changed = None
         if not self.session.closed:
             self.session.close()
         self.workbench_store.close()
