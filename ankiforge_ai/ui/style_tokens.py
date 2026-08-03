@@ -1,21 +1,35 @@
 """Central product visual constants shared by the PyQt workbench."""
 
-APP_BG = "#0D1117"
-SURFACE = "#111827"
-SURFACE_ELEVATED = "#161B22"
-INPUT_BG = "#0F141B"
-HOVER_BG = "#1C2430"
-BORDER_SUBTLE = "#263241"
-BORDER_STRONG = "#334155"
-TEXT_PRIMARY = "#F8FAFC"
-TEXT_SECONDARY = "#CBD5E1"
-TEXT_MUTED = "#7D8EA3"
-ACCENT = "#7C5CFF"
-ACCENT_HOVER = "#8B73FF"
-ACCENT_SOFT = "rgba(124, 92, 255, 0.12)"
-SUCCESS = "#22C55E"
-WARNING = "#F59E0B"
-DANGER = "#EF4444"
+APP_BG = "#211D1A"
+SURFACE = "#29231F"
+SURFACE_ELEVATED = "#332B26"
+INPUT_BG = "#241F1C"
+HOVER_BG = "#3A312B"
+BORDER_SUBTLE = "#443931"
+BORDER_STRONG = "#5A493E"
+TEXT_PRIMARY = "#F5EEE8"
+TEXT_SECONDARY = "#D8CCC2"
+TEXT_MUTED = "#A8978A"
+ACCENT = "#D98A55"
+ACCENT_HOVER = "#E39A65"
+ACCENT_SOFT = "rgba(217, 138, 85, 0.14)"
+ACCENT_BORDER = "#80563A"
+ACCENT_TEXT = "#EDB68C"
+SUCCESS = "#7FAF86"
+SUCCESS_BG = "#263229"
+SUCCESS_BORDER = "#455E49"
+SUCCESS_TEXT = "#AAD0B0"
+WARNING = "#D6A35D"
+WARNING_BG = "#372E22"
+WARNING_BORDER = "#665039"
+WARNING_TEXT = "#E8C58C"
+DANGER = "#D77B72"
+DANGER_BG = "#382523"
+DANGER_BORDER = "#68413D"
+DANGER_TEXT = "#E7A6A0"
+DISABLED_BG = "#493426"
+DISABLED_TEXT = "#A87C5D"
+DISABLED_BORDER = "#664732"
 
 SPACING_XS = 4
 SPACING_SM = 8
@@ -53,7 +67,21 @@ def product_palette() -> dict[str, str]:
         "accent": ACCENT,
         "accent_hover": ACCENT_HOVER,
         "accent_soft": ACCENT_SOFT,
+        "accent_border": ACCENT_BORDER,
+        "accent_text": ACCENT_TEXT,
         "success": SUCCESS,
+        "success_bg": SUCCESS_BG,
+        "success_border": SUCCESS_BORDER,
+        "success_text": SUCCESS_TEXT,
         "warning": WARNING,
+        "warning_bg": WARNING_BG,
+        "warning_border": WARNING_BORDER,
+        "warning_text": WARNING_TEXT,
         "danger": DANGER,
+        "danger_bg": DANGER_BG,
+        "danger_border": DANGER_BORDER,
+        "danger_text": DANGER_TEXT,
+        "disabled_bg": DISABLED_BG,
+        "disabled_text": DISABLED_TEXT,
+        "disabled_border": DISABLED_BORDER,
     }

@@ -47,6 +47,16 @@
 - [ ] 手工损坏或加入未知字段到 `user_files/preferences.json`，确认插件安全回退到默认值且仍可打开，不回显文件内容。
 - [ ] 使用最终 `.ankiaddon` 检查 archive：运行时偏好模块存在，但 `user_files/preferences.json` 和整个 runtime `user_files` 内容均不在包内。
 
+## v0.15 Warm Charcoal + Soft Orange visual pass
+
+- [ ] 中文和英文空状态下，Warm Charcoal 背景、面板与输入区层级清楚；Soft Orange 只强调主操作、focus 和少量 chip，不形成整屏高亮。
+- [ ] Generate / Write 主按钮在正常、hover、pressed 与 disabled 状态都能一眼区分；disabled 不像可点击，也不显得报错。
+- [ ] 用键盘依次进入材料、卡片模式、生成设置、审核操作、mapping 和写入操作，确认 focus 边框完整、没有裁切或跳动。
+- [ ] 检查 success / warning / error、AI 已配置、来源 chip、导入队列、空状态和滚动条；文字清晰，语义不能只依赖颜色。
+- [ ] 在 100% / 125% / 150% high DPI 和较小窗口中检查主屏、AI Settings、Help 与确认框；没有重叠、截断或控件消失。
+- [ ] 对比 `docs/assets/ui_preview_v0_15.html` 仅核对色彩方向；真实 Qt 渲染优先，mock 不能替代 Anki 验收。
+- [ ] 抽查写入后的卡片外观，确认 generated Anki card template 未随产品 QSS 改变。
+
 ## PR28 UI convergence
 
 - [ ] 首次打开时，“学习材料”编辑区是左侧最大的、最先可操作的控件；不会呈现成文件选择优先的空页面。

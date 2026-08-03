@@ -1,25 +1,27 @@
-"""Scoped v0.13 product styles for the linear card-making workflow."""
+"""Scoped product styles for the simple Create → Review → Write workflow."""
+
+from .style_tokens import product_palette
 
 
-PRODUCT_DARK_STYLESHEET = """
+_STYLE_TEMPLATE = """
 QDialog#AnkiForgeMainDialog {
-    background-color: #0D1117;
-    color: #F8FAFC;
+    background-color: @app_bg@;
+    color: @text_primary@;
 }
 
 QDialog#AnkiForgeMainDialog QLabel {
-    color: #F8FAFC;
+    color: @text_primary@;
     font-size: 13px;
 }
 
 QLabel#ProductTitle {
-    color: #F8FAFC;
+    color: @text_primary@;
     font-size: 18px;
     font-weight: 700;
 }
 
 QLabel#ProductSubtitle {
-    color: #7D8EA3;
+    color: @text_muted@;
     font-size: 13px;
 }
 
@@ -28,38 +30,38 @@ QWidget#CardMakerPanel {
 }
 
 QFrame[workflowPanel="true"] {
-    background-color: #111827;
-    border: 1px solid #263241;
+    background-color: @surface@;
+    border: 1px solid @border_subtle@;
     border-radius: 12px;
 }
 
 QWidget#CardMakerPanel QLabel[role="panelTitle"] {
-    color: #F8FAFC;
+    color: @text_primary@;
     font-size: 16px;
     font-weight: 600;
 }
 
 QWidget#CardMakerPanel QLabel[role="sectionTitle"] {
-    color: #CBD5E1;
+    color: @text_secondary@;
     font-size: 13px;
     font-weight: 600;
     padding: 0;
 }
 
 QWidget#CardMakerPanel QLabel[role="secondary"] {
-    color: #CBD5E1;
+    color: @text_secondary@;
     font-size: 13px;
 }
 
 QWidget#CardMakerPanel QLabel[role="muted"],
 QDialog#AiSettingsDialog QLabel[role="muted"] {
-    color: #7D8EA3;
+    color: @text_muted@;
     font-size: 12px;
 }
 
 QWidget#CardMakerPanel QLabel[role="fieldLabel"],
 QDialog#AiSettingsDialog QLabel[role="fieldLabel"] {
-    color: #CBD5E1;
+    color: @text_secondary@;
     font-size: 13px;
     font-weight: 500;
 }
@@ -69,10 +71,15 @@ QWidget#CardMakerPanel QFrame[sectionBody="true"] {
     border: none;
 }
 
-QWidget#CardMakerPanel QFrame[sectionCard="true"],
+QWidget#CardMakerPanel QFrame[sectionCard="true"] {
+    background-color: @surface_elevated@;
+    border: none;
+    border-radius: 10px;
+}
+
 QFrame#WriteFooter {
-    background-color: #161B22;
-    border: 1px solid #263241;
+    background-color: @surface_elevated@;
+    border: 1px solid @border_subtle@;
     border-radius: 10px;
 }
 
@@ -88,50 +95,50 @@ QDialog#AiSettingsDialog QLabel[role="error"] {
 }
 
 QWidget#CardMakerPanel QLabel[role="status"] {
-    color: #CBD5E1;
-    background-color: #161B22;
-    border: 1px solid #263241;
+    color: @text_secondary@;
+    background-color: @surface_elevated@;
+    border: 1px solid @border_subtle@;
 }
 
 QWidget#CardMakerPanel QLabel[role="success"] {
-    color: #86EFAC;
-    background-color: #102A1B;
-    border: 1px solid #1F5A36;
+    color: @success_text@;
+    background-color: @success_bg@;
+    border: 1px solid @success_border@;
 }
 
 QWidget#CardMakerPanel QLabel[role="warning"] {
-    color: #FCD34D;
-    background-color: #2B220E;
-    border: 1px solid #5B4316;
+    color: @warning_text@;
+    background-color: @warning_bg@;
+    border: 1px solid @warning_border@;
 }
 
 QWidget#CardMakerPanel QLabel[role="error"],
 QDialog#AiSettingsDialog QLabel[role="error"] {
-    color: #FCA5A5;
-    background-color: #30171B;
-    border: 1px solid #6A2730;
+    color: @danger_text@;
+    background-color: @danger_bg@;
+    border: 1px solid @danger_border@;
 }
 
 QWidget#CardsEmptyState {
-    background-color: #0F141B;
-    border: 1px dashed #263241;
+    background-color: @input_bg@;
+    border: 1px dashed @border_subtle@;
     border-radius: 10px;
 }
 
 QLabel#EmptyStateGlyph {
-    color: #7C5CFF;
+    color: @accent@;
     font-size: 24px;
     font-weight: 600;
 }
 
 QLabel#EmptyStateTitle {
-    color: #CBD5E1;
+    color: @text_secondary@;
     font-size: 16px;
     font-weight: 600;
 }
 
 QLabel#EmptyStateHelp {
-    color: #7D8EA3;
+    color: @text_muted@;
     font-size: 12px;
 }
 
@@ -140,19 +147,19 @@ QWidget#CardsList {
 }
 
 QWidget#CardMakerPanel QGroupBox[cardItem="true"] {
-    background-color: #161B22;
-    border: 1px solid #263241;
+    background-color: @surface_elevated@;
+    border: 1px solid @border_subtle@;
     border-radius: 10px;
     margin-top: 13px;
     padding: 10px;
-    color: #F8FAFC;
+    color: @text_primary@;
 }
 
 QWidget#CardMakerPanel QGroupBox[cardItem="true"]::title {
     subcontrol-origin: margin;
     left: 10px;
     padding: 0 5px;
-    color: #CBD5E1;
+    color: @text_secondary@;
     background: transparent;
     font-weight: 600;
 }
@@ -164,12 +171,13 @@ QWidget#CardMakerPanel QSpinBox,
 QDialog#AiSettingsDialog QLineEdit,
 QDialog#AiSettingsDialog QComboBox,
 QDialog#AiSettingsDialog QSpinBox {
-    background-color: #0F141B;
-    color: #F8FAFC;
-    border: 1px solid #263241;
+    background-color: @input_bg@;
+    color: @text_primary@;
+    border: 1px solid @border_subtle@;
     border-radius: 10px;
     padding: 6px 9px;
-    selection-background-color: #7C5CFF;
+    selection-background-color: @accent@;
+    selection-color: @app_bg@;
     min-height: 28px;
 }
 
@@ -180,25 +188,25 @@ QWidget#CardMakerPanel QSpinBox:focus,
 QDialog#AiSettingsDialog QLineEdit:focus,
 QDialog#AiSettingsDialog QComboBox:focus,
 QDialog#AiSettingsDialog QSpinBox:focus {
-    border: 1px solid #7C5CFF;
+    border: 1px solid @accent@;
 }
 
 QWidget#CardMakerPanel QTextEdit#MaterialDropArea {
-    background-color: #0F141B;
-    border: 1px solid #2D3A4C;
+    background-color: @input_bg@;
+    border: 1px solid @border_strong@;
     border-radius: 10px;
     padding: 12px;
 }
 
 QWidget#CardMakerPanel QTextEdit#MaterialDropArea:focus {
-    border: 1px solid #7C5CFF;
-    background-color: #111821;
+    border: 1px solid @accent@;
+    background-color: @surface@;
 }
 
 QFrame#MaterialImportRow,
 QFrame#GenerationSettingsDisclosure {
-    background-color: #111821;
-    border: 1px solid #263241;
+    background-color: @surface_elevated@;
+    border: none;
     border-radius: 10px;
     padding: 8px 10px;
 }
@@ -209,18 +217,19 @@ QComboBox::drop-down {
 }
 
 QComboBox QAbstractItemView {
-    background-color: #161B22;
-    color: #F8FAFC;
-    border: 1px solid #334155;
-    selection-background-color: #7C5CFF;
+    background-color: @surface_elevated@;
+    color: @text_primary@;
+    border: 1px solid @border_strong@;
+    selection-background-color: @accent@;
+    selection-color: @app_bg@;
 }
 
 QWidget#CardMakerPanel QPushButton,
 QPushButton[role="secondary"],
 QPushButton[role="dialogSecondary"] {
-    background-color: #161B22;
-    color: #CBD5E1;
-    border: 1px solid #263241;
+    background-color: @surface_elevated@;
+    color: @text_secondary@;
+    border: 1px solid @border_subtle@;
     border-radius: 10px;
     padding: 7px 13px;
     min-height: 28px;
@@ -229,15 +238,15 @@ QPushButton[role="dialogSecondary"] {
 QWidget#CardMakerPanel QPushButton:hover,
 QPushButton[role="secondary"]:hover,
 QPushButton[role="dialogSecondary"]:hover {
-    background-color: #1C2430;
-    border-color: #334155;
+    background-color: @hover_bg@;
+    border-color: @border_strong@;
 }
 
 QWidget#CardMakerPanel QPushButton[role="primary"],
 QPushButton[role="dialogPrimary"] {
-    background-color: #7C5CFF;
-    color: #FFFFFF;
-    border: 1px solid #7C5CFF;
+    background-color: @accent@;
+    color: @app_bg@;
+    border: 1px solid @accent@;
     border-radius: 10px;
     padding: 8px 20px;
     font-size: 13px;
@@ -246,50 +255,50 @@ QPushButton[role="dialogPrimary"] {
 
 QWidget#CardMakerPanel QPushButton[role="primary"]:hover,
 QPushButton[role="dialogPrimary"]:hover {
-    background-color: #8B73FF;
-    border-color: #8B73FF;
+    background-color: @accent_hover@;
+    border-color: @accent_hover@;
 }
 
 QWidget#CardMakerPanel QPushButton[role="primary"]:disabled {
-    background-color: #292347;
-    color: #8F83C7;
-    border-color: #3C3266;
+    background-color: @disabled_bg@;
+    color: @disabled_text@;
+    border-color: @disabled_border@;
 }
 
 QWidget#CardMakerPanel QPushButton[role="subtle"] {
     background: transparent;
-    color: #7D8EA3;
+    color: @text_muted@;
     border: none;
     padding: 4px 6px;
     min-height: 22px;
 }
 
 QWidget#CardMakerPanel QPushButton[role="subtle"]:hover {
-    color: #CBD5E1;
-    background-color: #1C2430;
+    color: @text_secondary@;
+    background-color: @hover_bg@;
 }
 
 QLabel#AiStatusChip {
-    color: #7D8EA3;
-    background-color: #111827;
-    border: 1px solid #263241;
+    color: @text_muted@;
+    background-color: @surface@;
+    border: 1px solid @border_subtle@;
     border-radius: 10px;
     padding: 6px 10px;
     font-size: 12px;
 }
 
 QLabel#AiStatusChip[configured="true"] {
-    color: #A99AFF;
-    background-color: rgba(124, 92, 255, 0.12);
-    border-color: #4B3A8F;
+    color: @accent_text@;
+    background-color: @accent_soft@;
+    border-color: @accent_border@;
 }
 
 QPushButton#AiSettingsButton,
 QPushButton#HelpButton,
 QPushButton#LanguageToggle {
-    background-color: #111827;
-    color: #CBD5E1;
-    border: 1px solid #263241;
+    background-color: @surface@;
+    color: @text_secondary@;
+    border: 1px solid @border_subtle@;
     border-radius: 10px;
     padding: 6px 12px;
     min-height: 24px;
@@ -299,9 +308,9 @@ QPushButton#LanguageToggle {
 QPushButton#AiSettingsButton:hover,
 QPushButton#HelpButton:hover,
 QPushButton#LanguageToggle:hover {
-    color: #FFFFFF;
-    border-color: #334155;
-    background-color: #1C2430;
+    color: @text_primary@;
+    border-color: @border_strong@;
+    background-color: @hover_bg@;
 }
 
 QDialog#AiSettingsDialog {
@@ -309,19 +318,19 @@ QDialog#AiSettingsDialog {
 }
 
 QDialog#HelpDialog {
-    background-color: #161B22;
-    color: #F8FAFC;
+    background-color: @surface_elevated@;
+    color: @text_primary@;
 }
 
 QLabel#HelpTitle {
-    color: #F8FAFC;
+    color: @text_primary@;
     font-size: 16px;
     font-weight: 600;
 }
 
 QFrame#AiSettingsSurface {
-    background-color: #161B22;
-    border: 1px solid #263241;
+    background-color: @surface_elevated@;
+    border: 1px solid @border_subtle@;
     border-radius: 12px;
 }
 
@@ -330,39 +339,39 @@ QWidget#AiSettingsTitleBar {
 }
 
 QLabel#AiSettingsTitle {
-    color: #F8FAFC;
+    color: @text_primary@;
     font-size: 16px;
     font-weight: 600;
 }
 
 QPushButton#AiSettingsClose {
     background: transparent;
-    color: #7D8EA3;
+    color: @text_muted@;
     border: none;
     border-radius: 8px;
     font-size: 20px;
 }
 
 QPushButton#AiSettingsClose:hover {
-    background-color: #1C2430;
-    color: #F8FAFC;
+    background-color: @hover_bg@;
+    color: @text_primary@;
 }
 
 QLabel#AiSettingsSessionNote {
-    color: #7D8EA3;
+    color: @text_muted@;
     font-size: 12px;
 }
 
 QPushButton#AdvancedDebugLink {
     background: transparent;
-    color: #7D8EA3;
+    color: @text_muted@;
     border: none;
     padding: 3px 5px;
     font-size: 11px;
 }
 
 QWidget#CardMakerPanel QRadioButton {
-    color: #CBD5E1;
+    color: @text_secondary@;
     spacing: 6px;
 }
 
@@ -372,13 +381,13 @@ QWidget#CardMakerPanel QScrollArea {
 }
 
 QWidget#CardMakerPanel QScrollBar:vertical {
-    background: #111827;
+    background: @surface@;
     width: 9px;
     margin: 0;
 }
 
 QWidget#CardMakerPanel QScrollBar::handle:vertical {
-    background: #334155;
+    background: @border_strong@;
     border-radius: 4px;
     min-height: 24px;
 }
@@ -389,8 +398,8 @@ QWidget#CardMakerPanel QScrollBar::sub-line:vertical {
 }
 
 QWidget#DocumentQueueRow {
-    background-color: #0F141B;
-    border: 1px solid #263241;
+    background-color: @input_bg@;
+    border: 1px solid @border_subtle@;
     border-radius: 8px;
 }
 
@@ -401,13 +410,27 @@ QWidget#DocumentQueueRow QPushButton {
 
 QPushButton#SourceChip {
     min-height: 28px;
+    border: 1px solid @accent_border@;
     border-radius: 10px;
-    color: #A99AFF;
-    background-color: rgba(124, 92, 255, 0.12);
+    color: @accent_text@;
+    background-color: @accent_soft@;
 }
 
 QLabel#StageProgress {
-    color: #CBD5E1;
+    color: @text_secondary@;
     padding: 4px 0;
 }
 """
+
+
+def _render_stylesheet(template: str) -> str:
+    rendered = template
+    for name, value in product_palette().items():
+        rendered = rendered.replace(f"@{name}@", value)
+    if "@" in rendered:
+        raise RuntimeError("product stylesheet contains an unresolved token")
+    return rendered
+
+
+# Compatibility name retained for existing callers and add-on upgrades.
+PRODUCT_DARK_STYLESHEET = _render_stylesheet(_STYLE_TEMPLATE)

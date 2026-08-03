@@ -81,6 +81,7 @@ git clone https://github.com/Gzx-070829/Ankiforge-ai.git
 - [卡片模式与模板](docs/card_modes_and_templates.md)
 - [卡片质量系统](docs/card_quality_system.md)
 - [卡片质量、来源证据与偏好边界](docs/card_quality_and_source_evidence.md)
+- [v0.15 温和木炭色与柔和橙色视觉说明](docs/visual_design_v0_15.md)
 - [审核工作台](docs/review_workbench.md)
 - [字段映射](docs/field_mapping.md)
 - [常见问题与排错](docs/troubleshooting.md)

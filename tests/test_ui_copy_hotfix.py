@@ -100,9 +100,9 @@ class UICopyHotfixTests(unittest.TestCase):
             'QWidget#CardMakerPanel QPushButton[role="primary"]:disabled {'
         )[1].split("}", 1)[0]
 
-        self.assertIn("background-color: #292347", disabled_block)
-        self.assertIn("color: #8F83C7", disabled_block)
-        self.assertIn("border-color: #3C3266", disabled_block)
+        self.assertIn("background-color: #493426", disabled_block)
+        self.assertIn("color: #A87C5D", disabled_block)
+        self.assertIn("border-color: #664732", disabled_block)
 
     @staticmethod
     def function_source(source, name):

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AnkiForge AI v0.15 warm charcoal mock</title>
+  <style>
+    :root {
+      --app-bg: #211d1a;
+      --surface: #29231f;
+      --raised: #332b26;
+      --input: #241f1c;
+      --hover: #3a312b;
+      --line: #443931;
+      --line-strong: #5a493e;
+      --text: #f5eee8;
+      --text-2: #d8ccc2;
+      --muted: #a8978a;
+      --accent: #d98a55;
+      --accent-hover: #e39a65;
+      --good: #7faf86;
+      --warn: #d6a35d;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-width: 1100px; min-height: 760px; }
+    body {
+      background: var(--app-bg);
+      color: var(--text);
+      font: 13px/1.45 "Segoe UI", "Microsoft YaHei UI", sans-serif;
+      padding: 24px;
+    }
+    header { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+    header h1 { margin: 0; font-size: 22px; }
+    header p { margin: 4px 0 0; color: var(--muted); }
+    .spacer { flex: 1; }
+    .chip, button {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--raised);
+      color: var(--text-2);
+      padding: 8px 12px;
+    }
+    .chip.configured { color: #edb68c; border-color: #80563a; background: rgba(217,138,85,.14); }
+    main { display: grid; grid-template-columns: 45fr 55fr; gap: 24px; }
+    .panel { min-height: 650px; padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+    .panel h2 { margin: 0 0 14px; font-size: 17px; }
+    .section-title { color: var(--text-2); font-weight: 600; margin: 18px 0 8px; }
+    .input, .card, .write { background: var(--raised); border-radius: 10px; padding: 14px; }
+    .input { min-height: 180px; background: var(--input); border: 1px solid var(--line-strong); color: var(--muted); }
+    .input.focus { border-color: var(--accent); }
+    .row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+    .quiet { color: var(--muted); }
+    .primary { background: var(--accent); border-color: var(--accent); color: var(--app-bg); font-weight: 700; }
+    .primary:hover { background: var(--accent-hover); }
+    .card { margin: 10px 0; border: 1px solid var(--line); }
+    .card strong { color: var(--text); }
+    .source { display: inline-block; margin-top: 8px; color: #edb68c; border: 1px solid #80563a; border-radius: 10px; padding: 4px 8px; background: rgba(217,138,85,.14); }
+    .ready { color: #aad0b0; }
+    .review { color: #e8c58c; }
+    .write { margin-top: 18px; border: 1px solid var(--line); }
+    .mock { position: fixed; right: 24px; bottom: 12px; color: var(--muted); font-size: 11px; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <header>
+    <div><h1>AnkiForge AI</h1><p>Create → Review → Write · 简单、可审核、写入前确认</p></div>
+    <div class="spacer"></div>
+    <span class="chip configured">AI 已配置</span><button>AI 设置</button><button>帮助</button><button>English</button>
+  </header>
+  <main>
+    <section class="panel">
+      <h2>创建</h2>
+      <div class="section-title">学习材料</div>
+      <div class="input focus">粘贴学习材料，或拖入 Markdown / TXT / DOCX…</div>
+      <div class="row"><button>选择文件</button><button>使用示例</button><span class="quiet">本地导入，不会自动调用 AI</span></div>
+      <div class="section-title">卡片模式</div>
+      <div class="row"><span class="chip">概念理解</span><span class="quiet">理解概念、因果、区别和意义</span></div>
+      <div class="row"><button class="primary">生成卡片</button><button>生成设置（可选）</button></div>
+    </section>
+    <section class="panel">
+      <h2>审核与写入</h2>
+      <div class="card"><strong>交叉验证的主要用途是什么？</strong><p>估计模型对未见数据的泛化能力。</p><span class="ready">Ready · 仍需人工审核</span><br><span class="source">lesson.docx · 第 2 节</span></div>
+      <div class="card"><strong>交叉验证为什么重要？</strong><p>它可降低单次数据划分的偶然影响。</p><span class="review">Review · 与卡片 1 可能相似</span></div>
+      <div class="write"><div class="section-title">写入 Anki</div><p class="quiet">先选择目标和字段映射，再执行 collection 查重。</p><div class="row"><button>检查重复</button><button class="primary">确认后写入 Anki</button></div></div>
+    </section>
+  </main>
+  <div class="mock">Mock UI preview — no live Anki, Provider, or collection</div>
+</body>
+</html>

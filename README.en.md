@@ -81,6 +81,7 @@ Copy the `ankiforge_ai` folder into Anki's `addons21` directory and restart Anki
 - [Card modes and templates](docs/card_modes_and_templates.md)
 - [Card quality system](docs/card_quality_system.md)
 - [Card quality, source evidence, and preference boundaries](docs/card_quality_and_source_evidence.md)
+- [v0.15 warm charcoal and soft orange visual design](docs/visual_design_v0_15.md)
 - [Review workbench](docs/review_workbench.md)
 - [Field mapping](docs/field_mapping.md)
 - [Troubleshooting](docs/troubleshooting.md)
