@@ -146,6 +146,18 @@
 7. [ ] 失败、timeout 或 429 不会自动 retry；只有用户再次点击 Generate 才开始新请求。
 8. [ ] Endpoint 提示按风险分类并要求本次会话确认；不要把它验收为完整 SSRF 防护。
 
+## Home entry and native window experience
+
+1. [ ] 在牌组主页确认只出现一个紧凑的 `AnkiForge AI` 入口；浅色、深色主题下均清晰且不挤压牌组统计。
+2. [ ] 从主页入口、**工具 → AnkiForge AI** 和 `Ctrl+Alt+F` 分别打开；三种入口都指向同一个工作台。
+3. [ ] 工作台已打开时重复调用入口，不创建第二个窗口；最小化后再次调用会恢复、置顶并获得焦点。
+4. [ ] 标题栏提供系统原生的最小化、最大化/恢复和关闭按钮；最大化不会破坏 Create → Review → Write 布局。
+5. [ ] 调整尺寸、位置或最大化状态后关闭并重开，状态会恢复；更换显示器或分辨率后窗口不会停留在屏幕外。
+6. [ ] 新窗口打开后键盘焦点进入学习材料编辑区，可以直接粘贴或输入。
+7. [ ] 关闭包含材料、候选卡和 API key 的窗口后重开，材料、候选卡、key 与 Endpoint 确认均为空。
+8. [ ] 检查 `user_files/window_state.json` 只包含 `geometry` 和 `maximized`；安装包不包含该文件或任何 runtime `user_files` 内容。
+9. [ ] Reviewer、Browser、编辑器和设置页不注入额外主页入口；未知 WebView 消息不被插件截获。
+
 ## Collection 性能与同步锁观察
 
 - [ ] 在包含大量已有 notes 的测试 collection 上运行 duplicate check，记录 UI 可操作性和完成耗时。

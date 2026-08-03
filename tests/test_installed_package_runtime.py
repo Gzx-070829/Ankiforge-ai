@@ -77,6 +77,7 @@ class InstalledPackageRuntimeTests(unittest.TestCase):
                     "    def __init__(self, *_args, **_kwargs): self.triggered = self",
                     "    def connect(self, _callback): return None",
                     "    def addAction(self, _action): return None",
+                    "    def setShortcut(self, _shortcut): return None",
                     "aqt = types.ModuleType('aqt')",
                     "aqt.__path__ = []",
                     "qt = types.ModuleType('aqt.qt')",
