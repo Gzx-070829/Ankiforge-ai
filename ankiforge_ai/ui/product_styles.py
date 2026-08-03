@@ -125,12 +125,6 @@ QWidget#CardsEmptyState {
     border-radius: 10px;
 }
 
-QLabel#EmptyStateGlyph {
-    color: @accent@;
-    font-size: 24px;
-    font-weight: 600;
-}
-
 QLabel#EmptyStateTitle {
     color: @text_secondary@;
     font-size: 16px;
@@ -216,6 +210,11 @@ QComboBox::drop-down {
     width: 24px;
 }
 
+QComboBox:on {
+    background-color: @hover_bg@;
+    border-color: @accent_border@;
+}
+
 QComboBox QAbstractItemView {
     background-color: @surface_elevated@;
     color: @text_primary@;
@@ -242,6 +241,14 @@ QPushButton[role="dialogSecondary"]:hover {
     border-color: @border_strong@;
 }
 
+QWidget#CardMakerPanel QPushButton:pressed,
+QPushButton[role="secondary"]:pressed,
+QPushButton[role="dialogSecondary"]:pressed {
+    background-color: @input_bg@;
+    border-color: @accent_border@;
+    color: @text_primary@;
+}
+
 QWidget#CardMakerPanel QPushButton[role="primary"],
 QPushButton[role="dialogPrimary"] {
     background-color: @accent@;
@@ -257,6 +264,13 @@ QWidget#CardMakerPanel QPushButton[role="primary"]:hover,
 QPushButton[role="dialogPrimary"]:hover {
     background-color: @accent_hover@;
     border-color: @accent_hover@;
+}
+
+QWidget#CardMakerPanel QPushButton[role="primary"]:pressed,
+QPushButton[role="primary"]:pressed,
+QPushButton[role="dialogPrimary"]:pressed {
+    background-color: @accent_text@;
+    border-color: @accent_text@;
 }
 
 QWidget#CardMakerPanel QPushButton[role="primary"]:disabled {
@@ -276,6 +290,11 @@ QWidget#CardMakerPanel QPushButton[role="subtle"] {
 QWidget#CardMakerPanel QPushButton[role="subtle"]:hover {
     color: @text_secondary@;
     background-color: @hover_bg@;
+}
+
+QWidget#CardMakerPanel QPushButton[role="subtle"]:checked {
+    color: @accent_text@;
+    background-color: @accent_soft@;
 }
 
 QLabel#AiStatusChip {
@@ -313,13 +332,26 @@ QPushButton#LanguageToggle:hover {
     background-color: @hover_bg@;
 }
 
+QPushButton#AiSettingsButton:pressed,
+QPushButton#HelpButton:pressed,
+QPushButton#LanguageToggle:pressed {
+    color: @accent_text@;
+    border-color: @accent_border@;
+    background-color: @input_bg@;
+}
+
 QDialog#AiSettingsDialog {
     background: transparent;
 }
 
 QDialog#HelpDialog {
-    background-color: @surface_elevated@;
+    background-color: @surface@;
     color: @text_primary@;
+}
+
+QDialog#HelpDialog QLabel[role="secondary"] {
+    color: @text_secondary@;
+    padding: 2px 0;
 }
 
 QLabel#HelpTitle {
@@ -355,6 +387,70 @@ QPushButton#AiSettingsClose {
 QPushButton#AiSettingsClose:hover {
     background-color: @hover_bg@;
     color: @text_primary@;
+}
+
+QPushButton#AiSettingsClose:pressed {
+    background-color: @input_bg@;
+    color: @accent_text@;
+}
+
+QDialog#DocumentCapabilitiesDialog,
+QMessageBox {
+    background-color: @surface@;
+    color: @text_primary@;
+}
+
+QDialog#DocumentCapabilitiesDialog QLabel,
+QMessageBox QLabel {
+    color: @text_secondary@;
+}
+
+QDialog#DocumentCapabilitiesDialog QWidget[capabilityRow="true"] {
+    background-color: @surface_elevated@;
+    border: 1px solid @border_subtle@;
+    border-radius: 10px;
+}
+
+QDialog#DocumentCapabilitiesDialog QLabel[role="fieldLabel"] {
+    color: @text_primary@;
+    font-weight: 600;
+}
+
+QDialog#DocumentCapabilitiesDialog QLabel[role="status"] {
+    color: @accent_text@;
+}
+
+QDialog#DocumentCapabilitiesDialog QScrollArea {
+    background: transparent;
+    border: none;
+}
+
+QDialog#DocumentCapabilitiesDialog QRadioButton {
+    color: @text_secondary@;
+    spacing: 6px;
+}
+
+QMenu {
+    background-color: @surface_elevated@;
+    color: @text_secondary@;
+    border: 1px solid @border_strong@;
+    border-radius: 10px;
+    padding: 6px;
+}
+
+QMenu::item {
+    border-radius: 7px;
+    padding: 8px 22px 8px 12px;
+}
+
+QMenu::item:selected {
+    background-color: @hover_bg@;
+    color: @text_primary@;
+}
+
+QMenu::item:pressed {
+    background-color: @accent_soft@;
+    color: @accent_text@;
 }
 
 QLabel#AiSettingsSessionNote {

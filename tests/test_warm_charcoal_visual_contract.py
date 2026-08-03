@@ -49,13 +49,26 @@ class WarmCharcoalVisualContractTests(unittest.TestCase):
             )
         )
 
-    def test_offline_mock_uses_the_same_palette_and_labels_itself(self):
+    def test_offline_preview_is_content_driven_and_interactive(self):
         preview = self.read("docs/assets/ui_preview_v0_15.html")
 
         for color in ("#211d1a", "#29231f", "#d98a55", "#f5eee8"):
             self.assertIn(color, preview.casefold())
         self.assertIn("Create → Review → Write", preview)
-        self.assertIn("Mock UI preview", preview)
+        self.assertIn("Interactive UI preview", preview)
+        self.assertIn('data-view="empty"', preview)
+        self.assertIn('data-action="toggle-generation-settings"', preview)
+        self.assertIn('data-action="open-ai-settings"', preview)
+        self.assertIn('data-action="open-help"', preview)
+        self.assertIn('data-action="generate"', preview)
+        self.assertIn('data-action="check-duplicates"', preview)
+        self.assertIn('data-action="open-write-confirmation"', preview)
+        self.assertIn('aria-modal="true"', preview)
+        self.assertIn("<script>", preview)
+        self.assertNotIn("min-height: 650px", preview)
+        self.assertNotIn(".preview-note { position: fixed", preview)
+        for network_primitive in ("fetch(", "xmlhttprequest", "websocket"):
+            self.assertNotIn(network_primitive, preview.casefold())
         self.assertNotIn("sk-", preview.casefold())
 
     def test_visual_document_keeps_behavior_and_card_template_out_of_scope(self):

@@ -63,13 +63,40 @@ class ProductStyleTests(unittest.TestCase):
         self.assertNotIn("AdvancedDebugLink", self.main_source())
         self.assertIn("HelpButton", self.main_source())
 
-    def test_empty_state_is_centered_without_changing_two_column_layout(self):
+    def test_buttons_and_disclosures_have_complete_interaction_states(self):
+        for selector in (
+            'QPushButton[role="primary"]:pressed',
+            'QPushButton[role="secondary"]:pressed',
+            'QPushButton[role="dialogPrimary"]:pressed',
+            'QPushButton[role="dialogSecondary"]:pressed',
+            'QPushButton[role="subtle"]:checked',
+            "QPushButton#AiSettingsButton:pressed",
+            "QPushButton#HelpButton:pressed",
+            "QPushButton#LanguageToggle:pressed",
+            "QComboBox:on",
+        ):
+            self.assertIn(selector, PRODUCT_DARK_STYLESHEET)
+
+    def test_popups_and_secondary_dialogs_share_the_product_surface(self):
+        for selector in (
+            "QMenu",
+            "QMenu::item:selected",
+            "QMessageBox",
+            "QDialog#HelpDialog",
+            "QDialog#DocumentCapabilitiesDialog",
+        ):
+            self.assertIn(selector, PRODUCT_DARK_STYLESHEET)
+
+    def test_empty_state_is_compact_without_changing_two_column_layout(self):
         source = self.panel_source()
         cards = self.function_source(source, "_build_cards_section")
         builder = self.function_source(source, "_build_ui")
 
         self.assertIn("CardsEmptyState", cards)
-        self.assertEqual(cards.count("Qt.AlignmentFlag.AlignCenter"), 3)
+        self.assertNotIn("EmptyStateGlyph", cards)
+        self.assertEqual(cards.count("Qt.AlignmentFlag.AlignCenter"), 2)
+        self.assertIn("self.cards_empty_widget.setMinimumHeight(150)", cards)
+        self.assertIn("self.cards_empty_widget.setMaximumHeight(180)", cards)
         self.assertIn("columns = QHBoxLayout()", builder)
         self.assertIn("columns.setSpacing(COLUMN_GAP)", builder)
         self.assertIn("columns.addWidget(left, 45)", builder)

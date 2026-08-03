@@ -50,7 +50,8 @@ class MainDialog(QDialog):
         self._provider_preview = provider_preview
         self._session_torn_down = False
         self.setWindowTitle(self.t("title"))
-        self.resize(1280, 960)
+        self.resize(1200, 840)
+        self.setMinimumWidth(1020)
         self._build_ui()
 
     def t(self, key, **values):

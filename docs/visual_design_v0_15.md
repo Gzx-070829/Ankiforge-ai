@@ -18,6 +18,9 @@
 - 背景和面板使用相邻的暖中性色，依靠留白和字号而不是多层边框分组；
 - 输入框保留清楚边界，focus 使用柔和橙色单线描边；
 - 主按钮使用柔和橙色和深色文字，次要按钮保持低对比表面；
+- hover、pressed、checked、focus 和 disabled 均有独立但克制的反馈；
+- 示例菜单、生成设置 disclosure、AI Settings、Help、文档能力和最终确认
+  使用一致的弹层、圆角、边界与操作层级；
 - success / warning / error 使用降饱和绿、金、珊瑚色，不使用高亮霓虹色；
 - 来源 chip 和 AI 已配置状态使用很浅的橙色表面，不与主操作竞争；
 - 原有 12/13/16/18px 字体层级、10/12px 圆角和 spacing tokens 保持稳定。
@@ -27,8 +30,10 @@ Anki 的 Qt 渲染、高 DPI、系统字体和不同窗口大小下人工验收�
 
 ## 离线预览
 
-[打开 v0.15 mock](assets/ui_preview_v0_15.html)
+[打开 v0.15 交互预览](assets/ui_preview_v0_15.html)
 
-`ui_preview_v0_15.html` 是纯静态 **Mock UI preview**，用于核对色彩和层级。
-它不包含真实材料、凭证、Provider 请求或 Anki 用户数据，也不等同于真实 Qt
-渲染。最终发布仍需要真实 Anki 截图和人工验收。
+`ui_preview_v0_15.html` 是本地 **Interactive UI preview**，用于核对空态、
+progressive disclosure、菜单、弹窗、审核与最终确认的视觉层级。示例内容只会在
+用户主动点击后出现；预览不读取文件内容、不包含凭证、不发出 Provider 请求、
+不访问 Anki collection，也不等同于真实 Qt 渲染。最终发布仍需要真实 Anki
+截图和人工验收。

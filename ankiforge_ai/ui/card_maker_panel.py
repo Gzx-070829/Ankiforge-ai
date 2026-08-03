@@ -1000,22 +1000,18 @@ class CardMakerPanel(QWidget):
         layout.addLayout(quality_row)
         self.cards_empty_widget = QWidget()
         self.cards_empty_widget.setObjectName("CardsEmptyState")
+        self.cards_empty_widget.setMinimumHeight(150)
+        self.cards_empty_widget.setMaximumHeight(180)
         empty_layout = QVBoxLayout(self.cards_empty_widget)
-        empty_layout.setContentsMargins(12, 16, 12, 16)
-        self.empty_cards_glyph = QLabel("◇")
-        self.empty_cards_glyph.setObjectName("EmptyStateGlyph")
-        self.empty_cards_glyph.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_layout.setContentsMargins(24, 28, 24, 28)
         self.empty_cards_title = QLabel(self.t("no_cards"))
         self.empty_cards_title.setObjectName("EmptyStateTitle")
         self.empty_cards_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty_cards_help = QLabel(self.t("no_cards_help"))
         self.empty_cards_help.setObjectName("EmptyStateHelp")
         self.empty_cards_help.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        empty_layout.addStretch()
-        empty_layout.addWidget(self.empty_cards_glyph)
         empty_layout.addWidget(self.empty_cards_title)
         empty_layout.addWidget(self.empty_cards_help)
-        empty_layout.addStretch()
         layout.addWidget(self.cards_empty_widget)
 
         self.cards_scroll = QScrollArea()
@@ -2616,11 +2612,16 @@ class CardMakerPanel(QWidget):
             )
         )
         roles = getattr(QMessageBox, "ButtonRole", QMessageBox)
-        message_box.addButton(self.t("cancel"), roles.RejectRole)
+        cancel_button = message_box.addButton(
+            self.t("cancel"),
+            roles.RejectRole,
+        )
+        cancel_button.setProperty("role", "dialogSecondary")
         confirm_button = message_box.addButton(
             self.t("confirm_write"),
             roles.AcceptRole,
         )
+        confirm_button.setProperty("role", "dialogPrimary")
         message_box.exec()
         confirmed = message_box.clickedButton() is confirm_button
         if not confirmed:
