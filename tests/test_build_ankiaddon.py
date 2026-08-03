@@ -116,6 +116,9 @@ class BuildAnkiAddonTests(unittest.TestCase):
                 "workbench/preferences.py",
                 "ui/workbench_factory.py",
                 "ui/workbench_preferences_adapter.py",
+                "ui/window_experience.py",
+                "ui/window_state_adapter.py",
+                "workbench/window_state.py",
             }.issubset(REQUIRED_ARCHIVE_FILES)
         )
 

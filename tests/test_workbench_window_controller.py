@@ -20,6 +20,7 @@ class FakeDialog:
         self.minimized = minimized
         self.events = []
         self.destroyed = FakeSignal()
+        self.finished = FakeSignal()
 
     def isMinimized(self):
         return self.minimized
@@ -54,6 +55,7 @@ class WorkbenchWindowControllerTests(unittest.TestCase):
         self.assertEqual(dialog.events, ["show", "raise", "activate"])
         self.assertIs(ankiforge_ai._dialog_instance, dialog)
         self.assertEqual(len(dialog.destroyed.callbacks), 1)
+        self.assertEqual(len(dialog.finished.callbacks), 1)
 
     def test_repeat_open_restores_and_focuses_existing_minimized_dialog(self):
         dialog = FakeDialog(minimized=True)
@@ -86,6 +88,14 @@ class WorkbenchWindowControllerTests(unittest.TestCase):
         ankiforge_ai._show_main_dialog(object(), lambda _parent: dialog)
 
         dialog.destroyed.emit()
+
+        self.assertIsNone(ankiforge_ai._dialog_instance)
+
+    def test_finished_dialog_releases_singleton_before_deferred_deletion(self):
+        dialog = FakeDialog()
+        ankiforge_ai._show_main_dialog(object(), lambda _parent: dialog)
+
+        dialog.finished.emit()
 
         self.assertIsNone(ankiforge_ai._dialog_instance)
 

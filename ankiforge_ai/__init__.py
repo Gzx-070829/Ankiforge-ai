@@ -30,6 +30,11 @@ def _show_main_dialog(parent, dialog_factory):
         dialog.destroyed.connect(
             lambda *_args, current=dialog: _clear_main_dialog(current)
         )
+        finished = getattr(dialog, "finished", None)
+        if callable(getattr(finished, "connect", None)):
+            finished.connect(
+                lambda *_args, current=dialog: _clear_main_dialog(current)
+            )
         _dialog_instance = dialog
         dialog.show()
     elif dialog.isMinimized():
