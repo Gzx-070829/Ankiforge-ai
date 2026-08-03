@@ -208,11 +208,44 @@ class CardQualityResult:
 
     @property
     def severity(self) -> str:
+        """Return the legacy internal severity for compatibility adapters."""
+
         if self.is_blocking:
             return "blocking"
         if self.warning_count:
             return "warning"
         return "info"
+
+    @property
+    def status(self) -> str:
+        """Return the small public review status."""
+
+        return {
+            "info": "ready",
+            "warning": "review",
+            "blocking": "blocked",
+        }[self.severity]
+
+    def summary(self, language: str) -> str:
+        if language not in {"zh", "en"}:
+            raise ValueError("language must be zh or en.")
+        if self.status == "ready":
+            return (
+                "本地检查未发现明显问题，仍请审核。"
+                if language == "zh"
+                else "No obvious local issue found. Please review."
+            )
+        if self.status == "blocked":
+            return (
+                f"有 {self.blocking_count} 项问题需修复后才能写入。"
+                if language == "zh"
+                else f"Fix {self.blocking_count} blocking issue(s) before write."
+            )
+        return (
+            f"有 {self.warning_count} 项需要确认，请审核后决定。"
+            if language == "zh"
+            else f"{self.warning_count} local check(s) need review."
+        )
 
     def __repr__(self) -> str:
         return (
@@ -224,6 +257,7 @@ class CardQualityResult:
     def to_safe_dict(self) -> dict:
         return {
             "quality_score": self.quality_score,
+            "status": self.status,
             "severity": self.severity,
             "issue_count": len(self.issues),
             "blocking_count": self.blocking_count,
@@ -261,6 +295,18 @@ class CardQualityBatch:
     @property
     def blocking_count(self) -> int:
         return sum(item.quality.blocking_count for item in self.results)
+
+    @property
+    def ready_count(self) -> int:
+        return sum(item.quality.status == "ready" for item in self.results)
+
+    @property
+    def review_count(self) -> int:
+        return sum(item.quality.status == "review" for item in self.results)
+
+    @property
+    def blocked_count(self) -> int:
+        return sum(item.quality.status == "blocked" for item in self.results)
 
     def __repr__(self) -> str:
         return (

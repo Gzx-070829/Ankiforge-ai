@@ -49,7 +49,7 @@ class UICopyHotfixTests(unittest.TestCase):
 
         self.assertNotIn('self.t("quality_score"', render)
         self.assertNotIn("quality.quality_score", render)
-        self.assertIn('self.t(f"quality_status_{quality.severity}")', render)
+        self.assertIn('self.t(f"quality_status_{quality.status}")', render)
 
     def test_chinese_main_copy_is_short_and_product_facing(self):
         zh = PRODUCT_COPY["zh"]

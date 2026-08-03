@@ -1989,8 +1989,8 @@ class CardMakerPanel(QWidget):
         qualities = tuple(
             self.session.quality_for_candidate(card.id) for card in cards
         )
-        blocking = sum(item.is_blocking for item in qualities)
-        warnings = sum(item.severity == "warning" for item in qualities)
+        blocking = sum(item.status == "blocked" for item in qualities)
+        warnings = sum(item.status == "review" for item in qualities)
         good = len(qualities) - blocking - warnings
         workbench = self.review_use_cases.snapshot()
         stats = workbench.stats
@@ -2035,15 +2035,15 @@ class CardMakerPanel(QWidget):
             card_layout.addWidget(back)
 
             quality_label = QLabel(
-                self.t(f"quality_status_{quality.severity}")
+                self.t(f"quality_status_{quality.status}")
             )
             self._set_status_role(
                 quality_label,
                 {
-                    "info": "success",
-                    "warning": "warning",
-                    "blocking": "error",
-                }[quality.severity],
+                    "ready": "success",
+                    "review": "warning",
+                    "blocked": "error",
+                }[quality.status],
             )
             quality_label.setWordWrap(True)
             card_layout.addWidget(quality_label)
