@@ -41,7 +41,7 @@ _PUBLIC_CARD_MODES = frozenset(
 _INTELLIGENCE_LEVELS = frozenset({"fast", "standard", "deep"})
 _SAFE_MODEL_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$")
 _SECRET_SHAPED_VALUE = re.compile(
-    r"(?:sk-[A-Za-z0-9_-]{20,}|bearer\s+|github_pat_|gh[pousr]_)",
+    r"(?:sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|bearer\s+|github_pat_|gh[pousr]_)",
     re.IGNORECASE,
 )
 
@@ -61,7 +61,11 @@ class WorkbenchPreferences:
     intelligence_level: str = "standard"
 
     def __post_init__(self) -> None:
-        if self.schema_version != PREFERENCES_SCHEMA_VERSION:
+        if (
+            isinstance(self.schema_version, bool)
+            or not isinstance(self.schema_version, int)
+            or self.schema_version != PREFERENCES_SCHEMA_VERSION
+        ):
             raise ValueError("unsupported workbench preference schema")
         _require_choice(self.ui_language, _UI_LANGUAGES, "ui language")
         _require_choice(self.provider_name, _PROVIDER_NAMES, "provider")

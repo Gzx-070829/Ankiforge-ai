@@ -84,6 +84,7 @@ class WorkbenchPreferencesTests(unittest.TestCase):
             ("output_language", "fr"),
             ("intelligence_level", "maximum"),
             ("model_name", "sk-live-abcdefghijklmnopqrstuvwxyz012345"),
+            ("model_name", "AKIAABCDEFGHIJKLMNOP"),
             ("model_name", "Bearer eyJhbGciOiJIUzI1NiJ9.payload"),
             ("model_name", "https://private.example/model"),
             ("model_name", "C:\\Users\\person\\model"),
@@ -95,6 +96,11 @@ class WorkbenchPreferencesTests(unittest.TestCase):
                 payload[field] = value
                 with self.assertRaises(ValueError):
                     WorkbenchPreferences.from_mapping(payload)
+
+        boolean_schema = dict(base)
+        boolean_schema["schema_version"] = True
+        with self.assertRaises(ValueError):
+            WorkbenchPreferences.from_mapping(boolean_schema)
 
     def test_repr_does_not_include_the_model_value(self):
         preferences = WorkbenchPreferences.defaults().with_updates(
