@@ -2060,7 +2060,7 @@ class CardMakerPanel(QWidget):
                 card_layout.addWidget(quality_detail)
 
             source_view = present_source_location(
-                card.source_location,
+                card.source_span or card.source_location,
                 card.source_excerpt,
                 language=self.language,
             )

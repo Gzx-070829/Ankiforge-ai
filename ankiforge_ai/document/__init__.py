@@ -22,6 +22,7 @@ from .serialization import (
     document_to_safe_markdown,
 )
 from .source_labels import get_safe_source_label
+from .source_spans import SourceSpan, source_span_from_chunk
 from .registry import DocumentImporterRegistry
 from .importers.registry import create_native_importer_registry, import_documents
 
@@ -41,6 +42,7 @@ __all__ = [
     "ImporterCapability",
     "SafeScalar",
     "SourceLocation",
+    "SourceSpan",
     "SupportLevel",
     "count_blocks_by_kind",
     "create_native_importer_registry",
@@ -52,5 +54,6 @@ __all__ = [
     "document_to_safe_markdown",
     "get_safe_source_label",
     "import_documents",
+    "source_span_from_chunk",
     "validate_document_ir",
 ]
