@@ -1001,7 +1001,6 @@ class CardMakerPanel(QWidget):
         self.cards_empty_widget = QWidget()
         self.cards_empty_widget.setObjectName("CardsEmptyState")
         self.cards_empty_widget.setMinimumHeight(150)
-        self.cards_empty_widget.setMaximumHeight(180)
         empty_layout = QVBoxLayout(self.cards_empty_widget)
         empty_layout.setContentsMargins(24, 28, 24, 28)
         self.empty_cards_title = QLabel(self.t("no_cards"))
@@ -1012,7 +1011,7 @@ class CardMakerPanel(QWidget):
         self.empty_cards_help.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_layout.addWidget(self.empty_cards_title)
         empty_layout.addWidget(self.empty_cards_help)
-        layout.addWidget(self.cards_empty_widget)
+        layout.addWidget(self.cards_empty_widget, 1)
 
         self.cards_scroll = QScrollArea()
         self.cards_scroll.setWidgetResizable(True)

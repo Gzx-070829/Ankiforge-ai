@@ -65,6 +65,10 @@ class WarmCharcoalVisualContractTests(unittest.TestCase):
         self.assertIn('data-action="open-write-confirmation"', preview)
         self.assertIn('aria-modal="true"', preview)
         self.assertIn("<script>", preview)
+        self.assertIn("align-items: stretch", preview)
+        self.assertIn('class="panel review-panel"', preview)
+        self.assertIn(".review-panel", preview)
+        self.assertIn("flex: 1", preview)
         self.assertNotIn("min-height: 650px", preview)
         self.assertNotIn(".preview-note { position: fixed", preview)
         for network_primitive in ("fetch(", "xmlhttprequest", "websocket"):

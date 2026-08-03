@@ -120,7 +120,7 @@
     .workspace {
       display: grid;
       grid-template-columns: minmax(430px, 45fr) minmax(500px, 55fr);
-      align-items: start;
+      align-items: stretch;
       gap: 20px;
     }
 
@@ -211,8 +211,15 @@
     .inline-status.error { background: var(--danger-bg); border-color: var(--danger-line); color: var(--danger); }
     .inline-status.success { background: var(--good-bg); border-color: var(--good-line); color: var(--good); }
 
-    .review-stage { margin-top: 16px; }
+    .review-panel { display: flex; flex-direction: column; }
+    .review-stage {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      margin-top: 16px;
+    }
     .empty-state {
+      flex: 1;
       min-height: 210px;
       display: grid;
       place-content: center;
@@ -238,7 +245,7 @@
     .card-actions { display: flex; gap: 7px; margin-left: auto; }
     .card-actions button { min-height: 30px; padding: 4px 9px; }
 
-    .write-card { margin-top: 14px; padding: 14px; background: var(--raised); border: 1px solid var(--line); border-radius: 11px; }
+    .write-card { flex: 0 0 auto; margin-top: 14px; padding: 14px; background: var(--raised); border: 1px solid var(--line); border-radius: 11px; }
     .write-card h3 { margin: 0; font-size: 14px; }
     .write-card > p { margin: 6px 0 0; }
     .write-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; margin-top: 12px; }
@@ -367,7 +374,7 @@
         <div class="inline-status" id="generationStatus" role="status" hidden></div>
       </section>
 
-      <section class="panel" aria-labelledby="reviewTitle">
+      <section class="panel review-panel" aria-labelledby="reviewTitle">
         <div class="panel-heading">
           <h2 id="reviewTitle" data-zh="审核与写入" data-en="Review &amp; write">审核与写入</h2>
           <span class="panel-kicker" data-zh="候选卡 → Anki" data-en="Drafts → Anki">候选卡 → Anki</span>

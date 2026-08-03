@@ -87,7 +87,7 @@ class ProductStyleTests(unittest.TestCase):
         ):
             self.assertIn(selector, PRODUCT_DARK_STYLESHEET)
 
-    def test_empty_state_is_compact_without_changing_two_column_layout(self):
+    def test_empty_state_fills_review_column_without_changing_two_column_layout(self):
         source = self.panel_source()
         cards = self.function_source(source, "_build_cards_section")
         builder = self.function_source(source, "_build_ui")
@@ -96,7 +96,8 @@ class ProductStyleTests(unittest.TestCase):
         self.assertNotIn("EmptyStateGlyph", cards)
         self.assertEqual(cards.count("Qt.AlignmentFlag.AlignCenter"), 2)
         self.assertIn("self.cards_empty_widget.setMinimumHeight(150)", cards)
-        self.assertIn("self.cards_empty_widget.setMaximumHeight(180)", cards)
+        self.assertNotIn("self.cards_empty_widget.setMaximumHeight", cards)
+        self.assertIn("layout.addWidget(self.cards_empty_widget, 1)", cards)
         self.assertIn("columns = QHBoxLayout()", builder)
         self.assertIn("columns.setSpacing(COLUMN_GAP)", builder)
         self.assertIn("columns.addWidget(left, 45)", builder)

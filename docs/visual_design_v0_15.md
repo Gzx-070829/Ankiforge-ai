@@ -8,6 +8,7 @@
 
 - 可见流程仍是 `Create → Review → Write`；
 - 两栏布局、控件数量、默认收起的生成设置和 AI Settings Modal 均不变；
+- 两栏在宽屏下保持底边对齐，审核空态可伸缩，写入区稳定停靠在右栏底部；
 - No new controls；没有新增主题选择、质量阈值或高级开关；
 - Provider、API key、查重、最终确认和写入边界均不变；
 - generated Anki card template CSS 不属于本轮范围，`theme/style.css` 未改；
