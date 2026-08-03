@@ -16,6 +16,66 @@ MAX_CARD_TEXT_CHARS = 12_000
 _SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
 _WORD_TOKEN = re.compile(r"[a-z0-9_]{2,}", re.IGNORECASE)
 _CJK = re.compile(r"[\u3400-\u9fff]")
+_MATCH_REASONS = {
+    "exact": "exact_text",
+    "canonical": "normalized_text",
+}
+
+
+@dataclass(frozen=True, repr=False)
+class DuplicateMatch:
+    candidate_id: str
+    matched_candidate_id: str
+    kind: str
+    reason_code: str
+    similarity: float
+
+    def __post_init__(self) -> None:
+        for value, name in (
+            (self.candidate_id, "candidate_id"),
+            (self.matched_candidate_id, "matched_candidate_id"),
+        ):
+            if not isinstance(value, str) or not _SAFE_ID.fullmatch(value):
+                raise ValueError(f"{name} must be a safe identifier")
+        if self.candidate_id == self.matched_candidate_id:
+            raise ValueError("a duplicate match must identify a different candidate")
+        if self.kind not in {"exact", "canonical", "similar"}:
+            raise ValueError("duplicate match kind is unsupported")
+        allowed_reason = {
+            "exact": {"exact_text"},
+            "canonical": {"normalized_text"},
+            "similar": {
+                "shared_source_token_overlap",
+                "shared_source_character_overlap",
+            },
+        }[self.kind]
+        if self.reason_code not in allowed_reason:
+            raise ValueError("duplicate match reason does not match its kind")
+        if (
+            isinstance(self.similarity, bool)
+            or not isinstance(self.similarity, (int, float))
+            or not math.isfinite(self.similarity)
+            or not 0.0 <= self.similarity <= 1.0
+        ):
+            raise ValueError("duplicate match similarity must be bounded")
+
+    def __repr__(self) -> str:
+        return (
+            "DuplicateMatch("
+            f"candidate_id={self.candidate_id!r}, "
+            f"matched_candidate_id={self.matched_candidate_id!r}, "
+            f"kind={self.kind!r}, reason_code={self.reason_code!r}, "
+            f"similarity={self.similarity:.3f})"
+        )
+
+    def to_safe_dict(self) -> dict:
+        return {
+            "candidate_id": self.candidate_id,
+            "matched_candidate_id": self.matched_candidate_id,
+            "kind": self.kind,
+            "reason_code": self.reason_code,
+            "similarity": self.similarity,
+        }
 
 
 @dataclass(frozen=True, repr=False)
@@ -25,6 +85,7 @@ class DeduplicationResult:
     exact_duplicate_ids: tuple[str, ...]
     canonical_duplicate_ids: tuple[str, ...]
     similar_duplicate_ids: tuple[str, ...]
+    matches: tuple[DuplicateMatch, ...]
     comparison_count: int
     semantic_dedup_used: bool = False
 
@@ -59,6 +120,19 @@ class DeduplicationResult:
             or set(canonical_ids) & set(similar_ids)
         ):
             raise ValueError("duplicate categories must not overlap")
+        matches = _bounded_tuple(self.matches, MAX_DEDUP_CARDS, "matches")
+        if not all(isinstance(item, DuplicateMatch) for item in matches):
+            raise TypeError("matches must contain DuplicateMatch values")
+        if tuple(item.candidate_id for item in matches) != duplicate_ids:
+            raise ValueError("duplicate matches must align with duplicate IDs")
+        category_by_id = {
+            **{item: "exact" for item in exact_ids},
+            **{item: "canonical" for item in canonical_ids},
+            **{item: "similar" for item in similar_ids},
+        }
+        if any(category_by_id[item.candidate_id] != item.kind for item in matches):
+            raise ValueError("duplicate match kinds must align with categories")
+        object.__setattr__(self, "matches", matches)
         max_comparisons = MAX_DEDUP_CARDS * (MAX_DEDUP_CARDS - 1) // 2
         if (
             isinstance(self.comparison_count, bool)
@@ -111,28 +185,50 @@ def deduplicate_cards(
         raise ValueError("candidate IDs must be unique")
     unique_records = []
     duplicate_kinds = {}
+    duplicate_matches = {}
     comparison_count = 0
     for record in records:
         duplicate_kind = None
         for kept in unique_records:
             comparison_count += 1
+            similarity = 0.0
+            reason_code = None
             if record["exact_key"] == kept["exact_key"]:
                 duplicate_kind = "exact"
+                similarity = 1.0
+                reason_code = _MATCH_REASONS[duplicate_kind]
                 break
             if record["canonical_key"] == kept["canonical_key"]:
                 duplicate_kind = "canonical"
+                similarity = 1.0
+                reason_code = _MATCH_REASONS[duplicate_kind]
                 break
-            if (
-                record["source_ids"] & kept["source_ids"]
-                and _similarity(record["tokens"], kept["tokens"])
-                >= similarity_threshold
-            ):
-                duplicate_kind = "similar"
-                break
+            if record["source_ids"] & kept["source_ids"]:
+                token_similarity = _similarity(record["tokens"], kept["tokens"])
+                character_similarity = _similarity(
+                    record["character_ngrams"],
+                    kept["character_ngrams"],
+                )
+                similarity = max(token_similarity, character_similarity)
+                if similarity >= similarity_threshold:
+                    duplicate_kind = "similar"
+                    reason_code = (
+                        "shared_source_character_overlap"
+                        if character_similarity > token_similarity
+                        else "shared_source_token_overlap"
+                    )
+                    break
         if duplicate_kind is None:
             unique_records.append(record)
         else:
             duplicate_kinds[record["candidate_id"]] = duplicate_kind
+            duplicate_matches[record["candidate_id"]] = DuplicateMatch(
+                candidate_id=record["candidate_id"],
+                matched_candidate_id=kept["candidate_id"],
+                kind=duplicate_kind,
+                reason_code=reason_code,
+                similarity=round(similarity, 3),
+            )
     duplicate_ids = tuple(
         record["candidate_id"]
         for record in records
@@ -150,6 +246,7 @@ def deduplicate_cards(
         similar_duplicate_ids=tuple(
             item for item in duplicate_ids if duplicate_kinds[item] == "similar"
         ),
+        matches=tuple(duplicate_matches[item] for item in duplicate_ids),
         comparison_count=comparison_count,
         semantic_dedup_used=False,
     )
@@ -176,7 +273,11 @@ def _card_record(card: object) -> dict:
     if not isinstance(candidate_id, str) or not _SAFE_ID.fullmatch(candidate_id):
         raise ValueError("card requires a safe candidate_id")
     front = _card_value(card, "front")
+    if front is None:
+        front = _card_value(card, "front_preview")
     back = _card_value(card, "back")
+    if back is None:
+        back = _card_value(card, "back_preview")
     if not isinstance(front, str) or not isinstance(back, str):
         raise TypeError("card front and back must be strings")
     if len(front) > MAX_CARD_TEXT_CHARS or len(back) > MAX_CARD_TEXT_CHARS:
@@ -194,12 +295,20 @@ def _card_record(card: object) -> dict:
             if not isinstance(item, str) or not _SAFE_ID.fullmatch(item):
                 raise ValueError("source_chunk_ids must contain safe IDs")
             source_ids.add(item)
+    source_span = _card_value(card, "source_span")
+    if source_span is not None:
+        for name in ("document_id", "block_id"):
+            value = getattr(source_span, name, None)
+            if isinstance(value, str) and _SAFE_ID.fullmatch(value):
+                source_ids.add(value)
+    canonical_combined = f"{canonical_front}\n{canonical_back}"
     return {
         "candidate_id": candidate_id,
         "card": _freeze_card(card),
         "exact_key": (front, back),
         "canonical_key": (canonical_front, canonical_back),
         "tokens": _similarity_tokens(f"{front}\n{back}"),
+        "character_ngrams": _character_ngrams(canonical_combined),
         "source_ids": frozenset(source_ids),
     }
 
@@ -218,6 +327,12 @@ def _similarity(left: frozenset[str], right: frozenset[str]) -> float:
     if not left or not right:
         return 0.0
     return len(left & right) / len(left | right)
+
+
+def _character_ngrams(text: str, size: int = 3) -> frozenset[str]:
+    if len(text) < size:
+        return frozenset((text,)) if text else frozenset()
+    return frozenset(text[index : index + size] for index in range(len(text) - size + 1))
 
 
 def _card_value(card: object, name: str):

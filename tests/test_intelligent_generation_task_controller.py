@@ -349,10 +349,10 @@ class IntelligentGenerationTaskControllerTests(unittest.TestCase):
         self.assertEqual(completed.status, GenerationRunStatus.COMPLETED)
         self.assertEqual(
             tuple(card["candidate_id"] for card in completed.cards),
-            ("card-1",),
+            ("card-1", "card-2"),
         )
         self.assertEqual(completed.deduplication_result.duplicate_candidate_ids, ("card-2",))
-        self.assertEqual(completed.coverage_report.card_count, 1)
+        self.assertEqual(completed.coverage_report.card_count, 2)
 
     def test_coverage_uses_plan_universe_and_reports_missing_high_priority(self):
         taskman = DeferredTaskman()

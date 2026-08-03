@@ -10,7 +10,7 @@ from types import MappingProxyType
 from typing import Mapping, Optional
 
 from ..document import SourceLocation, SourceSpan
-from ..intelligence import IntelligenceLevel
+from ..intelligence import IntelligenceLevel, deduplicate_cards
 from ..pipeline.card_quality import CardQualityResult, evaluate_card_batch
 from ..pipeline.generation_settings import (
     GenerationSettings,
@@ -1941,9 +1941,11 @@ class BeginnerFlowSession:
         self.write_created_note_ids = ()
 
     def _refresh_candidate_quality(self) -> None:
+        deduplication = deduplicate_cards(self.candidate_card_previews)
         batch = evaluate_card_batch(
             self.candidate_card_previews,
             self.generation_settings,
+            duplicate_matches=deduplication.matches,
         )
         self.candidate_quality_results = {
             item.candidate_id: item.quality for item in batch.results

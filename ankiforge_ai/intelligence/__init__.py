@@ -27,6 +27,7 @@ from .deck_style import (
 )
 from .deduplication import (
     DeduplicationResult,
+    DuplicateMatch,
     canonicalize_card_text,
     deduplicate_cards,
 )
@@ -84,6 +85,7 @@ __all__ = [
     "DeckStyleProfile",
     "DeckStyleQuery",
     "DeduplicationResult",
+    "DuplicateMatch",
     "DocumentAnalysis",
     "DocumentChunk",
     "FailedChunkRetry",

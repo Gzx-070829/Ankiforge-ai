@@ -230,13 +230,6 @@ def execute_generation_lifecycle(
     _emit_worker_progress(progress_callback, current)
     try:
         deduplication = deduplicate_cards(current.cards)
-        current = _retain_candidate_ids(
-            current,
-            {
-                _card_value(card, "candidate_id")
-                for card in deduplication.unique_cards
-            },
-        )
     except Exception:
         return GenerationLifecycleResult(
             failed_generation_run(current, "postprocessing_failed"),
@@ -573,13 +566,6 @@ def execute_failed_retry_lifecycle(
     _emit_worker_progress(progress_callback, current)
     try:
         deduplication = deduplicate_cards(current.cards)
-        current = _retain_candidate_ids(
-            current,
-            {
-                _card_value(card, "candidate_id")
-                for card in deduplication.unique_cards
-            },
-        )
         coverage = _assess_run_coverage(current)
         current = replace(
             current,
@@ -861,13 +847,6 @@ def apply_coverage_supplement(
             raise _LifecycleSuperseded(current)
         current = _append_supplement_cards(current, generated)
         deduplication = deduplicate_cards(current.cards)
-        current = _retain_candidate_ids(
-            current,
-            {
-                _card_value(card, "candidate_id")
-                for card in deduplication.unique_cards
-            },
-        )
         return replace(
             current,
             coverage_report=_assess_run_coverage(current),

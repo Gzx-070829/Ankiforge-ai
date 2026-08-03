@@ -2021,6 +2021,9 @@ class CardMakerPanel(QWidget):
         self.quality_summary_label.setVisible(True)
         self.discard_blocking_btn.setVisible(bool(blocking))
         self.keep_clean_btn.setVisible(bool(good))
+        candidate_number_by_id = {
+            card.id: index for index, card in enumerate(cards, start=1)
+        }
 
         for index, card in enumerate(cards, start=1):
             quality = self.session.quality_for_candidate(card.id)
@@ -2050,8 +2053,18 @@ class CardMakerPanel(QWidget):
             if quality.issues:
                 warning_lines = []
                 for issue in quality.issues[:3]:
+                    evidence = ""
+                    if issue.related_candidate_id is not None:
+                        paired_number = candidate_number_by_id.get(
+                            issue.related_candidate_id,
+                            "?",
+                        )
+                        evidence = " " + self.t(
+                            f"quality_duplicate_reason_{issue.evidence_code}",
+                            number=paired_number,
+                        )
                     warning_lines.append(
-                        f"• {issue.user_message(self.language)} — "
+                        f"• {issue.user_message(self.language)}{evidence} — "
                         f"{issue.suggestion(self.language)}"
                     )
                 quality_detail = QLabel("\n".join(warning_lines))

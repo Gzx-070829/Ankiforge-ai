@@ -208,6 +208,16 @@ class DeduplicationV014Tests(unittest.TestCase):
         self.assertEqual(result.canonical_duplicate_ids, ("card-3",))
         self.assertEqual(result.similar_duplicate_ids, ())
         self.assertEqual(result.duplicate_candidate_ids, ("card-2", "card-3"))
+        self.assertEqual(
+            tuple(
+                (item.candidate_id, item.matched_candidate_id, item.kind, item.reason_code)
+                for item in result.matches
+            ),
+            (
+                ("card-2", "card-1", "exact", "exact_text"),
+                ("card-3", "card-1", "canonical", "normalized_text"),
+            ),
+        )
 
     def test_similar_duplicate_requires_safe_similarity_and_source_overlap(self):
         cards = (
@@ -237,6 +247,13 @@ class DeduplicationV014Tests(unittest.TestCase):
         result = deduplicate_cards(cards, similarity_threshold=0.75)
 
         self.assertEqual(result.similar_duplicate_ids, ("card-2",))
+        self.assertEqual(result.matches[0].matched_candidate_id, "card-1")
+        self.assertEqual(result.matches[0].kind, "similar")
+        self.assertIn(
+            result.matches[0].reason_code,
+            {"shared_source_token_overlap", "shared_source_character_overlap"},
+        )
+        self.assertGreaterEqual(result.matches[0].similarity, 0.75)
         self.assertEqual(
             tuple(card["candidate_id"] for card in result.unique_cards),
             ("card-1", "card-3"),
@@ -328,6 +345,32 @@ class DeduplicationV014Tests(unittest.TestCase):
             tuple(card["candidate_id"] for card in result.unique_cards),
             ("card-symbol", "card-plain"),
         )
+
+    def test_character_ngrams_catch_small_typo_with_shared_source(self):
+        result = deduplicate_cards(
+            (
+                {
+                    "candidate_id": "card-original",
+                    "point_id": "point-0000000000000001",
+                    "front": "What is photosynthesiss?",
+                    "back": "Photosynthesiss converts light energy into chemical energy.",
+                },
+                {
+                    "candidate_id": "card-corrected",
+                    "point_id": "point-0000000000000001",
+                    "front": "What is photosynthesis?",
+                    "back": "Photosynthesis converts light energy into chemical energy.",
+                },
+            ),
+            similarity_threshold=0.86,
+        )
+
+        self.assertEqual(result.similar_duplicate_ids, ("card-corrected",))
+        self.assertEqual(
+            result.matches[0].reason_code,
+            "shared_source_character_overlap",
+        )
+        self.assertNotIn("photosynthesis", repr(result).casefold())
 
 
 if __name__ == "__main__":

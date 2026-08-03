@@ -1,6 +1,7 @@
 """Deterministic, explainable quality checks for candidate cards."""
 
 from dataclasses import dataclass, field
+import math
 import re
 from typing import Iterable, Mapping, Optional
 
@@ -38,6 +39,13 @@ _QUESTION_START = re.compile(
     r"^(?:what|why|how|when|where|which|who|name|state|compare|under what)\b",
     re.IGNORECASE,
 )
+_SAFE_CANDIDATE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
+_DUPLICATE_EVIDENCE_CODES = {
+    "exact_text",
+    "normalized_text",
+    "shared_source_token_overlap",
+    "shared_source_character_overlap",
+}
 
 
 @dataclass(frozen=True, repr=False)
@@ -144,6 +152,9 @@ class CardQualityIssue:
     user_message_en: str = ""
     suggestion_zh: str = ""
     suggestion_en: str = ""
+    related_candidate_id: Optional[str] = None
+    evidence_code: Optional[str] = None
+    similarity: Optional[float] = None
 
     def __post_init__(self) -> None:
         if self.severity not in {"info", "warning", "blocking"}:
@@ -152,6 +163,28 @@ class CardQualityIssue:
             raise ValueError("quality issue identifiers must be non-empty.")
         if self.blocking != (self.severity == "blocking"):
             raise ValueError("blocking must match blocking severity.")
+        evidence_values = (
+            self.related_candidate_id,
+            self.evidence_code,
+            self.similarity,
+        )
+        if any(value is not None for value in evidence_values):
+            if not all(value is not None for value in evidence_values):
+                raise ValueError("duplicate evidence fields must be provided together.")
+            if (
+                not isinstance(self.related_candidate_id, str)
+                or not _SAFE_CANDIDATE_ID.fullmatch(self.related_candidate_id)
+            ):
+                raise ValueError("related_candidate_id must be a safe identifier.")
+            if self.evidence_code not in _DUPLICATE_EVIDENCE_CODES:
+                raise ValueError("duplicate evidence code is unsupported.")
+            if (
+                isinstance(self.similarity, bool)
+                or not isinstance(self.similarity, (int, float))
+                or not math.isfinite(self.similarity)
+                or not 0.0 <= self.similarity <= 1.0
+            ):
+                raise ValueError("duplicate similarity must be bounded.")
 
     @property
     def rule_id(self) -> str:
@@ -175,7 +208,8 @@ class CardQualityIssue:
         return (
             "CardQualityIssue("
             f"rule_id={self.rule_id!r}, severity={self.severity!r}, "
-            f"score_delta={self.score_delta:.2f})"
+            f"score_delta={self.score_delta:.2f}, "
+            f"evidence_code={self.evidence_code!r})"
         )
 
 
@@ -412,12 +446,14 @@ def evaluate_card_batch(
     *,
     source_text: object = None,
     cloze_supported: bool = False,
+    duplicate_matches: object = None,
 ) -> CardQualityBatch:
     resolved = coerce_generation_settings(settings)
     card_items = tuple(cards)
     source = _text(source_text)
     results: list[CandidateQualityResult] = []
     seen: set[tuple[str, str]] = set()
+    match_by_id = _duplicate_match_mapping(duplicate_matches)
     for index, card in enumerate(card_items, start=1):
         candidate_id = _card_value(card, "id") or _card_value(card, "candidate_id")
         if not isinstance(candidate_id, str) or not candidate_id:
@@ -437,10 +473,20 @@ def evaluate_card_batch(
             cloze_supported=cloze_supported,
         )
         duplicate_key = (_normalize_duplicate(front), _normalize_duplicate(back))
-        if duplicate_key != ("", "") and duplicate_key in seen:
-            quality = _with_issue(quality, _issue("duplicate_candidate"))
-        else:
-            seen.add(duplicate_key)
+        if duplicate_matches is None:
+            if duplicate_key != ("", "") and duplicate_key in seen:
+                quality = _with_issue(quality, _issue("duplicate_candidate"))
+            else:
+                seen.add(duplicate_key)
+        elif candidate_id in match_by_id:
+            match = match_by_id[candidate_id]
+            quality = add_quality_issue(
+                quality,
+                "duplicate_candidate",
+                related_candidate_id=match.matched_candidate_id,
+                evidence_code=match.reason_code,
+                similarity=match.similarity,
+            )
         results.append(CandidateQualityResult(candidate_id, quality))
 
     if source and len(source) <= 120 and len(card_items) > max(
@@ -454,7 +500,34 @@ def evaluate_card_batch(
     return CardQualityBatch(tuple(results))
 
 
-def _issue(rule_id: str) -> CardQualityIssue:
+def add_quality_issue(
+    result: CardQualityResult,
+    rule_id: str,
+    *,
+    related_candidate_id: Optional[str] = None,
+    evidence_code: Optional[str] = None,
+    similarity: Optional[float] = None,
+) -> CardQualityResult:
+    if not isinstance(result, CardQualityResult):
+        raise TypeError("result must be a CardQualityResult")
+    return _with_issue(
+        result,
+        _issue(
+            rule_id,
+            related_candidate_id=related_candidate_id,
+            evidence_code=evidence_code,
+            similarity=similarity,
+        ),
+    )
+
+
+def _issue(
+    rule_id: str,
+    *,
+    related_candidate_id: Optional[str] = None,
+    evidence_code: Optional[str] = None,
+    similarity: Optional[float] = None,
+) -> CardQualityIssue:
     try:
         rule = _RULE_BY_ID[rule_id]
     except KeyError:
@@ -469,7 +542,37 @@ def _issue(rule_id: str) -> CardQualityIssue:
         user_message_en=rule.user_message_en,
         suggestion_zh=rule.suggestion_zh,
         suggestion_en=rule.suggestion_en,
+        related_candidate_id=related_candidate_id,
+        evidence_code=evidence_code,
+        similarity=similarity,
     )
+
+
+def _duplicate_match_mapping(value: object) -> dict:
+    if value is None:
+        return {}
+    if isinstance(value, (str, bytes)):
+        raise TypeError("duplicate_matches must be an iterable")
+    matches = tuple(value)
+    if len(matches) > 96:
+        raise ValueError("duplicate_matches exceeds the approved limit")
+    result = {}
+    for item in matches:
+        candidate_id = getattr(item, "candidate_id", None)
+        matched_candidate_id = getattr(item, "matched_candidate_id", None)
+        reason_code = getattr(item, "reason_code", None)
+        similarity = getattr(item, "similarity", None)
+        if (
+            not isinstance(candidate_id, str)
+            or not _SAFE_CANDIDATE_ID.fullmatch(candidate_id)
+            or not isinstance(matched_candidate_id, str)
+            or not _SAFE_CANDIDATE_ID.fullmatch(matched_candidate_id)
+            or reason_code not in _DUPLICATE_EVIDENCE_CODES
+            or candidate_id in result
+        ):
+            raise ValueError("duplicate match evidence is invalid")
+        result[candidate_id] = item
+    return result
 
 
 def _build_result(issues: tuple[CardQualityIssue, ...]) -> CardQualityResult:
