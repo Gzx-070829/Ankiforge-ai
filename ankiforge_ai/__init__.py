@@ -41,6 +41,16 @@ def _show_main_dialog(parent, dialog_factory):
     return dialog
 
 
+def _open_from_anki():
+    """Open the workbench from any registered Anki entry point."""
+
+    from aqt import mw
+
+    from .ui.main_dialog import MainDialog
+
+    return _show_main_dialog(mw, MainDialog)
+
+
 def _register_menu_action():
     global _menu_action
 
@@ -53,16 +63,26 @@ def _register_menu_action():
     except ImportError:
         return
 
-    from .ui.main_dialog import MainDialog
-
-    def open_main_dialog():
-        _show_main_dialog(mw, MainDialog)
-
     action = QAction("AnkiForge AI", mw)
-    action.triggered.connect(open_main_dialog)
+    action.setShortcut("Ctrl+Alt+F")
+    action.triggered.connect(_open_from_anki)
     mw.form.menuTools.addAction(action)
     _menu_action = action
     return action
 
 
+def _register_home_entry():
+    """Add a deck-browser launcher when the official hooks are available."""
+
+    try:
+        from aqt import gui_hooks
+    except ImportError:
+        return False
+
+    from .ui.anki_entrypoints import register_home_entry
+
+    return register_home_entry(gui_hooks, _open_from_anki)
+
+
 _register_menu_action()
+_register_home_entry()

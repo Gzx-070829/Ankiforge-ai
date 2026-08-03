@@ -57,8 +57,8 @@ or action registration during add-on reloads.
 
 - The Tools action remains labelled `AnkiForge AI`.
 - The same action carries `Ctrl+Alt+F`.
-- An official Anki deck-browser rendering hook adds one compact,
-  theme-compatible `AnkiForge AI` link/button to the home screen.
+- An official Anki deck-browser rendering hook appends one compact,
+  theme-compatible `AnkiForge AI` link to the existing stats area.
 - An official webview message hook routes only the add-on's namespaced launch
   message to the same open function.
 - Other webview messages are returned untouched.

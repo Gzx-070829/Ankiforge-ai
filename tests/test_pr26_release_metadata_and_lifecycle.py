@@ -69,6 +69,10 @@ class Pr26ReleaseMetadataAndLifecycleTests(unittest.TestCase):
                 self.label = label
                 self.parent = parent
                 self.triggered = FakeSignal()
+                self.shortcut = None
+
+            def setShortcut(self, shortcut):
+                self.shortcut = shortcut
 
         class FakeMenu:
             def __init__(self):
@@ -102,6 +106,7 @@ class Pr26ReleaseMetadataAndLifecycleTests(unittest.TestCase):
             self.assertIs(first, second)
             self.assertEqual(len(menu.actions), 1)
             self.assertEqual(first.label, "AnkiForge AI")
+            self.assertEqual(first.shortcut, "Ctrl+Alt+F")
         finally:
             ankiforge_ai._menu_action = original
 

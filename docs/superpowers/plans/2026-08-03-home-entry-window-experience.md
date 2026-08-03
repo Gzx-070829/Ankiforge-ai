@@ -196,7 +196,7 @@ git commit -m "Open the workbench as a single modeless window"
 
 **Interfaces:**
 - Produces: `HOME_COMMAND = "ankiforge-ai:open"`.
-- Produces: `append_deck_browser_launcher(content, deck_browser) -> None`.
+- Produces: `append_deck_browser_launcher(deck_browser, content) -> None`.
 - Produces: `handle_webview_message(handled, message, context, open_workbench)` returning Anki's `(handled, result)` tuple.
 - Produces: `register_home_entry(gui_hooks, open_workbench) -> bool`.
 
