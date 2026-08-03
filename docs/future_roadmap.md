@@ -2,7 +2,7 @@
 
 Roadmap 表示方向，不是当前功能承诺。所有涉及文件、Anki 数据、联网或凭证的能力都必须重新做威胁建模、测试和人工验收。
 
-当前公开代码基线为 `v0.14.1`：包含 product-grade workflow、runtime safety hardening、metadata/lifecycle polish、通用文档导入与安装包启动修复。当前开发候选已加入纯 Python workbench application core、诚实的来源证据、三态质量契约、本地近重复提示和严格白名单的非敏感偏好；它不会改变公开的 Create → Review → Write 流程。当前不自动 retry，也不承诺真正取消已经开始的网络请求；Endpoint 防护是风险分类与逐会话确认，不是完整 SSRF 证明。公开 UI 暂不提供 Cloze。
+当前公开代码基线为 `v0.14.1`；`v0.15.0` 开发候选已加入纯 Python workbench application core、诚实的来源证据、三态质量契约、本地近重复提示、严格白名单的非敏感偏好和温和视觉层。它不会改变公开的 Create → Review → Write 流程。当前不自动 retry，也不承诺真正取消已经开始的网络请求；Endpoint 防护是风险分类与逐会话确认，不是完整 SSRF 证明。公开 UI 暂不提供 Cloze。
 
 ## v1.0 — 稳定与反馈
 

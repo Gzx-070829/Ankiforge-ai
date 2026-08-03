@@ -1,11 +1,11 @@
-# v0.14.1 Manual Anki Acceptance / 真实 Anki 人工验收
+# v0.15.0 Manual Anki Acceptance / 真实 Anki 人工验收
 
 ## Packaged startup hotfix gate
 
 - [ ] 在 Anki 26.05 中从最终 `.ankiaddon` 安装并重启。
 - [ ] 重启后不出现“插件启动失败”窗口，也不出现 `ModuleNotFoundError: No module named 'ankiforge_ai'`。
 - [ ] 从“工具”菜单打开 AnkiForge AI，再直接关闭窗口；此步骤不输入 API key、不调用 Provider、不写入 Anki。
-- [ ] 确认插件管理器显示 `0.14.1`，且加载目录名称不影响启动。
+- [ ] 确认插件管理器显示 `0.15.0`，且加载目录名称不影响启动。
 
 自动测试不能证明 PyQt 布局、Anki 版本兼容性或真实写入行为。候选包必须在独立 profile 或测试牌组中验收；不要使用私人主 collection 作为首测环境。
 
@@ -134,7 +134,7 @@
 
 ## PR26 metadata / lifecycle polish
 
-1. [ ] Add-ons 列表、安装包 manifest、运行时版本、README、release draft 和 AnkiWeb draft 均显示 `0.14.1`。
+1. [ ] Add-ons 列表、安装包 manifest、运行时版本、README、release draft 和 AnkiWeb draft 均显示 `0.15.0`。
 2. [ ] 连续执行打开 → X/Esc/关闭 → 重开，旧材料、审核结果、API key 和 Endpoint 确认均不恢复。
 3. [ ] 关闭生成中的窗口后，晚到结果不更新新窗口；重复打开关闭不会累积隐藏窗口或出现 callback 错误。
 4. [ ] 重启 Anki、禁用再启用插件后，Tools 菜单中不出现重复入口。

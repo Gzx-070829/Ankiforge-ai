@@ -1,8 +1,8 @@
 # AnkiForge AI
 
-## v0.14.1: Universal Document & Intelligence Engine
+## v0.15.0 candidate: a stronger core and simpler review
 
-v0.14.1 turns explicitly selected local study files into DocumentIR before local structure analysis, chunking, knowledge planning, and reviewable candidates, and fixes `.ankiaddon` startup imports under a real Anki installation directory. Core supports common text, Office Open XML, tables, HTML, JSON/XML, notebooks, EPUB, subtitles, and safe code text. PDF remains fallback-only or uses a separately installed local backend. Nothing is automatically installed, downloaded, or uploaded. A configured Provider receives selected generation material only after Generate; every candidate still requires review, duplicate checking, and final confirmation.
+The v0.15.0 release candidate builds on the v0.14.1 document engine with a pure-Python workbench application core, honest source evidence, one `ready / review / blocked` quality contract, advisory local near-duplicate hints, strictly allowlisted non-sensitive preferences, and the warm-charcoal / soft-orange visual system. The simple Create → Review → Write flow remains: material reaches the configured Provider only after Generate, and every candidate still requires manual review, collection duplicate checking, and final confirmation.
 
 Turn your own study material into reviewable, safely writable Anki cards.
 
@@ -12,7 +12,7 @@ Turn your own study material into reviewable, safely writable Anki cards.
 
 AnkiForge AI is a local-first AI card workbench. You provide the source and learning goal; AI produces candidates only. Local quality checks and manual review come before duplicate checking, a write preview, and final confirmation.
 
-Current public code baseline: `v0.14.1`. The development candidate is refining the internal workbench application core, source evidence, and card-quality feedback without adding main-screen complexity or changing Create → Review → Write, confirmation gates, or session-only API keys.
+The current public release baseline remains `v0.14.1`; this branch is the `v0.15.0` release candidate and does not gain merge or release authorization merely by being complete.
 
 ## Quick install
 
