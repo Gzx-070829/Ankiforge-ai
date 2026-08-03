@@ -29,6 +29,8 @@ class BuildAnkiAddonTests(unittest.TestCase):
             "docs/release.md",
             "user_files/preferences.json",
             "user_files/.preferences.json.tmp",
+            "user_files/window_state.json",
+            "user_files/.window_state.json.tmp",
             ".env.local",
             "addon_backup/file.py",
             "collection.anki2",
