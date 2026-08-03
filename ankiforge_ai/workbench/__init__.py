@@ -10,6 +10,18 @@ from .models import (
     WriteState,
     initial_workbench_state,
 )
+from .transitions import (
+    change_mapping,
+    change_target,
+    close_session,
+    complete_generation,
+    fail_generation,
+    mark_duplicate_check_current,
+    record_review_decision,
+    start_generation,
+    update_material,
+    write_is_ready,
+)
 
 
 __all__ = [
@@ -20,5 +32,15 @@ __all__ = [
     "WorkbenchArtifactStatus",
     "WorkbenchSessionState",
     "WriteState",
+    "change_mapping",
+    "change_target",
+    "close_session",
+    "complete_generation",
+    "fail_generation",
     "initial_workbench_state",
+    "mark_duplicate_check_current",
+    "record_review_decision",
+    "start_generation",
+    "update_material",
+    "write_is_ready",
 ]
