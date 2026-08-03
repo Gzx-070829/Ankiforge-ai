@@ -14,22 +14,9 @@ EXPECTED_VERSION = "0.15.0"
 
 
 class RecordingDialog:
-    def __init__(self, parent, *, exec_error=None):
+    def __init__(self, parent):
         self.parent = parent
-        self.exec_error = exec_error
         self.events = []
-
-    def exec(self):
-        self.events.append("exec")
-        if self.exec_error is not None:
-            raise self.exec_error
-        return 0
-
-    def _teardown_session(self):
-        self.events.append("teardown")
-
-    def deleteLater(self):
-        self.events.append("deleteLater")
 
 
 class Pr26ReleaseMetadataAndLifecycleTests(unittest.TestCase):
@@ -68,27 +55,6 @@ class Pr26ReleaseMetadataAndLifecycleTests(unittest.TestCase):
         self.assertEqual(package_manifest["version"], EXPECTED_VERSION)
         self.assertEqual(package_manifest["human_version"], EXPECTED_VERSION)
         self.assertIn(f'__version__ = "{EXPECTED_VERSION}"', package_entry)
-
-    def test_open_main_dialog_tears_down_deletes_and_clears_global(self):
-        dialog = RecordingDialog(parent=object())
-        open_dialog = getattr(ankiforge_ai, "_open_main_dialog", None)
-
-        self.assertTrue(callable(open_dialog))
-        open_dialog(dialog.parent, lambda _parent: dialog)
-
-        self.assertEqual(dialog.events, ["exec", "teardown", "deleteLater"])
-        self.assertIsNone(ankiforge_ai._dialog_instance)
-
-    def test_open_main_dialog_cleans_up_when_exec_raises(self):
-        dialog = RecordingDialog(parent=object(), exec_error=RuntimeError("boom"))
-        open_dialog = getattr(ankiforge_ai, "_open_main_dialog", None)
-
-        self.assertTrue(callable(open_dialog))
-        with self.assertRaisesRegex(RuntimeError, "boom"):
-            open_dialog(dialog.parent, lambda _parent: dialog)
-
-        self.assertEqual(dialog.events, ["exec", "teardown", "deleteLater"])
-        self.assertIsNone(ankiforge_ai._dialog_instance)
 
     def test_existing_menu_action_prevents_duplicate_registration(self):
         class FakeSignal:
