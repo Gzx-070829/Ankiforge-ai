@@ -12,7 +12,7 @@ v0.14.1 在本地将用户明确选择的学习文件转换为 DocumentIR，再�
 
 AnkiForge AI 是一个本地优先、中文优先的 AI 制卡工作台。你提供材料、选择学习目标，AI 只生成候选卡；本地质量检查和人工审核完成后，插件才会进入重复检查、写入预览和最终确认。
 
-当前公开代码基线：`v0.14.1`。当前开发分支正在进行内部 workbench application-core 渐进迁移；不增加主界面负担，也不改变 Create → Review → Write、安全确认或 API key 仅会话使用的规则。
+当前公开代码基线：`v0.14.1`。当前开发候选正在完善内部 workbench application core、来源证据和卡片质量反馈；不增加主界面负担，也不改变 Create → Review → Write、安全确认或 API key 仅会话使用的规则。
 
 ## 快速安装
 
@@ -51,11 +51,13 @@ git clone https://github.com/Gzx-070829/Ankiforge-ai.git
 - DeepSeek 与 OpenAI-compatible Provider；AI 设置留在独立 Modal
 - `concept`、`definition`、`exam`、`quick_review`、`compare_contrast`、`process_steps`、`formula_rule` 和 `mistake_trap` 八种公开模式；Cloze 仅保留内部 fail-closed 兼容检查，当前 UI 不开放
 - 模板感知的生成提示，以及卡片数量、答案长度和输出语言控制
-- 完全本地、确定性的 card-quality 检查与多学科 benchmark
+- 完全本地、确定性的 card-quality 检查，统一使用 `ready / review / blocked`，并由版本化多学科 benchmark 做回归验证
+- 安全、有限的来源证据，以及不会自动删除候选卡的本地近重复提示；Anki collection 查重仍是写入前门禁
 - pending → 编辑/复制/还原 → 保留/丢弃的 Review 工作台
 - Front / Back / Source 字段建议；不自动新增字段或修改笔记类型
 - 重复检查、写入摘要、最终确认、来源标签、Tags 和最后写入批次摘要
 - 中英文界面、可复现 `.ankiaddon` 打包和 forbidden-file 审计
+- 仅保存语言、Provider/Model 和现有生成选项等非敏感 preferences；API key、Base URL、材料与审核/写入历史永不保存
 
 ## 安全与隐私
 
@@ -78,6 +80,7 @@ git clone https://github.com/Gzx-070829/Ankiforge-ai.git
 - [可选本地文档后端](docs/optional_document_backends.md)
 - [卡片模式与模板](docs/card_modes_and_templates.md)
 - [卡片质量系统](docs/card_quality_system.md)
+- [卡片质量、来源证据与偏好边界](docs/card_quality_and_source_evidence.md)
 - [审核工作台](docs/review_workbench.md)
 - [字段映射](docs/field_mapping.md)
 - [常见问题与排错](docs/troubleshooting.md)

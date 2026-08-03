@@ -36,6 +36,17 @@
 - [ ] 在较大测试 collection 上观察 duplicate check 和最多 10 张写入；当前仍使用 Anki collection 允许的同步路径，不应被误改到普通后台线程。
 - [ ] 使用最终 `.ankiaddon` 安装，确认任意 Anki 分配的 add-on 目录名都能导入 `workbench` 模块并正常打开主界面。
 
+## v0.15 quality / source / preferences candidate
+
+- [ ] 导入包含多个段落/表格/代码块的脱敏材料，确认每张卡的 source evidence 只显示文件名与真实可得的位置；无可靠页码时不编造页码，普通 UI 不显示绝对路径。
+- [ ] 编辑、复制、还原候选卡后，来源提示仍对应原来源；关闭窗口后来源正文和路径不会被保留。
+- [ ] 准备 `exact / canonical / similar` 候选对，确认每张候选仍可见，近重复只给出配对和原因，不自动丢弃或保留。
+- [ ] 确认 `ready / review / blocked` 文案简短自然；ready 仍必须人工审核，blocked 在修正或丢弃前不能写入。
+- [ ] 重开窗口后，语言、Provider/Model、卡片模式、数量、答案长度、输出语言和智能级别恢复；`user_files/preferences.json` 只包含这些非敏感字段。
+- [ ] 输入 API key 和自定义 Base URL 后关闭并重开窗口，确认二者均为空；偏好文件、日志和 package 中均无 API key、Endpoint、材料、候选正文、审核状态或写入历史。
+- [ ] 手工损坏或加入未知字段到 `user_files/preferences.json`，确认插件安全回退到默认值且仍可打开，不回显文件内容。
+- [ ] 使用最终 `.ankiaddon` 检查 archive：运行时偏好模块存在，但 `user_files/preferences.json` 和整个 runtime `user_files` 内容均不在包内。
+
 ## PR28 UI convergence
 
 - [ ] 首次打开时，“学习材料”编辑区是左侧最大的、最先可操作的控件；不会呈现成文件选择优先的空页面。

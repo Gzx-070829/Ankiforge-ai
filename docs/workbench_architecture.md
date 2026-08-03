@@ -58,6 +58,27 @@ Compatibility bridge and compatibility alias removal requires a later,
 separately reviewed migration after no product code relies on the legacy
 session surface.
 
+## Review evidence contract
+
+Imported-document candidates carry a validated `SourceSpan` when the importer
+has trustworthy location evidence. It contains bounded IDs, a basename-only
+label, and only the precision actually available. Edit, copy, and restore keep
+that evidence; unknown precision degrades to chunk/document context instead of
+inventing a page or paragraph.
+
+Card quality exposes one public `ready / review / blocked` contract. Rule IDs
+and explanations stay in details; no status claims factual correctness. Local
+near-duplicate evidence identifies the paired candidate and exact, canonical,
+or similar reason. It remains advisory, keeps every candidate visible, and is
+not semantic deduplication. The collection duplicate check remains the
+authoritative pre-write gate.
+
+`workbench/preferences.py` defines the only persistent workbench preferences:
+UI language, Provider/model names, card mode/count, answer length, output
+language, and intelligence level. The UI adapter writes that strict versioned
+allowlist under `user_files`. Credentials, endpoints, content, paths, review
+state, and write history are unrepresentable at this boundary.
+
 ## Safety invariants
 
 - The API key remains session-only and outside every workbench model, repr,
@@ -76,11 +97,11 @@ session surface.
 
 ## Current scope
 
-This phase makes orchestration and invalidation easier to test. It is not yet
-the warm-orange visual pass, and it is not a new semantic deduplication engine.
-The existing deterministic local quality, source-location, and duplicate
-behavior remains active. Quality refinement and the warm charcoal / soft orange
-theme are subsequent phases on the same candidate branch.
+This candidate now includes application-core orchestration, honest source
+evidence, a stable quality contract, advisory candidate near-duplicate evidence,
+and safe preferences. It is still not a semantic deduplication engine. The warm
+charcoal / soft orange visual pass is a separate final layer and does not alter
+these domain or write boundaries.
 
 PDF remains fallback-only unless the user separately installs and explicitly
 enables a local backend. OCR, cloud storage, telemetry, automatic retries,

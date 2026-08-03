@@ -12,7 +12,7 @@ Turn your own study material into reviewable, safely writable Anki cards.
 
 AnkiForge AI is a local-first AI card workbench. You provide the source and learning goal; AI produces candidates only. Local quality checks and manual review come before duplicate checking, a write preview, and final confirmation.
 
-Current public code baseline: `v0.14.1`. The development branch is incrementally introducing an internal workbench application core without adding main-screen complexity or changing Create → Review → Write, confirmation gates, or session-only API keys.
+Current public code baseline: `v0.14.1`. The development candidate is refining the internal workbench application core, source evidence, and card-quality feedback without adding main-screen complexity or changing Create → Review → Write, confirmation gates, or session-only API keys.
 
 ## Quick install
 
@@ -51,11 +51,13 @@ Copy the `ankiforge_ai` folder into Anki's `addons21` directory and restart Anki
 - DeepSeek and OpenAI-compatible providers in a dedicated AI Settings dialog
 - Eight public modes: `concept`, `definition`, `exam`, `quick_review`, `compare_contrast`, `process_steps`, `formula_rule`, and `mistake_trap`; Cloze remains an internal fail-closed compatibility check and is not selectable in the current UI
 - Template-aware prompts plus card-count, answer-length, and output-language controls
-- Fully local deterministic card-quality checks and a multidisciplinary benchmark
+- Fully local deterministic card-quality checks with one `ready / review / blocked` contract and a versioned multidisciplinary regression benchmark
+- Safe bounded source evidence and advisory local near-duplicate hints that never remove candidates; the Anki collection check remains the pre-write gate
 - A pending → edit/copy/restore → keep/discard Review workbench
 - Front / Back / Source field suggestions without adding fields or mutating note types
 - Duplicate checking, write summaries, final confirmation, safe source labels, tags, and last-write summaries
 - Chinese and English UI, reproducible `.ankiaddon` builds, and forbidden-file auditing
+- Non-sensitive preferences only: language, Provider/Model, and existing generation choices persist; API keys, Base URLs, material, review state, and write history never do
 
 ## Safety and privacy
 
@@ -78,6 +80,7 @@ Copy the `ankiforge_ai` folder into Anki's `addons21` directory and restart Anki
 - [Optional local document backends](docs/optional_document_backends.md)
 - [Card modes and templates](docs/card_modes_and_templates.md)
 - [Card quality system](docs/card_quality_system.md)
+- [Card quality, source evidence, and preference boundaries](docs/card_quality_and_source_evidence.md)
 - [Review workbench](docs/review_workbench.md)
 - [Field mapping](docs/field_mapping.md)
 - [Troubleshooting](docs/troubleshooting.md)
