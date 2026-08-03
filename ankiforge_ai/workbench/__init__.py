@@ -37,6 +37,7 @@ from .review_use_cases import (
     ReviewSessionPort,
     ReviewUseCases,
 )
+from .write_coordinator import PreparedWrite, WorkbenchWriteCoordinator
 
 
 __all__ = [
@@ -44,6 +45,7 @@ __all__ = [
     "GenerationLifecycleResult",
     "IntelligentGenerationProgress",
     "MAX_REVIEW_CARD_TEXT_CHARS",
+    "PreparedWrite",
     "MaterialState",
     "ReviewDecisionRecord",
     "ReviewSessionPort",
@@ -52,6 +54,7 @@ __all__ = [
     "WorkbenchArtifactStatus",
     "WorkbenchSessionState",
     "WorkbenchSessionStore",
+    "WorkbenchWriteCoordinator",
     "WriteState",
     "apply_coverage_supplement",
     "change_mapping",

@@ -26,7 +26,6 @@ from aqt.qt import (
     QWidget,
 )
 
-from ..anki_writer.minimal_write import MinimalAnkiWriter
 from ..intelligence import GenerationStage, IntelligenceLevel
 from ..pipeline.ai_generation_limits import MAX_AI_MATERIAL_CHARS
 from ..pipeline.generation_settings import (
@@ -57,19 +56,12 @@ from .beginner_ai_card_drafts import (
     BeginnerAIProviderRuntimeSettings,
     generation_error_message_key,
 )
-from .beginner_final_confirmation import (
-    build_beginner_final_confirmation_preview,
-)
 from .beginner_flow_models import (
     BeginnerAICardDraft,
     BeginnerAIGenerationState,
     BeginnerFlowSession,
     BeginnerReviewDecision,
     BeginnerWriteState,
-)
-from .beginner_real_write import (
-    execute_beginner_write_if_confirmed,
-    prepare_beginner_write,
 )
 from .file_drop_text_edit import FileDropTextEdit
 from .document_capabilities_dialog import (
@@ -110,13 +102,11 @@ from .intelligent_generation_task_controller import (
 )
 from .read_only_anki_targets import (
     BeginnerAnkiReadState,
-    ReadOnlyAnkiTargetAdapter,
     build_beginner_field_mapping_preview,
 )
 from .read_only_duplicate_check import (
     BeginnerDuplicatePreviewState,
     BeginnerDuplicateStatus,
-    ReadOnlyDuplicateCheckAdapter,
 )
 from .product_i18n import DEFAULT_PRODUCT_LANGUAGE, product_text
 from .review_session_adapter import LegacyReviewSessionAdapter
@@ -126,6 +116,7 @@ from .universal_document_generation_adapter import (
     build_imported_generation_run,
     drafts_from_generation_run,
 )
+from .workbench_factory import create_workbench_write_coordinator
 from .style_tokens import (
     BUTTON_HEIGHT,
     FORM_LABEL_WIDTH,
@@ -172,9 +163,7 @@ class CardMakerPanel(QWidget):
         self.review_use_cases = ReviewUseCases(
             LegacyReviewSessionAdapter(self.session)
         )
-        self.anki_target_adapter = ReadOnlyAnkiTargetAdapter(collection)
-        self.duplicate_check_adapter = ReadOnlyDuplicateCheckAdapter(collection)
-        self.writer = MinimalAnkiWriter(collection)
+        self.write_coordinator = create_workbench_write_coordinator(collection)
         self.anki_target_snapshot = None
         self.anki_field_snapshot = None
         self.anki_mapping = None
@@ -2206,7 +2195,7 @@ class CardMakerPanel(QWidget):
         self.session.clear_anki_target_selection()
         self.anki_mapping = None
         self.anki_field_snapshot = None
-        snapshot = self.anki_target_adapter.read_targets()
+        snapshot = self.write_coordinator.read_targets()
         self.anki_target_snapshot = snapshot
         self._set_target_message(
             None
@@ -2245,7 +2234,7 @@ class CardMakerPanel(QWidget):
             self._clear_field_options()
             self._update_mapping()
             return
-        snapshot = self.anki_target_adapter.read_fields(note_type.id)
+        snapshot = self.write_coordinator.read_fields(note_type.id)
         self.anki_field_snapshot = snapshot
         if snapshot.state is not BeginnerAnkiReadState.SUCCESS:
             self._set_target_message("field_read_failed")
@@ -2366,7 +2355,7 @@ class CardMakerPanel(QWidget):
             self._refresh_duplicate_copy()
             return
         self.session.begin_duplicate_check()
-        results = self.duplicate_check_adapter.check(
+        results = self.write_coordinator.check_duplicates(
             self.session.candidate_card_previews,
             self.anki_mapping,
         )
@@ -2389,22 +2378,18 @@ class CardMakerPanel(QWidget):
         self._refresh_product_state()
 
     def _prepare_current_write(self):
-        final_preview = build_beginner_final_confirmation_preview(
+        prepared = self.write_coordinator.prepare(
             self.session,
             self.anki_mapping,
             self.duplicate_results,
         )
+        final_preview = prepared.final_preview
         self.final_confirmation_preview = final_preview
         self.session.apply_final_confirmation_preview(
             final_preview.candidate_count,
             len(final_preview.missing_conditions),
         )
-        preparation = prepare_beginner_write(
-            self.session,
-            final_preview,
-            self.anki_mapping,
-            self.duplicate_results,
-        )
+        preparation = prepared.preparation
         self.write_preparation = preparation
         self.write_command = preparation.command
         command = preparation.command
@@ -2562,11 +2547,7 @@ class CardMakerPanel(QWidget):
         self.write_btn.setText(self.t("write_running"))
         self.write_btn.setEnabled(False)
         QApplication.processEvents()
-        result = execute_beginner_write_if_confirmed(
-            True,
-            self.writer,
-            command,
-        )
+        result = self.write_coordinator.execute_if_confirmed(True, command)
         self.session.record_write_result(
             result.snapshot_id,
             result.created_note_ids,

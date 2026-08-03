@@ -81,7 +81,7 @@ class V1CoreUIContractTests(unittest.TestCase):
         self.assertIn('self._set_write_message("duplicate_state_changed")', handler)
         self.assertLess(
             handler.index("self._check_duplicates()"),
-            handler.index("execute_beginner_write_if_confirmed"),
+            handler.index("self.write_coordinator.execute_if_confirmed"),
         )
 
     def test_write_section_contains_compact_summary(self):
