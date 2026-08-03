@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "fixture_id": "sql-join",
   "source_text": "INNER JOIN 只返回两个表中满足连接条件的行。LEFT JOIN 会保留左表的全部行；右表没有匹配时，对应列为 NULL。",
   "recommended_mode": "compare_contrast",
@@ -10,5 +11,9 @@
   "mock_cards": [
     {"id": "sql-rows", "front": "INNER JOIN 与 LEFT JOIN 在保留行方面有什么区别？", "back": "INNER JOIN 只保留匹配行；LEFT JOIN 还会保留左表全部行。"},
     {"id": "sql-null", "front": "INNER JOIN 和 LEFT JOIN 遇到右表无匹配时有何不同？", "back": "INNER JOIN 不返回该左表行；LEFT JOIN 返回该行并把右表列设为 NULL。"}
-  ]
+  ],
+  "expected_outcomes": {
+    "sql-rows": {"status": "ready", "rule_ids": [], "duplicate_kind": null},
+    "sql-null": {"status": "ready", "rule_ids": [], "duplicate_kind": null}
+  }
 }

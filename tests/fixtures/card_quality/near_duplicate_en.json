@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "fixture_id": "near-duplicate-en",
+  "source_text": "Photosynthesis converts light energy into chemical energy stored in sugars. DNA polymerase synthesizes DNA during replication by adding nucleotides to a growing strand. These are unrelated study points included together only to test bounded local comparison.",
+  "recommended_mode": "concept",
+  "expected_good_patterns": ["source-grounded", "one point per card"],
+  "expected_bad_patterns": ["near duplicate wording", "unrelated cards merged"],
+  "expected_min_cards": 3,
+  "expected_max_cards": 3,
+  "notes": "Sanitized English near-duplicate and unrelated-card regression fixture.",
+  "mock_cards": [
+    {"id": "near-typo", "front": "What is photosynthesiss?", "back": "Photosynthesiss converts light energy into chemical energy."},
+    {"id": "near-corrected", "front": "What is photosynthesis?", "back": "Photosynthesis converts light energy into chemical energy."},
+    {"id": "near-unrelated", "front": "What does DNA polymerase do during replication?", "back": "It adds nucleotides to a growing DNA strand."}
+  ],
+  "expected_outcomes": {
+    "near-typo": {"status": "ready", "rule_ids": [], "duplicate_kind": null},
+    "near-corrected": {"status": "review", "rule_ids": ["duplicate_candidate"], "duplicate_kind": "similar"},
+    "near-unrelated": {"status": "ready", "rule_ids": [], "duplicate_kind": null}
+  }
+}

@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "fixture_id": "python-basics",
   "source_text": "Python 列表是有序且可变的序列。元组也是有序序列，但创建后不能修改其元素。列表推导式可以从可迭代对象简洁地构造新列表。",
   "recommended_mode": "concept",
@@ -10,5 +11,9 @@
   "mock_cards": [
     {"id": "python-list", "front": "Python 列表与元组在可变性上有什么区别？", "back": "列表可变，而元组创建后不能修改元素。"},
     {"id": "python-comprehension", "front": "列表推导式的主要作用是什么？", "back": "它能从可迭代对象简洁地构造新列表。"}
-  ]
+  ],
+  "expected_outcomes": {
+    "python-list": {"status": "ready", "rule_ids": [], "duplicate_kind": null},
+    "python-comprehension": {"status": "ready", "rule_ids": [], "duplicate_kind": null}
+  }
 }

@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "fixture_id": "quality-edge-cases-zh",
+  "source_text": "交叉验证通过多次划分训练集与验证集来估计模型对未见数据的泛化能力。每次划分都会重新训练并评估模型，综合结果可以降低单次划分偶然性带来的影响。它不能证明模型永远正确，也不能替代独立测试集。实际使用时还要关注数据泄漏、划分策略、类别分布、时间顺序、评价指标与折数选择。复习卡应一次只询问一个明确知识点，答案应简洁，并保留足够上下文供学习者判断。过多补充信息应拆成多张卡片，避免把多个学习目标堆进同一个答案。",
+  "recommended_mode": "concept",
+  "expected_good_patterns": ["问题具体", "答案简洁", "保留人工审核"],
+  "expected_bad_patterns": ["问题空泛", "答案过长", "多问合一", "重复卡片"],
+  "expected_min_cards": 7,
+  "expected_max_cards": 7,
+  "notes": "人为构造的中文边界用例，只用于确定性本地规则回归。",
+  "mock_cards": [
+    {"id": "edge-ambiguous", "front": "请解释以下内容。", "back": "交叉验证用于评估模型对未见数据的泛化能力。"},
+    {"id": "edge-overlong", "front": "交叉验证如何评估模型的泛化能力？", "back": "交叉验证会反复划分训练集与验证集，并在每次划分中训练和评估模型，再综合多次结果来估计模型面对未见数据时的表现。这个过程可以减少单次划分偶然性带来的影响，但仍然不能证明模型永远正确，也不能替代独立测试集。实际使用时还应关注数据泄漏、划分策略、类别分布、时间顺序和评价指标，并根据任务选择折数。不同数据规模与任务目标可能需要不同的折数和划分方法；时间序列还必须保留时间顺序，类别不平衡时也要检查各折分布。评估结果需要结合独立测试集理解，不能把交叉验证分数当成对未来表现的保证。为了让答案保持可复习性，这些补充信息通常应该拆成多张卡，而不是全部堆放在同一个答案中。"},
+    {"id": "edge-multipart", "front": "交叉验证是什么？它为什么重要？", "back": "它通过重复划分数据来估计泛化能力，并降低单次划分的偶然性。"},
+    {"id": "edge-blocked", "front": "", "back": "交叉验证用于评估模型的泛化能力。"},
+    {"id": "edge-duplicate-a", "front": "交叉验证的主要用途是什么？", "back": "评估模型对未见数据的泛化能力。"},
+    {"id": "edge-duplicate-b", "front": "交叉验证的主要用途是什么？", "back": "评估模型对未见数据的泛化能力。"},
+    {"id": "edge-duplicate-c", "front": "  交叉验证的主要用途是什么？！ ", "back": "评估模型对未见数据的泛化能力…"}
+  ],
+  "expected_outcomes": {
+    "edge-ambiguous": {"status": "review", "rule_ids": ["generic_front", "front_not_question_like"], "duplicate_kind": null},
+    "edge-overlong": {"status": "review", "rule_ids": ["long_back", "answer_too_verbose_for_mode"], "duplicate_kind": null},
+    "edge-multipart": {"status": "review", "rule_ids": ["multiple_questions"], "duplicate_kind": null},
+    "edge-blocked": {"status": "blocked", "rule_ids": ["empty_front"], "duplicate_kind": null},
+    "edge-duplicate-a": {"status": "ready", "rule_ids": [], "duplicate_kind": null},
+    "edge-duplicate-b": {"status": "review", "rule_ids": ["duplicate_candidate"], "duplicate_kind": "exact"},
+    "edge-duplicate-c": {"status": "review", "rule_ids": ["duplicate_candidate"], "duplicate_kind": "canonical"}
+  }
+}

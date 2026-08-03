@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "fixture_id": "policy-overview",
   "source_text": "某校园图书馆试行预约座位规则：预约后应在十五分钟内签到；未签到的座位会自动释放。规则仅用于该校园试行期。",
   "recommended_mode": "quick_review",
@@ -10,5 +11,9 @@
   "mock_cards": [
     {"id": "policy-checkin", "front": "预约座位后多久内要签到？", "back": "十五分钟内。"},
     {"id": "policy-release", "front": "未按时签到的座位会怎样？", "back": "座位会自动释放。"}
-  ]
+  ],
+  "expected_outcomes": {
+    "policy-checkin": {"status": "ready", "rule_ids": [], "duplicate_kind": null},
+    "policy-release": {"status": "ready", "rule_ids": [], "duplicate_kind": null}
+  }
 }
