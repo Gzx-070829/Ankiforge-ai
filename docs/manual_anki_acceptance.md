@@ -25,6 +25,17 @@
 - [ ] Help Dialog、语言切换、高 DPI 和窗口缩放可用。
 - [ ] 生成设置默认收起；卡片模式常显。
 
+## Workbench application-core candidate
+
+- [ ] 打开插件后，粘贴材料、导入文件、打开 AI 设置和语言切换与 v0.14.1 行为一致。
+- [ ] 生成中修改材料或开始新请求时，旧请求完成后不覆盖当前候选卡或状态提示。
+- [ ] 对候选卡执行保留、丢弃、编辑、还原、复制和批量操作；每次变化都正确清除旧 duplicate/write readiness。
+- [ ] 更换 deck、note type 或字段 mapping 后，旧 duplicate check 不再允许写入。
+- [ ] 取消最终确认后不调用 writer；确认前再次查重，只有当前 snapshot 可写。
+- [ ] 关闭窗口后材料、候选卡、审核选择、API key 和 Endpoint 确认均被丢弃；重开窗口是新会话。
+- [ ] 在较大测试 collection 上观察 duplicate check 和最多 10 张写入；当前仍使用 Anki collection 允许的同步路径，不应被误改到普通后台线程。
+- [ ] 使用最终 `.ankiaddon` 安装，确认任意 Anki 分配的 add-on 目录名都能导入 `workbench` 模块并正常打开主界面。
+
 ## PR28 UI convergence
 
 - [ ] 首次打开时，“学习材料”编辑区是左侧最大的、最先可操作的控件；不会呈现成文件选择优先的空页面。

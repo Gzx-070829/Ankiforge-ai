@@ -2,7 +2,7 @@
 
 Roadmap 表示方向，不是当前功能承诺。所有涉及文件、Anki 数据、联网或凭证的能力都必须重新做威胁建模、测试和人工验收。
 
-当前 `v0.13.2-product-grade-preview` 基线由 PR24 的 product-grade workflow、PR25 的 runtime safety hardening 和 PR26 的 metadata/lifecycle polish 组成。当前不自动 retry，也不承诺真正取消已经开始的网络请求；Endpoint 防护是风险分类与逐会话确认，不是完整 SSRF 证明。公开 UI 暂不提供 Cloze。
+当前公开代码基线为 `v0.14.1`：包含 product-grade workflow、runtime safety hardening、metadata/lifecycle polish、通用文档导入与安装包启动修复。当前开发分支正在以兼容桥方式引入纯 Python workbench application core；它不会改变公开的 Create → Review → Write 流程。当前不自动 retry，也不承诺真正取消已经开始的网络请求；Endpoint 防护是风险分类与逐会话确认，不是完整 SSRF 证明。公开 UI 暂不提供 Cloze。
 
 ## v1.0 — 稳定与反馈
 
@@ -12,6 +12,7 @@ Roadmap 表示方向，不是当前功能承诺。所有涉及文件、Anki 数�
 - 无严重 UI bug、无写入事故；
 - 完整双语用户文档和排错材料。
 - 评估使用 Anki `QueryOp` / `CollectionOp` 承载 duplicate scan + write sequence；必须保持最终查重与写入顺序、Undo/变更通知和版本兼容，不能改用普通后台线程。
+- 完成 workbench 兼容桥迁移后，再按引用清单删除 legacy alias；不得用一次性大重写替换已经通过验收的写入门禁。
 
 ## v1.1 — 安全增强
 

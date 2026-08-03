@@ -12,7 +12,7 @@ Turn your own study material into reviewable, safely writable Anki cards.
 
 AnkiForge AI is a local-first AI card workbench. You provide the source and learning goal; AI produces candidates only. Local quality checks and manual review come before duplicate checking, a write preview, and final confirmation.
 
-Current candidate: `v0.14.1` startup hotfix candidate (not yet republished to AnkiWeb).
+Current public code baseline: `v0.14.1`. The development branch is incrementally introducing an internal workbench application core without adding main-screen complexity or changing Create → Review → Write, confirmation gates, or session-only API keys.
 
 ## Quick install
 
