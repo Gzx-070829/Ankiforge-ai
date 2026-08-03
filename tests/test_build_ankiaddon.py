@@ -101,6 +101,18 @@ class BuildAnkiAddonTests(unittest.TestCase):
             }.issubset(REQUIRED_ARCHIVE_FILES)
         )
 
+    def test_workbench_runtime_modules_are_required(self):
+        self.assertTrue(
+            {
+                "workbench/__init__.py",
+                "workbench/generation_lifecycle.py",
+                "workbench/models.py",
+                "workbench/review_use_cases.py",
+                "workbench/write_coordinator.py",
+                "ui/workbench_factory.py",
+            }.issubset(REQUIRED_ARCHIVE_FILES)
+        )
+
     def test_archive_writer_is_byte_for_byte_deterministic(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)

@@ -98,6 +98,16 @@ REQUIRED_ARCHIVE_FILES = {
     "ui/card_maker_panel.py",
     "ui/file_drop_text_edit.py",
     "ui/main_dialog.py",
+    "ui/review_session_adapter.py",
+    "ui/workbench_factory.py",
+    "workbench/__init__.py",
+    "workbench/generation_lifecycle.py",
+    "workbench/legacy_bridge.py",
+    "workbench/models.py",
+    "workbench/review_use_cases.py",
+    "workbench/store.py",
+    "workbench/transitions.py",
+    "workbench/write_coordinator.py",
 }
 SECRET_PATTERNS = {
     "OpenAI-style API key": re.compile(rb"sk-[A-Za-z0-9_-]{20,}"),
